@@ -22,13 +22,13 @@
     "signer_key_fingerprint": "SHA256:AhgHif0mei+9aNyKLfMZBh2yptHdw/aN7Tlh/j2eFwM",
     "repo_tool": {
       "url": "https://gerrit.googlesource.com/git-repo",
-      "release_tag": "v2.71",
-      "tag_object": "8dbcc143977a0e7dd116b5264075291b87f65f1f",
-      "peeled_commit": "338ddb7d83ea35d5aef94d3c5d95c74fa3845780",
+      "release_tag": "v2.72",
+      "tag_object": "c9db3a7930d7f9a8c1e25bc9fec3155942956613",
+      "peeled_commit": "365629015667e04739f59070e745548a728549c8",
       "verification": "repo-launcher-gpg-required"
     },
     "release_scope": "stable; explicitly listed for emulator, generic and other targets",
-    "verified_on": "2026-11-03"
+    "verified_on": "2026-11-05"
   },
   "host": {
     "architecture": "x86_64",
