@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "FP6 device tree of the 6.18 kernel set: fp6.dtb and the overlay image built from the vendor tree's device tree sources, the tested pair they must match, the nodes that must stay disabled and the properties that must stay out.",
   "reference": {
-    "fp6.dtb": "c01c0160dd793d818f517dd57f4e3263b215d22044415bda81229287346b8be5",
+    "fp6.dtb": "e62b9cceb7ba64d87fd9176ad7c1565a56b8dae214bbfcab46e25e3b7e02b7cb",
     "dtbo.img": "30def889a1700f89585a4946e3bda2e5db818a97c45df8905e445f988d51590e",
     "overlay_count": 95
   },
