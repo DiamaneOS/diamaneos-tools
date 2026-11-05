@@ -777,25 +777,11 @@ commands](#the-build-commands).
   the pinned commit, with its release tags as `newer`.
 
 - The kernel's upstream projects are folders of
-  [`kernel_qcom-6.18`](https://github.com/DiamaneOS/kernel_qcom-6.18), except the common kernel
-  submodule.
-- Each is imported as one commit on its `upstream` branch, so upstream's own history is not in the
-  repository.
-- `android17` is `upstream` with DiamaneOS's commits on top. `upstream` is never merged into it.
-- [`config/kernel-upstream-fp6.json`](../config/kernel-upstream-fp6.json) records the imports
-  followed one by one (the vendor kernel, the techpack drivers, two device trees and edk2): the
-  upstream commit, the newest release tag that commit contains (matching the source's `newer_tags`,
-  or `null`) and whether the folder also carries Fairphone's FP6 changes.
-- The other imports are followed through Fairphone's source manifest.
-- An import is `current` while its followed branch still points at the recorded commit. Release
-  tags after the recorded release are `newer`.
-- To take an update:
-  - Import the new upstream state on `upstream`, one commit per project.
-  - Rebase DiamaneOS's commits from `android17` onto the new `upstream`, with a squash review:
-    commits that belong together are squashed.
-  - Backports that the new state already contains drop out as empty commits.
-  - The rebased branch replaces `android17`. The old head stays reachable on a dated branch, so the
-    sources of published kernel builds stay available.
+  [`kernel_qcom-6.18`](https://github.com/DiamaneOS/kernel_qcom-6.18), except the common kernel.
+- `kernel_qcom-6.18` was ported from these projects and has no `upstream` branch.
+- [`config/kernel-upstream-fp6.json`](../config/kernel-upstream-fp6.json) records the upstream
+  commit each 6.1-tree project was ported from.
+- To take an update, port the change into `kernel_qcom-6.18` as its own commit.
 - Where `fairphone_changes` is true, the import must carry Fairphone's FP6 changes too (Fairphone's
   rebased branch, or the difference between the recorded commit and the folder on `upstream`,
   applied to the new state), or the rebased branch loses them.
