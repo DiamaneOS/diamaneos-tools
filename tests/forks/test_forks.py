@@ -231,15 +231,14 @@ class ForkTests(unittest.TestCase):
 
     def test_kernel_imports_match_their_sources(self):
         registry, sources = forks.load_registry()
-        # Only the common kernel stays a fork. The other kernel projects are folders of kernel_qcom-6.1.
+        # Only the common kernel stays a fork. The other kernel projects are folders of kernel_qcom-6.18.
         self.assertEqual({'kernel-common'}, {f['id'] for f in registry if f.get('workspace') == 'kernel'})
         record = json.loads((ROOT / 'config/kernel-upstream-fp6.json').read_text())
-        # The record is the import history of the 6.1 vendor repository.
-        self.assertEqual('https://github.com/DiamaneOS/kernel_qcom-6.1', record['repository'])
+        self.assertEqual('https://github.com/DiamaneOS/kernel_qcom-6.18', record['repository'])
         imports = {row['path']: row for row in record['imports']}
         self.assertEqual(len(record['imports']), len(imports))
         pinned = [s for s in sources if s['pin']['file'] == 'config/kernel-upstream-fp6.json']
-        self.assertEqual(21, len(pinned))
+        self.assertEqual(18, len(pinned))
         self.assertEqual(set(imports), {s['pin']['match']['path'] for s in pinned})
         for source in pinned:
             with self.subTest(source=source['id']):

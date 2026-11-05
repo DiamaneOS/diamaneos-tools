@@ -2,8 +2,8 @@
 
 check: read only the remote refs of every fork and pinned source and report
 which followed references moved and which newer branches or tags appeared.
-The upstream projects imported into kernel_qcom-6.1 are pinned sources: their
-import record holds the imported upstream commit and the newest release tag it
+The upstream projects kernel_qcom-6.18 ported with the 6.1 tree are pinned
+sources: their record holds the upstream commit and the newest release tag it
 contains. An entry's `reviewed` tag (or, on a followed branch, head commit)
 records upstream changes that were backported or have nothing to take: tags up
 to it no longer count and a head at it is not reported as moved.
