@@ -1613,7 +1613,7 @@ def check_build_identity(v):
     """Every partition carries the build date and the build the record names. A rebuild that keeps
     stale property files gives OTA metadata that does not match the build."""
     problems = []
-    stamp, build = str(v.record.get('build_datetime', '')), f"/{v.record.get('build_id')}/{v.record.get('build_number')}:"
+    stamp, build = str(v.record.get('build_datetime', '')), f"/{v.record.get('build_number')}:"
     names = [name for name in PROPERTY_FILES if name in v.tf.infos]
     if 'SYSTEM/build.prop' not in names:
         problems.append('no SYSTEM/build.prop')

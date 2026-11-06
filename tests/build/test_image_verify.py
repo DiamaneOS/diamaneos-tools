@@ -2625,7 +2625,7 @@ class GenericCheckTests(unittest.TestCase):
         self.assertFalse(subject.check_test_keys(self.harness(members))[0])
 
     def test_build_identity_matches_the_record(self):
-        record = {'build_datetime': 1700000000, 'build_id': 'X1', 'build_number': '2026110600'}
+        record = {'build_datetime': 1700000000, 'build_id': '20261106-user-1', 'build_number': '2026110600'}
         good = b'ro.build.date.utc=1700000000\nro.build.fingerprint=Fairphone/FP6/FP6:17/X1/2026110600:user/test-keys\n'
         members = {'SYSTEM/build.prop': good, 'VENDOR/build.prop': good.replace(b'ro.build', b'ro.vendor.build')}
         self.assertEqual((True, ''), subject.check_build_identity(self.harness(members, record=record)))
@@ -2634,7 +2634,7 @@ class GenericCheckTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('PRODUCT/etc/build.prop: ro.product.build.date.utc is 1690000000', detail)
         members['PRODUCT/etc/build.prop'] = good.replace(b'2026110600', b'2026110500')
-        self.assertIn('does not name X1/2026110600', subject.check_build_identity(self.harness(members, record=record))[1])
+        self.assertIn('does not name 2026110600', subject.check_build_identity(self.harness(members, record=record))[1])
 
     def test_boot_header_check_names_the_upstream_finding(self):
         v = self.harness({}, tools=FakeTools({('avbtool',): lambda args: 'Prop: com.android.build.boot.os_version -> 17\n'
