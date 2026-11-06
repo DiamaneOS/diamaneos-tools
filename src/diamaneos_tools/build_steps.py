@@ -588,18 +588,20 @@ def warn_modified(ctx: Context, modified) -> None:
 
 
 def check_policy_provenance(ctx: Context) -> None:
-    """Official builds stop when the device policy differs from its provenance
-    record. Others warn and go on, so local policy changes still build."""
+    """Builds stop when the device policy differs from its provenance record, so a
+    test build finds what an official one would refuse. A manual build warns, and
+    only an official build stops when the record cannot be read."""
     try:
         stale = policy_provenance.mismatches(ctx.workspace.src)
     except (OSError, ValueError) as error:
-        problem = f'cannot check {policy_provenance.LEDGER}: {error}'
+        problem, stops = f'cannot check {policy_provenance.LEDGER}: {error}', ctx.official
     else:
         if not stale:
             return
         shown = ', '.join(stale[:10]) + (f' and {len(stale) - 10} more' if len(stale) > 10 else '')
         problem = f'policy files differ from their record in {policy_provenance.LEDGER}: {shown}'
-    if ctx.official:
+        stops = ctx.official or not ctx.manual
+    if stops:
         raise BuildStepError(problem + '. Update the record with the reviewed change')
     ctx.echo(f'    warning: {problem}. --official refuses this')
 

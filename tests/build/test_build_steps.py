@@ -755,7 +755,7 @@ class PinnedSyncTests(unittest.TestCase):
         self.assertEqual(steps.SOURCE_KEYS, tuple(steps.source_record({'outputs': {'modified_sha256': None}})))
         self.assertEqual('c', steps.source_record({'outputs': {'modified_sha256': 'c'}})['modified_sha256'])
 
-    def test_a_stale_policy_provenance_record_stops_only_official_builds(self):
+    def test_a_stale_policy_provenance_record_stops_all_but_manual_builds(self):
         policy = self.write_policy()
         (policy / 'audio/hal_audio_default.te').write_text('type hal_audio_default, edited;\n')
         clean = {'resolved_manifest_sha256': 'r', 'resolved_project_map_sha256': 'p',
@@ -771,11 +771,10 @@ class PinnedSyncTests(unittest.TestCase):
                     patch.object(steps, 'newest_commit_time', return_value=1), \
                     patch.object(steps.build, 'verify_branch_checkout', return_value=clean):
                 preflight = steps.plan_android(ctx).actions[1].func
-                if official:
-                    with self.assertRaisesRegex(bw.BuildStepError, 'differ .*: audio/hal_audio_default.te'):
-                        preflight()
-                else:
+                with self.assertRaisesRegex(bw.BuildStepError, 'differ .*: audio/hal_audio_default.te'):
                     preflight()
+        manual = replace(steps.make_context(arguments(self.workspace), self.lines.append), manual=True)
+        steps.check_policy_provenance(manual)
         self.assertIn('    warning: policy files differ from their record in device/fairphone/FP6/sepolicy/'
                       'provenance.json: audio/hal_audio_default.te. --official refuses this', self.lines)
 
