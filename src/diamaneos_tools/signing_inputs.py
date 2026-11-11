@@ -250,6 +250,7 @@ def verified_build(record_path, report_path, target_files, resolved_manifest, *,
     if mode == 'release':
         require(record.get('variant') == 'user' and record.get('official') is True,
                 'Release signing requires an official user build')
+        require('ota_test' not in record, 'An OTA test build is never a release')
     rows, _ = build.parse_project_map(Path(resolved_manifest).read_bytes())
     revisions = {path: revision for path, _name, _remote, revision in rows}
     require(PROJECTS <= set(revisions), 'Resolved manifest lacks signing projects')

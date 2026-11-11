@@ -24,7 +24,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from . import build, devices, policy_provenance, product_inputs, source_sync
+from . import build, devices, ota_test, policy_provenance, product_inputs, source_sync
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError, CheckFailed, HostError, UsageError
 
@@ -165,6 +165,8 @@ class Context:
     project_inputs: dict = field(default_factory=dict)
     # The command started again after its sync moved the running tools.
     restarted: bool = False
+    # The OTA test build N+1 of this base build N (ota_test.base_facts): N's tree, a later date, a higher number.
+    ota_successor: dict | None = None
     # sync checks the checkout as it is (after a plain "repo sync") instead of
     # running repo itself: "build vendor" and "build package" on their own.
     check_only: bool = False
@@ -834,6 +836,11 @@ def official_input(ctx: Context) -> dict:
     return {'official': True} if ctx.official else {}
 
 
+def successor_input(ctx: Context) -> dict:
+    """The base build of an OTA test build as a step input, only when set."""
+    return {'ota_successor': ctx.ota_successor} if ctx.ota_successor else {}
+
+
 def find_target_files(ctx: Context) -> Path:
     product_out = ctx.out / 'target' / 'product' / ctx.config['product']
     matches = sorted(p for p in product_out.glob(ctx.config['target_files']) if p.is_file())
@@ -941,11 +948,18 @@ def plan_android(ctx: Context) -> StepPlan:
     inputs = identity = number = datetime = None
     if waiting is None:
         identity = android_identity(ctx, sync)
-        number = ctx.build_number or build_number(identity, config, ctx.official)
+        base = ctx.ota_successor
+        if base:
+            # An OTA test build: the base build's tree, never a release, so never a release number.
+            ota_test.check_same_tree(base, sync['outputs'])
+            number = ota_test.successor_number(base['build_number'])
+        else:
+            number = ctx.build_number or build_number(identity, config, ctx.official)
         inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync),
                   'vendor': vendor['outputs'], 'variant': ctx.variant,
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
-                  'network_isolation': not ctx.allow_network, **official_input(ctx), **DATAD_RECORD}
+                  'network_isolation': not ctx.allow_network, **official_input(ctx), **successor_input(ctx),
+                  **DATAD_RECORD}
         try:
             datetime = newest_commit_time(ctx, sync)
         except (BuildStepError, build.BuildError, ValueError, KeyError, OSError,
@@ -954,6 +968,9 @@ def plan_android(ctx: Context) -> StepPlan:
                 raise BuildStepError('cannot read the commit times of the synced sources for BUILD_DATETIME '
                                      f'({error}). Run "diamaneos build sync" again') from error
             datetime = None
+        if base:
+            # The same tree gives the same newest commit time: the successor's date is strictly later.
+            datetime = ota_test.successor_datetime(base['build_datetime'], datetime)
 
     def install():
         ctx.cache['inputs'] = product_inputs.install(ws.src, ws.vendor, ctx.environment_path, replace=True,
@@ -1032,6 +1049,7 @@ def plan_android(ctx: Context) -> StepPlan:
                 'modified': after['modified'],
                 'descriptor_sha256': after['generated_input_descriptor_sha256'],
                 'network_isolation': isolation, **DATAD_RECORD,
+                **({'ota_test': ota_test.successor_mark(ctx.ota_successor)} if ctx.ota_successor else {}),
                 **({'tools_skew': ctx.cache['tools_skew']} if ctx.cache.get('tools_skew') else {})}
 
     def valid(state):
@@ -1226,6 +1244,8 @@ def recorded_context(ctx: Context, name: str) -> Context:
         changes['build_number'] = inputs['build_number']
     if not ctx.official_given and inputs.get('official') is True:
         changes['official'] = True
+    if ctx.ota_successor is None and isinstance(inputs.get('ota_successor'), dict):
+        changes['ota_successor'] = inputs['ota_successor']
     if name == 'android' and inputs.get('android_build') == 'manual':
         changes['manual'] = True
     return replace(ctx, **changes) if changes else ctx
@@ -1514,6 +1534,17 @@ def make_context(args, echo=print) -> Context:
     # Likewise a workspace that built with --official keeps building official images.
     given = getattr(args, 'official', None)
     official = given if given is not None else (workspace.state_dir / OFFICIAL_MARKER).is_file()
+    successor = None
+    if getattr(args, 'ota_successor_of', None):
+        if os.environ.get('DIAMANEOS_BUILD_NUMBER'):
+            raise UsageError('--ota-successor-of sets the build number itself. Unset DIAMANEOS_BUILD_NUMBER')
+        successor = ota_test.base_facts(ota_test.load_record(Path(args.ota_successor_of)))
+        # The successor is built like its base unless the command says otherwise, and then it must agree.
+        variant = variant if args.variant else successor['variant']
+        official = given if given is not None else successor['official']
+        if variant not in config['variants']:
+            raise UsageError('unknown variant of the base build: ' + variant)
+        ota_test.check_context(successor, variant, official)
     pinned = None
     tools_commit = product_inputs.tools_identity().get('commit')
     if getattr(args, 'resolved_manifest', None):
@@ -1528,7 +1559,7 @@ def make_context(args, echo=print) -> Context:
                    jobs=args.jobs, allow_network=args.allow_network,
                    factory_zip=Path(args.factory_zip).absolute() if args.factory_zip else None,
                    shallow=shallow, pinned=pinned, release=release, echo=echo,
-                   dry_run=getattr(args, 'dry_run', False))
+                   dry_run=getattr(args, 'dry_run', False), ota_successor=successor)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -1572,12 +1603,18 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument('--from', dest='from_step', choices=bw.STEPS, help='all: rerun from this step')
     result.add_argument('--environment', help=argparse.SUPPRESS)
     result.add_argument('--factory-zip', help='vendor: use this copy of the device maker\'s factory package instead of downloading it')
+    result.add_argument('--ota-successor-of', metavar='IMAGES',
+                        help='build the OTA test build N+1 of the image set IMAGES (N) for the update test: the same '
+                             'tree (sync it with N\'s --resolved-manifest and --build-json), N\'s variant, a build date '
+                             f'{ota_test.SUCCESSOR_SECONDS} s later and N\'s build number with {ota_test.SUFFIX}. '
+                             'Its records mark it as a test build, which release signing refuses')
     return result
 
 
 STEP_OPTIONS = {'shallow': ('sync', 'all'), 'factory_zip': ('vendor', 'all'), 'official': ('android', 'all'),
                 'from_step': ('all',), 'resolved_manifest': ('sync', 'all'), 'build_json': ('sync', 'all'),
-                'manifest_commit': ('sync', 'all'), 'release': bw.STEPS + ('all',)}
+                'manifest_commit': ('sync', 'all'), 'release': bw.STEPS + ('all',),
+                'ota_successor_of': ('android', 'all')}
 
 
 def main(argv=None, echo=print) -> int:
@@ -1642,6 +1679,9 @@ def main(argv=None, echo=print) -> int:
         if ctx.official and not ctx.official_given:
             echo('note: this workspace builds official images (DIAMANEOS_OFFICIAL_BUILD=true), which include the '
                  'Updater. --no-official turns that off')
+        if ctx.ota_successor:
+            echo('note: an OTA test build for the update test, never a release:\n'
+                 + ota_test.plan_text(ctx.ota_successor))
         if not args.workspace and not os.environ.get('DIAMANEOS_WORKSPACE') and not args.dry_run:
             echo(f'workspace: {ctx.workspace.root}')
         if args.dry_run:

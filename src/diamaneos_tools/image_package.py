@@ -359,8 +359,11 @@ def plan(ctx):
             'device': config['device'], 'release': False, 'signing': 'public-test-keys', 'never_lock': True,
             'notice': 'Test build signed with public test keys. Keep the bootloader unlocked.'
                       + (' Official build: its Updater checks for updates but installs none while the build is '
-                         'signed with public test keys.' if official else ''),
+                         'signed with public test keys.' if official else '')
+                      + (' ' + out['ota_test']['notice'] if out.get('ota_test') else ''),
             'official': official,
+            # An OTA test build N+1 names its base build N. Release signing refuses it.
+            **({'ota_test': out['ota_test']} if out.get('ota_test') else {}),
             'variant': out['variant'], 'lunch': out['lunch'], 'build_number': out['build_number'],
             'build_datetime': out['build_datetime'], 'build_identity': out['build_identity'],
             'source_identity': out.get('source_identity'),

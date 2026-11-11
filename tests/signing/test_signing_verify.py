@@ -129,6 +129,16 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
         (self.root / 'build.json').write_text(json.dumps(value)); self.refresh_report()
         with self.assertRaisesRegex(inputs.SigningError, 'clean recorded build'): self.verify('production')
 
+    def test_an_ota_test_build_is_never_signed_as_a_release(self):
+        record = self.fixture()
+        mark = {'successor_of': {'build_id': 'base', 'build_number': '2026111100', 'build_datetime': 1233,
+                                 'build_identity': 'c' * 64}, 'notice': 'OTA test build'}
+        (self.root / 'build.json').write_text(json.dumps(dict(record, ota_test=mark)))
+        self.refresh_report()
+        with self.assertRaisesRegex(inputs.SigningError, 'An OTA test build is never a release'): self.verify()
+        # Own keys sign it, as they sign N for the same update test.
+        self.assertEqual('fixture', self.verify('production')['build_id'])
+
     def test_only_own_keys_sign_a_build_by_hand_checked_by_clean_tools(self):
         record = self.fixture()
         value = dict(record, official=False, android_build='manual', tools={'commit': None, 'clean': None},

@@ -483,6 +483,31 @@ commit. `DIAMANEOS_BUILD_NUMBER` overrides the build number.
 **Release numbers.** An official build needs `DIAMANEOS_BUILD_NUMBER` as a release number, as GrapheneOS
 numbers its releases: the release date and a two-digit serial, such as `2026102700`.
 
+**OTA test builds.** The update test installs a build N+1 on a phone that runs N, by incremental
+update. Two builds of one tree share their build date, and the update needs a later one.
+`--ota-successor-of IMAGES` builds N+1 from N's image set:
+
+```sh
+bin/diamaneos ota-test plan --base "$N"
+bin/diamaneos build all --workspace "$TEST_WORKSPACE" --resolved-manifest "$N/resolved-manifest.xml" \
+  --build-json "$N/build.json" --ota-successor-of "$N"
+bin/diamaneos ota-test incremental --base "$N" --successor "$N1" --output "$OUT/n-to-n1-incr.zip"
+```
+
+- N+1 is N's tree: the sync must have N's resolved manifest, with no local changes.
+- It takes N's variant and official choice. Another `--variant` or `--official` choice stops it.
+- Its build date is N's plus 60 seconds and its build number N's with `.1`, such as `2026102700.1`.
+  `DIAMANEOS_BUILD_NUMBER` must be unset.
+- `build.json` marks it (`ota_test`, with the build it follows), and release signing refuses it.
+- Build it in a workspace of its own, never the one N came from.
+- `ota-test incremental` makes the incremental with N+1's `otatools.zip` and checks it: an A/B
+  package from N's build number to N+1's, N+1's date, no wipe or downgrade flag.
+  - Image sets of public test keys use the test key in `otatools.zip`.
+  - Signed copies need `--source-target-files`, `--target-target-files` and `--key`, and must carry
+    the build numbers and dates of their records.
+  - The record beside the package (`.json`) names both builds. `--source-root` puts the source's JDK
+    on `PATH` for signing.
+
 ### Building by hand
 
 The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor <codename>`,
