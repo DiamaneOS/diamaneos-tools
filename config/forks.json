@@ -185,7 +185,7 @@
     {"id": "keyboard", "slug": "platform_packages_inputmethods_LatinIME", "path": "packages/inputmethods/LatinIME", "branch": "android17", "follow_note": "GrapheneOS keyboard. The fork for DiamaneOS privacy fixes.",
      "upstream": {"url": "https://github.com/GrapheneOS/platform_packages_inputmethods_LatinIME", "ref": "@release", "kind": "tag"},
      "newer": {"tags": "^([0-9]{10})$"}},
-    {"id": "kernel-common", "slug": "kernel_common-6.18", "path": "common", "workspace": "kernel", "branch": "android17", "follow_note": "Hardened 6.18 common kernel at the release tag.",
+    {"id": "kernel-common", "slug": "kernel_common-6.18", "path": "common", "workspace": "kernel", "branch": "android17", "follow_note": "Hardened 6.18 common kernel at the release tag, or a later head of branch 17 when it carries a fix the release needs.",
      "upstream": {"url": "https://github.com/GrapheneOS/kernel_common-6.18", "ref": "@release", "kind": "tag"},
      "newer": {"tags": "^([0-9]{10})$"}},
     {"id": "tqftpserv", "slug": "vendor_qcom_opensource_tqftpserv", "path": "vendor/qcom/opensource/tqftpserv", "branch": "android17", "follow_note": "linux-msm's QRTR TFTP server for the modem: master (upstream merged pull request 50), with DiamaneOS unlink, truncation, symlink and short ERROR packet fixes, host tests and a static libqrtr link.", "reviewed": "eb4b9a04ff92d2753ededf32cc3b6ed287f6e29b", "review_note": "2026-10-27: four commits after b31de6d, a _GNU_SOURCE define for asprintf() on uClibc-ng (bionic declares it already) and the populate-readwrite script moved to libexec in the meson and systemd files, which the Android build does not use. Nothing to take.",
