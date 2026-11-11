@@ -140,6 +140,12 @@ SOURCE_MODULE_DEPENDENCIES = {
     # from hardware/diamaneos/datad with the stock sonames and every export the closed libraries import.
     'libnicm',
     'libnicm_dsi',
+    # Fairphone Camera (stock TCL camera algorithm stack, App Store app for the FP6): the camera NDK for vendor
+    # clients, which the algorithm service uses to read camera characteristics, and the sensor NDK bridge with
+    # its sensor service interface, which the algorithm library and its scene detection plugin link.
+    'android.frameworks.sensorservice@1.0',
+    'libcamera2ndk_vendor',
+    'libsensorndkbridge',
 }
 ACTIVATION={
  'android.hardware.gatekeeper-service-qti':('android.hardware.gatekeeper-service-qti.rc',None),
@@ -201,6 +207,11 @@ ACTIVATION={
  # declares only the default instance (the stock fragment also claims the
  # platform's software instance).
  'vendor.qti.media.c2@1.0-service':(None,None),
+ # Stock TCL camera algorithm service (AIDL ITctCameraAlgoService/default) of the Fairphone Camera app. Stock
+ # starts it at boot as system:system. The device camera/fpcamera.rc defines it instead: started on demand by
+ # servicemanager, as its own user, in its own domain that only that app and cameraserver can reach. The
+ # device manifest declares it.
+ 'cameraalgoservice':(None,None),
 }
 
 # Reviewed stock Java components outside vendor (bring-up). They keep
@@ -225,6 +236,19 @@ STOCK_APPS = {
 STOCK_JNI = {
  'system_ext/lib64/libimscamera_jni.so':['libc++', 'libc', 'libcutils', 'libdl', 'liblog', 'libm', 'libnativehelper', 'libutils'],
  'system_ext/lib64/libimsmedia_jni.so':['libandroid', 'libbinder', 'libc++', 'libc', 'libcutils', 'libdl', 'libgui', 'liblog', 'libm', 'libnativehelper', 'libutils'],
+ # Fairphone Camera (App Store, FP6): the JNI library the app declares (public.libraries-tct.txt) and the
+ # algorithm service interface it links. Stock installs the interface library in /system/lib64. Here it is
+ # read from there and installed next to the JNI library.
+ 'system_ext/lib64/libtctcameraalgo_jni.tct.so':['android.hardware.graphics.allocator-V2-ndk',
+     'android.hardware.graphics.allocator@2.0', 'android.hardware.graphics.allocator@3.0',
+     'android.hardware.graphics.allocator@4.0', 'android.hardware.graphics.common-V6-ndk',
+     'android.hardware.graphics.mapper@2.0', 'android.hardware.graphics.mapper@3.0',
+     'android.hardware.graphics.mapper@4.0', 'fp6_stock_system_ext_lib64_vendor.tcl.camera.algoservice-V2-ndk',
+     'libandroid_runtime', 'libbase', 'libbinder_ndk', 'libc', 'libc++', 'libcamera_client', 'libcamera_metadata',
+     'libcutils', 'libdl', 'libdl_android', 'libexif', 'libhidlbase', 'libjpeg', 'liblog', 'libm',
+     'libnativewindow', 'libui', 'libutils', 'libvndksupport', 'libyuv', 'libz'],
+ 'system_ext/lib64/vendor.tcl.camera.algoservice-V2-ndk.so':['android.hardware.common-V2-ndk', 'libbinder_ndk',
+     'libc', 'libc++', 'libdl', 'libm'],
 }
 # Data copied as is: shared-library jars (not on the boot class path, not
 # preopted) and the permission XMLs that declare them. Reviewed one by one:
@@ -236,7 +260,10 @@ STOCK_LIBRARIES = {
  'product/etc/permissions/ims_ext_common.xml':'product/framework/ims-ext-common.jar',
  'system_ext/etc/permissions/extphonelib.xml':'system_ext/framework/extphonelib.jar',
 }
-STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/etc/apns-conf.xml'}
+# The Fairphone Camera's public library list names only its JNI library (libtctcameraalgo_jni.tct.so), which
+# apps reach only by declaring it, as that app does.
+STOCK_DATA = set(STOCK_LIBRARIES) | set(STOCK_LIBRARIES.values()) | {'product/etc/apns-conf.xml',
+                                                                    'system_ext/etc/public.libraries-tct.txt'}
 # Reviewed stock vendor APEXes, each bound to the exact stock file. An APEX is
 # installed whole under its stock file name with Soong prebuilt_apex, which
 # keeps the stock container and payload signatures; the module is named after
@@ -331,6 +358,19 @@ RUNTIME_EDGE = 'selected-stock-runtime'
 # skipped, and the vendor library is installed as its own package, so both
 # versions are on the device as in stock.
 RUNTIME_ONLY_AIDL = {'android.hardware.graphics.allocator-V1-ndk'}
+# The same for the stock JNI libraries in system_ext: the Fairphone Camera's JNI library links graphics.common
+# V6, the platform libui V7. The link is dropped, the ELF check skipped and the system V6 library installed.
+STOCK_JNI_RUNTIME_ONLY_AIDL = {'android.hardware.graphics.common-V6-ndk'}
+# Stock blobs built against the NDK import libnativewindow's AHardwareBuffer
+# functions with the symbol version LIBNATIVEWINDOW. The vendor variant of
+# libnativewindow (an LLNDK stub) has no symbol versions, so Soong's ELF check
+# cannot resolve them, while the runtime library defines that version. The
+# imports are reviewed against the stock LLNDK 34 export list (vendor-elf.json);
+# only the ELF check of these blobs is skipped.
+VERSIONED_LLNDK_IMPORTS = {
+    'vendor/lib64/libTclAISuperfine.so': 'libnativewindow LIBNATIVEWINDOW',
+    'vendor/lib64/libTclImage_ImageEngine.so': 'libnativewindow LIBNATIVEWINDOW',
+}
 
 # One DT_NEEDED name of a stock blob renamed to a source-built device module
 # of the same name length; input and output bytes are pinned.
@@ -419,6 +459,31 @@ NEEDED_REWRITES = {
   'source_sha256': '2f4766d5a88fdf8c5cf20c29982a36fe983d517208b1ca5df762bfedbca277c0',
   'sha256': '7e0c1457789504c9d0765ec325ffa8cb161c11b7a055cb63dae4a75d43424bb4',
   'reason': 'Bind the Android 14 sized GraphicBuffer constructor, lockYCbCr and unlock (uiv34) instead of libui.so'},
+ # Stock TCL camera algorithm stack of the Fairphone Camera app (App Store, FP6): built against Android 14,
+ # these three allocate 256 bytes for each GraphicBuffer they construct, which Android 17 libui's constructor
+ # would overflow (it did, in the service, under hardened_malloc). Their GraphicBuffer imports bind to uicam
+ # (device compat/tcl-camera-v34), an Android 14 sized class backed by AHardwareBuffers that links no libui.
+ # No keep_link: these are their only libui imports.
+ 'vendor/bin/hw/cameraalgoservice': {
+  'needed': 'libui.so', 'replacement': 'uicam.so', 'module': 'uicam',
+  'symbols': 'GRAPHICBUFFER_CAM_SERVICE_SYMBOLS',
+  'source_sha256': '6ffa9ba9bcc5898674ca0d15314e27eb949952c367bbf60c9cf3b1da9f730fd5',
+  'sha256': '2488c7c9043e66f57073568d6b4e286216d35a698ab0d4a3d5f6dba0dac021f6',
+  'reason': 'Bind the Android 14 sized GraphicBuffer handle constructor, locks, unlock and toAHardwareBuffer '
+            '(uicam) instead of libui.so'},
+ 'vendor/lib64/libtctcameraalgo.so': {
+  'needed': 'libui.so', 'replacement': 'uicam.so', 'module': 'uicam',
+  'symbols': 'GRAPHICBUFFER_CAM_ALGO_SYMBOLS',
+  'source_sha256': '2bbe8ab62e29251bee8edba2521a00b67fa57c2870a55df680d1fad2f1025000',
+  'sha256': 'f36b1d57b154eb1664c88b35788dce1233e81037917f01c7fd4ba88de1fb617c',
+  'reason': 'Bind the Android 14 sized GraphicBuffer constructor, lockAsync, unlock, initCheck and '
+            'fromAHardwareBuffer (uicam) instead of libui.so'},
+ 'vendor/lib64/com.tct.cameraalgo.distortion.so': {
+  'needed': 'libui.so', 'replacement': 'uicam.so', 'module': 'uicam',
+  'symbols': 'GRAPHICBUFFER_CAM_DISTORTION_SYMBOLS',
+  'source_sha256': 'a89ec6a3a2c4e9326d089cf844081c80ddf8b3e5ee39f3d5cb883d3811bb3d75',
+  'sha256': 'c14527c377450b3dc940b53d7444dc7a9167affe2dbefcbbbd1b82181d14a1d7',
+  'reason': 'Bind the Android 14 sized GraphicBuffer constructor, lockYCbCr and unlock (uicam) instead of libui.so'},
 }
 
 # The android::GraphicBuffer symbols the stock libcodec2_vndk imports from libui
@@ -453,8 +518,148 @@ GRAPHICBUFFER_V34_NODE_SYMBOLS = (
     ('_ZN7android13GraphicBuffer6unlockEv',
      '_ZN7android13GraphicBufV346unlockEv'),
 )
+# The android::GraphicBuffer symbols the three stock TCL camera algorithm binaries import from libui,
+# renamed to android::GraphicBufCam, which only uicam defines (13 characters, as GraphicBuffer). They are each
+# binary's only libui imports, and none of them defines a GraphicBuffer symbol.
+# - cameraalgoservice wraps the buffers the app sends it (CLONE_HANDLE, and TAKE_HANDLE once), locks them and
+#   hands their AHardwareBuffer on.
+GRAPHICBUFFER_CAM_SERVICE_SYMBOLS = (
+    ('_ZN7android13GraphicBufferC1EPK13native_handleNS0_16HandleWrapMethodEjjijmj',
+     '_ZN7android13GraphicBufCamC1EPK13native_handleNS0_16HandleWrapMethodEjjijmj'),
+    ('_ZN7android13GraphicBuffer9lockAsyncEjPPviPiS3_',
+     '_ZN7android13GraphicBufCam9lockAsyncEjPPviPiS3_'),
+    ('_ZN7android13GraphicBuffer14lockAsyncYCbCrEjP13android_ycbcri',
+     '_ZN7android13GraphicBufCam14lockAsyncYCbCrEjP13android_ycbcri'),
+    ('_ZN7android13GraphicBuffer6unlockEv',
+     '_ZN7android13GraphicBufCam6unlockEv'),
+    ('_ZN7android13GraphicBuffer17toAHardwareBufferEv',
+     '_ZN7android13GraphicBufCam17toAHardwareBufferEv'),
+)
+# - libtctcameraalgo.so allocates BLOB working buffers and reads an AHardwareBuffer's reference count for a log line.
+GRAPHICBUFFER_CAM_ALGO_SYMBOLS = (
+    ('_ZN7android13GraphicBufferC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE',
+     '_ZN7android13GraphicBufCamC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE'),
+    ('_ZN7android13GraphicBuffer9lockAsyncEjPPviPiS3_',
+     '_ZN7android13GraphicBufCam9lockAsyncEjPPviPiS3_'),
+    ('_ZN7android13GraphicBuffer6unlockEv',
+     '_ZN7android13GraphicBufCam6unlockEv'),
+    ('_ZNK7android13GraphicBuffer9initCheckEv',
+     '_ZNK7android13GraphicBufCam9initCheckEv'),
+    ('_ZN7android13GraphicBuffer19fromAHardwareBufferEP15AHardwareBuffer',
+     '_ZN7android13GraphicBufCam19fromAHardwareBufferEP15AHardwareBuffer'),
+)
+# - the distortion plugin allocates NV21 working buffers.
+GRAPHICBUFFER_CAM_DISTORTION_SYMBOLS = (
+    ('_ZN7android13GraphicBufferC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE',
+     '_ZN7android13GraphicBufCamC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE'),
+    ('_ZN7android13GraphicBuffer9lockYCbCrEjP13android_ycbcr',
+     '_ZN7android13GraphicBufCam9lockYCbCrEjP13android_ycbcr'),
+    ('_ZN7android13GraphicBuffer6unlockEv',
+     '_ZN7android13GraphicBufCam6unlockEv'),
+)
 SYMBOL_RENAMES = {'GRAPHICBUFFER_V34_SYMBOLS': GRAPHICBUFFER_V34_SYMBOLS,
-                  'GRAPHICBUFFER_V34_NODE_SYMBOLS': GRAPHICBUFFER_V34_NODE_SYMBOLS}
+                  'GRAPHICBUFFER_V34_NODE_SYMBOLS': GRAPHICBUFFER_V34_NODE_SYMBOLS,
+                  'GRAPHICBUFFER_CAM_SERVICE_SYMBOLS': GRAPHICBUFFER_CAM_SERVICE_SYMBOLS,
+                  'GRAPHICBUFFER_CAM_ALGO_SYMBOLS': GRAPHICBUFFER_CAM_ALGO_SYMBOLS,
+                  'GRAPHICBUFFER_CAM_DISTORTION_SYMBOLS': GRAPHICBUFFER_CAM_DISTORTION_SYMBOLS}
+
+
+# Stock blobs whose call to one import is pointed at another import of the
+# same library (redirect_import); input and output bytes are pinned.
+# - The Fairphone Camera's JNI library looks up the TCL algorithm service with
+#   AServiceManager_getService, which only polls for five seconds and never
+#   starts a lazy service: stock starts the service at boot. Here the service
+#   is lazy, started by servicemanager for the app's first lookup, so it does
+#   not hold its memory (about 60 MB) for users who never open the app.
+#   AServiceManager_waitForService has the same signature, is already imported
+#   by the library and starts a declared lazy service. getAlgoService() is the
+#   only caller of AServiceManager_getService in the library.
+IMPORT_REDIRECTS = {
+ 'system_ext/lib64/libtctcameraalgo_jni.tct.so': {
+  'from': 'AServiceManager_getService', 'to': 'AServiceManager_waitForService',
+  'source_sha256': 'cf11874249bb599ec51f744eb0b23dc8858278dc5c74ae4672042fd125ca1566',
+  'sha256': 'df226def5f9c6f98cc1e587dc1b66f50f01bcda3c0de89a9c68bc33398911a38',
+  'reason': 'Start the lazy TCL algorithm service on the app\'s first lookup '
+            '(AServiceManager_waitForService in place of AServiceManager_getService)'},
+}
+
+
+# Stock blobs in which a path string is renamed in place (rewrite_string);
+# input and output bytes are pinned.
+# - The ANC HDR adapters of the Fairphone Camera's algorithm service open the
+#   OpenCL runtime by path or name. The runtime is installed as fpcOpenCL.so
+#   (OPENCL_RUNTIME), not libOpenCL.so, so that CamX in the camera provider,
+#   whose AWB, OpenCV and registration libraries look for libOpenCL.so, keeps
+#   running without OpenCL. SELinux cannot keep a vendor library from other
+#   vendor processes (a platform neverallow requires vendor_file_type for code).
+STRING_REWRITES = {
+ 'vendor/lib64/libanc_hdr_adapter_%s.so' % camera: {
+  'from': 'libOpenCL.so', 'to': 'fpcOpenCL.so', 'count': 4,
+  'source_sha256': source, 'sha256': result,
+  'reason': 'Open the OpenCL runtime as fpcOpenCL.so, which only the algorithm service looks for'}
+ for camera, source, result in [
+  ('front_main', '39c3bc03767a27c486070b57e285510e2799f345b15dbd85e854371fcd0f0e47',
+   'e2a9f2dea7e40ca2bf5b9bcbd129cf4a0e34abd931b51e54ffc3720e2f4d8ddd'),
+  ('rear_main', 'e2aa7f73369f70ad3132f1d7d7c82b44d506299ef208b733b79e0297cfdc6cbc',
+   '121fd82482e51f5bf4333b13920b36577451ddcd7f7a3bcb5f8253d8194df569'),
+  ('rear_uw', '9e8a8b37d192e2919e3ff90cdb6156a060938eb45d49d8200ad70e11fff6e049',
+   'f03fe6f67ba0ff938b5a093eabc739d3e2ad57f7c504404f95a7d48702b5ba4c')]}
+# The OpenCL runtime's install path (its SONAME stays libOpenCL.so, so Soong's
+# ELF check, which compares it with the file name, is skipped for it).
+OPENCL_RUNTIME = 'vendor/lib64/fpcOpenCL.so'
+
+
+def string_rewrite(path, original):
+    """Apply the reviewed string rewrite of one stock blob; its input and result are pinned."""
+    rewrite = STRING_REWRITES[path]
+    if hashlib.sha256(original).hexdigest() != rewrite['source_sha256']:
+        raise VendorError('string rewrite input differs from reviewed blob')
+    derived = rewrite_string(original, rewrite['from'], rewrite['to'], rewrite['count'])
+    if hashlib.sha256(derived).hexdigest() != rewrite['sha256']:
+        raise VendorError('string rewrite differs from reviewed result')
+    return derived
+
+
+def import_redirect(path, original):
+    """Apply the reviewed import redirect of one stock blob; its input and result are pinned."""
+    redirect = IMPORT_REDIRECTS[path]
+    if hashlib.sha256(original).hexdigest() != redirect['source_sha256']:
+        raise VendorError('import redirect input differs from reviewed blob')
+    derived = redirect_import(original, redirect['from'], redirect['to'])
+    if hashlib.sha256(derived).hexdigest() != redirect['sha256']:
+        raise VendorError('import redirect differs from reviewed result')
+    return derived
+
+
+def rewrite_string(data, old, new, count):
+    """Replace a NUL-terminated string in place, the same length, a pinned number of times.
+
+    Every occurrence of old followed by NUL is replaced; the number must be
+    count. None may lie in the dynamic string table, so no symbol, version or
+    dependency name changes.
+    """
+    import struct
+    if len(old) != len(new) or data[:5] != b'\x7fELF\x02' or data[5] != 1:
+        raise VendorError('unsupported string rewrite')
+    shoff, = struct.unpack_from('<Q', data, 0x28)
+    shentsize, shnum, _ = struct.unpack_from('<HHH', data, 0x3a)
+    sections = [struct.unpack_from('<IIQQQQIIQQ', data, shoff + i * shentsize) for i in range(shnum)]
+    # The string tables the dynamic symbols and the dynamic section use.
+    strtabs = [sections[s[6]] for s in sections if s[1] in (6, 11)]
+    needle = old.encode() + b'\0'
+    found, start = [], data.find(needle)
+    while start >= 0:
+        found.append(start)
+        start = data.find(needle, start + 1)
+    if len(found) != count:
+        raise VendorError('string to rewrite is not present the reviewed number of times')
+    for offset in found:
+        if any(t[4] <= offset < t[4] + t[5] for t in strtabs):
+            raise VendorError('string to rewrite lies in the dynamic string table')
+    out = bytearray(data)
+    for offset in found:
+        out[offset:offset + len(old)] = new.encode()
+    return bytes(out)
 
 
 def rename_dynamic_symbols(data, pairs):
@@ -508,6 +713,54 @@ def rename_dynamic_symbols(data, pairs):
         edits.append((start, old_bytes, new_bytes))
     for start, old_bytes, new_bytes in edits:
         data[start:start + len(old_bytes)] = new_bytes
+    return bytes(data)
+
+
+def redirect_import(data, old, new):
+    """Point one undefined dynamic symbol at another import of the same library, in place.
+
+    The symbol named old takes the name and symbol version of the symbol named
+    new, so the relocations that used old resolve to new. Both must be present
+    exactly once, undefined, outside the GNU hash table (undefined symbols are
+    never hashed) and of the same type and binding. The string table is not
+    changed.
+    """
+    import struct
+    if data[:5] != b'\x7fELF\x02' or data[5] != 1:
+        raise VendorError('unsupported ELF for import redirect')
+    shoff, = struct.unpack_from('<Q', data, 0x28)
+    shentsize, shnum, _ = struct.unpack_from('<HHH', data, 0x3a)
+    sections = [struct.unpack_from('<IIQQQQIIQQ', data, shoff + i * shentsize) for i in range(shnum)]
+    by_type = {}
+    for s in sections:
+        by_type.setdefault(s[1], []).append(s)
+    dynsym, versym, gnu_hash = by_type.get(11, []), by_type.get(0x6fffffff, []), by_type.get(0x6ffffff6, [])
+    if len(dynsym) != 1 or len(versym) != 1 or len(gnu_hash) != 1:
+        raise VendorError('unsupported import redirect')
+    dynsym, versym, gnu_hash = dynsym[0], versym[0], gnu_hash[0]
+    strtab = sections[dynsym[6]]
+    base = strtab[4]
+    _, symoffset = struct.unpack_from('<II', data, gnu_hash[4])
+    symbols = []
+    for index, offset in enumerate(range(dynsym[4], dynsym[4] + dynsym[5], 24)):
+        st_name, st_info, _, shndx, _, _ = struct.unpack_from('<IBBHQQ', data, offset)
+        end = data.index(b'\0', base + st_name)
+        symbols.append((index, offset, st_name, st_info, shndx, data[base + st_name:end].decode()))
+    found = {}
+    for name in (old, new):
+        matches = [s for s in symbols if s[5] == name]
+        if len(matches) != 1:
+            raise VendorError('import to redirect is not present exactly once')
+        if matches[0][4] != 0 or matches[0][0] >= symoffset:
+            raise VendorError('import to redirect is not an unhashed undefined symbol')
+        found[name] = matches[0]
+    source, target = found[old], found[new]
+    if source[3] != target[3]:
+        raise VendorError('imports to redirect differ in type or binding')
+    data = bytearray(data)
+    struct.pack_into('<I', data, source[1], target[2])
+    version = struct.unpack_from('<H', data, versym[4] + 2 * target[0])[0]
+    struct.pack_into('<H', data, versym[4] + 2 * source[0], version)
     return bytes(data)
 
 
@@ -709,6 +962,7 @@ def render(recipe, selection, notice_kind):
     kept = reachable(selection)
     names, consumed = [], set(elfs) - kept
     runtime_only = set()
+    system_runtime_only = set()
     for path in sorted(elfs):
         if path not in kept:
             continue
@@ -735,6 +989,8 @@ def render(recipe, selection, notice_kind):
             props['shared_libs'] = [d for d in props['shared_libs'] if d not in dropped]
             props['check_elf_files'] = False
             runtime_only.update(dropped)
+        if path in VERSIONED_LLNDK_IMPORTS or path == OPENCL_RUNTIME:
+            props['check_elf_files'] = False
         if required[path]:
             props['required'] = sorted(set(required[path]))
         if relative != '.':
@@ -800,11 +1056,16 @@ def render(recipe, selection, notice_kind):
             name = module(path)
             names.append(name)
             consumed.add(path)
-            text += blueprint('cc_prebuilt_library_shared', {
-                'name': name, flag: True, 'compile_multilib': '64', 'srcs': ['files/' + path],
-                'stem': Path(path).name.removesuffix('.so'), 'strip': {'none': True},
-                'shared_libs': STOCK_JNI[path], 'system_shared_libs': [],
-                'licenses': [notice_license(partition)]})
+            jni = {'name': name, flag: True, 'compile_multilib': '64', 'srcs': ['files/' + path],
+                   'stem': Path(path).name.removesuffix('.so'), 'strip': {'none': True},
+                   'shared_libs': STOCK_JNI[path], 'system_shared_libs': [],
+                   'licenses': [notice_license(partition)]}
+            dropped = STOCK_JNI_RUNTIME_ONLY_AIDL.intersection(STOCK_JNI[path])
+            if dropped:
+                jni['shared_libs'] = [d for d in STOCK_JNI[path] if d not in dropped]
+                jni['check_elf_files'] = False
+                system_runtime_only.update(dropped)
+            text += blueprint('cc_prebuilt_library_shared', jni)
         elif path not in STOCK_DATA or (path in STOCK_LIBRARIES and STOCK_LIBRARIES[path] not in rows):
             raise VendorError('unclassified Android installation input')
     for link in recipe.get('symlinks', []):
@@ -840,6 +1101,8 @@ def render(recipe, selection, notice_kind):
     make = '# Generated from the authenticated selection.\nPRODUCT_PACKAGES += ' + ' '.join(names)
     if runtime_only:
         make += '\nPRODUCT_PACKAGES += ' + ' '.join(sorted(d + '.vendor' for d in runtime_only))
+    if system_runtime_only:
+        make += '\nPRODUCT_PACKAGES += ' + ' '.join(sorted(system_runtime_only))
     make += '\nPRODUCT_VENDOR_PROPERTIES += ro.hardware.egl=adreno ro.hardware.vulkan=adreno\n'
     for path in sorted(set(rows) - consumed):
         partition = path.split('/')[0]
@@ -1583,6 +1846,16 @@ def generate(recipe, selection, inputs, output, *, notice_kind, stock, firmware_
                 blob.write_bytes(needed_rewrite(path, blob.read_bytes()))
                 provenance['derived_files'].append({'path': path, 'source_sha256': rewrite['source_sha256'],
                     'sha256': rewrite['sha256'], 'reason': rewrite['reason']})
+            for path, rewrite in sorted(STRING_REWRITES.items()):
+                blob = tree / 'files' / path
+                blob.write_bytes(string_rewrite(path, blob.read_bytes()))
+                provenance['derived_files'].append({'path': path, 'source_sha256': rewrite['source_sha256'],
+                    'sha256': rewrite['sha256'], 'reason': rewrite['reason']})
+            for path, redirect in sorted(IMPORT_REDIRECTS.items()):
+                blob = tree / 'files' / path
+                blob.write_bytes(import_redirect(path, blob.read_bytes()))
+                provenance['derived_files'].append({'path': path, 'source_sha256': redirect['source_sha256'],
+                    'sha256': redirect['sha256'], 'reason': redirect['reason']})
             rendered.update({'provenance.json': encoded(provenance), 'recipe.json': encoded(recipe)})
             for name, content in rendered.items():
                 (tree / name).write_bytes(content)

@@ -3989,15 +3989,33 @@
       ]
     },
     {
-      "id": "no-camera-opencl",
-      "why": "The Adreno OpenCL runtime and compiler, selected only for the camera, and the software CAC library that links the runtime stay out. CamX's GPU node and its OpenCV users run without them.",
+      "id": "no-camera-cac",
+      "why": "The software CAC library, which links the OpenCL runtime, stays out of the camera provider.",
       "type": "files_absent",
       "paths": [
-        "VENDOR/lib64/libOpenCL.so",
-        "VENDOR/lib64/libOpenCL_adreno.so",
-        "VENDOR/lib64/libllvm-qcom.so",
-        "VENDOR/lib64/libadreno_compiler_cl.so",
         "VENDOR/lib64/libmmcamera_cac.so"
+      ]
+    },
+    {
+      "id": "fpcamera-opencl-label",
+      "why": "The Adreno OpenCL runtime and compiler, installed only for the Fairphone Camera's algorithm service, carry their own label, so their use shows in the policy and in audits (stock labels them as libraries any process may load). The algorithm service may load them. Apps may not.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/selinux/vendor_file_contexts"
+      ],
+      "regex": [
+        "^/vendor/lib64/fpcOpenCL\\\\\\.so\\s+u:object_r:fpcamera_opencl_file:s0\\s*$",
+        "^/vendor/lib64/libOpenCL_adreno\\\\\\.so\\s+u:object_r:fpcamera_opencl_file:s0\\s*$",
+        "^/vendor/lib64/libllvm-qcom\\\\\\.so\\s+u:object_r:fpcamera_opencl_file:s0\\s*$",
+        "^/vendor/lib64/libadreno_compiler_cl\\\\\\.so\\s+u:object_r:fpcamera_opencl_file:s0\\s*$"
+      ]
+    },
+    {
+      "id": "fpcamera-opencl-hidden",
+      "why": "The OpenCL runtime is not installed under its standard name: the camera provider's AWB, OpenCV and registration libraries look for libOpenCL.so and keep running without OpenCL. Only the algorithm service's ANC HDR adapters, rewritten to fpcOpenCL.so, find it. (SELinux cannot keep a vendor library from other vendor processes.)",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/libOpenCL.so"
       ]
     },
     {
@@ -4159,16 +4177,394 @@
       "sha256": "7248972cc30ea29a4b625c0abebeecffa75b5f5634d6e330c36207fe1a860f12"
     },
     {
-      "id": "camera-no-other-fairphone-nodes",
-      "why": "Only the lens distortion node is taken from Fairphone's own camera nodes: the bokeh and night video nodes and the TCL and ANC libraries they link stay out.",
-      "type": "files_absent",
+      "id": "fpcamera-camx-nodes",
+      "why": "The Fairphone Camera app's portrait mode needs Fairphone's two-camera live bokeh CHI node in the camera provider, with the library only it links. It runs only for the app's portrait sessions.",
+      "type": "files_present",
       "paths": [
         "VENDOR/lib64/camera/components/com.fp.node.fprtb.so",
+        "VENDOR/lib64/libtcl_dualcam_bokeh_prv.so"
+      ]
+    },
+    {
+      "id": "fpcamera-unusable-algorithms",
+      "why": "Algorithms that cannot run with the stock files on this image stay out. Face super-resolution and the 2x RAW super-resolution adapter need a QNN HTP V73 skeleton that stock does not ship (they abort the algorithm service), and nothing else uses the QNN runtime. The night video and one-camera live bokeh nodes need OpenCL in the camera provider, which every camera app uses and which keeps no OpenCL (without it they abort the provider). The algorithm service's one-camera bokeh plugins serve only that front portrait mode. The service bypasses an algorithm it does not find.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/com.tct.cameraalgo.facesr.so",
+        "VENDOR/lib64/libanc_facesr.so",
+        "VENDOR/lib64/libanc_face.so",
+        "VENDOR/lib64/libcc_fd.so",
+        "VENDOR/etc/camera/facesr/facesr_model",
         "VENDOR/lib64/camera/components/com.fp.node.nightvideo.so",
         "VENDOR/lib64/camera/components/com.fp.node.singlertbokeh.so",
-        "VENDOR/lib64/libtcl_dualcam_bokeh_prv.so",
         "VENDOR/lib64/libanc_supervq.so",
-        "VENDOR/lib64/libanc_single_rt_bokeh.so"
+        "VENDOR/lib64/com.tct.cameraalgo.singlebokehcap.so",
+        "VENDOR/lib64/com.tct.cameraalgo.singlebokehprv.so",
+        "VENDOR/lib64/libanc_single_bokeh.so",
+        "VENDOR/lib64/libanc_single_rt_bokeh.so",
+        "VENDOR/lib64/libanc_hdr_adapter_raw_sr.so",
+        "VENDOR/lib64/libQnnHtp.so",
+        "VENDOR/lib/rfsa/adsp/libQnnHtpV75Skel.so"
+      ]
+    },
+    {
+      "id": "fpcamera-algorithm-stack",
+      "why": "The Fairphone Camera app (App Store, FP6) needs the stock TCL algorithm service, its algorithm library and plugins, the compat library their GraphicBuffer calls bind, and the app's JNI library with the service interface it links.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/bin/hw/cameraalgoservice",
+        "VENDOR/lib64/libtctcameraalgo.so",
+        "VENDOR/lib64/com.tct.cameraalgo.hwmfnr.so",
+        "VENDOR/lib64/com.tct.cameraalgo.rawfusion.so",
+        "VENDOR/lib64/libanc_hdr.so",
+        "VENDOR/lib64/com.tct.cameraalgo.distortion.so",
+        "VENDOR/lib64/com.tct.cameraalgo.tcldualbokeh.so",
+        "VENDOR/lib64/uicam.so",
+        "SYSTEM_EXT/lib64/libtctcameraalgo_jni.tct.so",
+        "SYSTEM_EXT/lib64/vendor.tcl.camera.algoservice-V2-ndk.so",
+        "SYSTEM_EXT/etc/public.libraries-tct.txt"
+      ]
+    },
+    {
+      "id": "fpcamera-app-feature",
+      "why": "The App Store offers the Fairphone Camera only on a build that declares this system feature, so a build without the algorithm service never gets the app.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/permissions/de.diamaneos.fairphone_camera.xml"
+      ],
+      "contains": [
+        "<feature name=\"de.diamaneos.fairphone_camera\" />"
+      ]
+    },
+    {
+      "id": "fpcamera-service-graphicbuffer-abi",
+      "why": "The stock TCL algorithm service's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object (uicam), not Android 17 libui's 3376-byte one.",
+      "type": "codec2_abi_guard",
+      "path": "VENDOR/bin/hw/cameraalgoservice",
+      "alloc_bytes": 256,
+      "needed_present": [
+        "uicam.so"
+      ],
+      "needed_absent": [
+        "libui.so"
+      ],
+      "symbols_present": [
+        "_ZN7android13GraphicBufCamC1EPK13native_handleNS0_16HandleWrapMethodEjjijmj",
+        "_ZN7android13GraphicBufCam9lockAsyncEjPPviPiS3_",
+        "_ZN7android13GraphicBufCam14lockAsyncYCbCrEjP13android_ycbcri",
+        "_ZN7android13GraphicBufCam6unlockEv",
+        "_ZN7android13GraphicBufCam17toAHardwareBufferEv"
+      ],
+      "symbols_absent": [
+        "_ZN7android13GraphicBufferC1EPK13native_handleNS0_16HandleWrapMethodEjjijmj",
+        "_ZN7android13GraphicBuffer9lockAsyncEjPPviPiS3_",
+        "_ZN7android13GraphicBuffer14lockAsyncYCbCrEjP13android_ycbcri",
+        "_ZN7android13GraphicBuffer6unlockEv",
+        "_ZN7android13GraphicBuffer17toAHardwareBufferEv"
+      ],
+      "ctor_symbols": [
+        "_ZN7android13GraphicBufCamC1EPK13native_handleNS0_16HandleWrapMethodEjjijmj"
+      ],
+      "min_sized_allocations": 6
+    },
+    {
+      "id": "fpcamera-algo-graphicbuffer-abi",
+      "why": "The stock TCL algorithm library's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object (uicam), not Android 17 libui's 3376-byte one.",
+      "type": "codec2_abi_guard",
+      "path": "VENDOR/lib64/libtctcameraalgo.so",
+      "alloc_bytes": 256,
+      "needed_present": [
+        "uicam.so"
+      ],
+      "needed_absent": [
+        "libui.so"
+      ],
+      "symbols_present": [
+        "_ZN7android13GraphicBufCamC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE",
+        "_ZN7android13GraphicBufCam9lockAsyncEjPPviPiS3_",
+        "_ZN7android13GraphicBufCam6unlockEv",
+        "_ZNK7android13GraphicBufCam9initCheckEv",
+        "_ZN7android13GraphicBufCam19fromAHardwareBufferEP15AHardwareBuffer"
+      ],
+      "symbols_absent": [
+        "_ZN7android13GraphicBufferC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE",
+        "_ZN7android13GraphicBuffer9lockAsyncEjPPviPiS3_",
+        "_ZN7android13GraphicBuffer6unlockEv",
+        "_ZNK7android13GraphicBuffer9initCheckEv",
+        "_ZN7android13GraphicBuffer19fromAHardwareBufferEP15AHardwareBuffer"
+      ],
+      "ctor_symbols": [
+        "_ZN7android13GraphicBufCamC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE"
+      ],
+      "min_sized_allocations": 6
+    },
+    {
+      "id": "fpcamera-distortion-graphicbuffer-abi",
+      "why": "The stock TCL distortion plugin's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object (uicam), not Android 17 libui's 3376-byte one.",
+      "type": "codec2_abi_guard",
+      "path": "VENDOR/lib64/com.tct.cameraalgo.distortion.so",
+      "alloc_bytes": 256,
+      "needed_present": [
+        "uicam.so"
+      ],
+      "needed_absent": [
+        "libui.so"
+      ],
+      "symbols_present": [
+        "_ZN7android13GraphicBufCamC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE",
+        "_ZN7android13GraphicBufCam9lockYCbCrEjP13android_ycbcr",
+        "_ZN7android13GraphicBufCam6unlockEv"
+      ],
+      "symbols_absent": [
+        "_ZN7android13GraphicBufferC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE",
+        "_ZN7android13GraphicBuffer9lockYCbCrEjP13android_ycbcr",
+        "_ZN7android13GraphicBuffer6unlockEv"
+      ],
+      "ctor_symbols": [
+        "_ZN7android13GraphicBufCamC1EjjijNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE"
+      ],
+      "min_sized_allocations": 2
+    },
+    {
+      "id": "fpcamera-no-mfnr",
+      "why": "TCL's RAW multi-frame noise reduction needs the OpenCL runtime, which the image does not ship. The camera provider loads its library whenever it is present, so it stays out.",
+      "type": "files_absent",
+      "paths": [
+        "VENDOR/lib64/libmfnr_raw_api.so",
+        "VENDOR/lib64/com.tct.cameraalgo.rawmfnr.so"
+      ]
+    },
+    {
+      "id": "fpcamera-seccomp-loader",
+      "why": "The Fairphone Camera algorithm service's seccomp loader and its system call list are installed.",
+      "type": "files_present",
+      "paths": [
+        "VENDOR/lib64/libfpcjail.so",
+        "VENDOR/etc/seccomp_policy/fpcamera-algoservice.policy"
+      ]
+    },
+    {
+      "id": "fpcamera-links-seccomp-loader",
+      "why": "uicam, which binds all of the algorithm stack's GraphicBuffer imports and is loaded only by the service, links the seccomp loader, so the service cannot start without the filter.",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/uicam.so",
+      "patterns": [
+        {
+          "text": "libfpcjail.so\u0000",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "fpcamera-seccomp-loader-policy",
+      "why": "The loader compiles the installed algorithm service policy.",
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libfpcjail.so",
+      "patterns": [
+        {
+          "text": "/vendor/etc/seccomp_policy/fpcamera-algoservice.policy\u0000",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "fpcamera-seccomp-enforced",
+      "why": "Official user builds (releases) load the algorithm service's filter in trap mode: a call outside its list stops the service instead of only being logged. Test builds may run it log-only while its system call list is collected.",
+      "official": true,
+      "variants": [
+        "user"
+      ],
+      "type": "binary_count",
+      "file": "VENDOR/lib64/libfpcjail.so",
+      "patterns": [
+        {
+          "text": "log-only\u0000",
+          "count": 0
+        },
+        {
+          "text": "trap\u0000",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "fpcamera-app-no-network",
+      "why": "The Fairphone Camera's domain is not a network domain: it may create no IP, packet or QRTR socket of any kind.",
+      "type": "sepolicy_denied",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "domain": "fpcamera_app",
+      "classes": [
+        "socket",
+        "tcp_socket",
+        "udp_socket",
+        "rawip_socket",
+        "icmp_socket",
+        "sctp_socket",
+        "packet_socket",
+        "qipcrtr_socket"
+      ],
+      "perms": [
+        "create"
+      ]
+    },
+    {
+      "id": "fpcamera-algo-service-callers",
+      "why": "Only the Fairphone Camera, cameraserver (the service's camera NDK listeners), the camera provider (the post-processing HAL's callbacks) and the service managers can call the TCL algorithm service.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "fpcamera_algoservice",
+      "cls": "binder",
+      "perm": "call",
+      "allowed": [
+        "cameraserver",
+        "fpcamera_app",
+        "hal_camera_default",
+        "hwservicemanager",
+        "servicemanager"
+      ]
+    },
+    {
+      "id": "fpcamera-algo-service-finders",
+      "why": "Only the Fairphone Camera and the service itself look up the TCL algorithm service, besides the platform's debugging and system domains that may look up every unprotected service (shell, atrace, traceur, system_app). None of those may call it.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "fpcamera_algo_service",
+      "cls": "service_manager",
+      "perm": "find",
+      "allowed": [
+        "atrace",
+        "fpcamera_algoservice",
+        "fpcamera_app",
+        "shell",
+        "system_app",
+        "traceur_app"
+      ]
+    },
+    {
+      "id": "fpcamera-algo-service-registrar",
+      "why": "Only the TCL algorithm service registers its name.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "fpcamera_algo_service",
+      "cls": "service_manager",
+      "perm": "add",
+      "allowed": [
+        "fpcamera_algoservice"
+      ]
+    },
+    {
+      "id": "fpcamera-postproc-finders",
+      "why": "Only the Fairphone Camera's algorithm service (its RAW conversions) and the camera provider that registers it may look up Qualcomm's camera post-processing HAL. CamX's own lookup is denied, so no other process gets a path into the provider through it.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_hal_camera_postproc_hwservice",
+      "cls": "hwservice_manager",
+      "perm": "find",
+      "allowed": [
+        "fpcamera_algoservice",
+        "hal_camera_default"
+      ]
+    },
+    {
+      "id": "fpcamera-postproc-registrar",
+      "why": "Only the camera provider registers Qualcomm's camera post-processing HAL.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_hal_camera_postproc_hwservice",
+      "cls": "hwservice_manager",
+      "perm": "add",
+      "allowed": [
+        "hal_camera_default"
+      ]
+    },
+    {
+      "id": "fpcamera-algoservice-no-network",
+      "why": "The TCL algorithm service may create no IP, packet or QRTR socket (its seccomp filter also allows AF_UNIX sockets only).",
+      "type": "sepolicy_denied",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "domain": "fpcamera_algoservice",
+      "classes": [
+        "socket",
+        "tcp_socket",
+        "udp_socket",
+        "rawip_socket",
+        "icmp_socket",
+        "sctp_socket",
+        "packet_socket",
+        "qipcrtr_socket"
+      ],
+      "perms": [
+        "create"
       ]
     },
     {

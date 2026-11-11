@@ -459,6 +459,70 @@ class NativeProductTests(unittest.TestCase):
             if 'symbols' in rewrite:
                 self.assertIn(rewrite['symbols'], vendor_product.SYMBOL_RENAMES)
 
+    @staticmethod
+    def versioned_elf(symbols, symoffset):
+        """dynstr, dynsym (name, shndx, version), versym and a GNU hash header."""
+        import struct
+        dynstr = b'\0' + b''.join(name.encode() + b'\0' for name, _, _ in symbols)
+        offsets, at = [], 1
+        for name, _, _ in symbols:
+            offsets.append(at)
+            at += len(name) + 1
+        dynsym = bytes(24) + b''.join(struct.pack('<IBBHQQ', offsets[i], 0x12, 0, shndx, 0, 0)
+                                      for i, (_, shndx, _) in enumerate(symbols))
+        versym = struct.pack('<H', 0) + b''.join(struct.pack('<H', v) for _, _, v in symbols)
+        gnu_hash = struct.pack('<IIII', 1, symoffset, 1, 6)
+        body, sections = b'', [bytes(64)]
+        for kind, blob, entsize in [(3, dynstr, 0), (11, dynsym, 24), (0x6fffffff, versym, 2),
+                                    (0x6ffffff6, gnu_hash, 0)]:
+            sections.append(struct.pack('<IIQQQQIIQQ', 0, kind, 0, 0, 64 + len(body), len(blob),
+                                        0 if kind == 3 else 1, 0, 8, entsize))
+            body += blob
+        header = bytearray(b'\x7fELF\x02\x01\x01' + bytes(57))
+        struct.pack_into('<Q', header, 0x28, 64 + len(body))
+        struct.pack_into('<HHH', header, 0x3a, 64, len(sections), 0)
+        return bytes(header) + body + b''.join(sections)
+
+    def test_import_redirect_points_one_import_at_another(self):
+        import struct
+        symbols = [('getService', 0, 2), ('waitForService', 0, 3), ('exported', 9, 1)]
+        data = self.versioned_elf(symbols, symoffset=3)
+        derived = vendor_product.redirect_import(data, 'getService', 'waitForService')
+        dynsym = 64 + 1 + len("getService\0waitForService\0exported\0")
+        versym = dynsym + 24 * 4
+        name = lambda blob, i: struct.unpack_from('<I', blob, dynsym + 24 * i)[0]
+        self.assertEqual(name(derived, 1), name(derived, 2))
+        self.assertEqual(struct.unpack_from('<H', derived, versym + 2)[0], 3)
+        # Only the name offset and the version of the redirected symbol change.
+        self.assertEqual(sum(a != b for a, b in zip(data, derived)), 2)
+        # Missing, defined and hashed symbols are refused.
+        for old, new, change in [('missing', 'waitForService', {}), ('exported', 'waitForService', {}),
+                                 ('getService', 'waitForService', {'symoffset': 1})]:
+            with self.subTest(old=old, change=change), self.assertRaises(VendorError):
+                vendor_product.redirect_import(self.versioned_elf(symbols, change.get('symoffset', 3)), old, new)
+        for path, redirect in vendor_product.IMPORT_REDIRECTS.items():
+            self.assertRegex(redirect['sha256'], '^[0-9a-f]{64}$')
+            self.assertNotEqual(redirect['source_sha256'], redirect['sha256'])
+            self.assertIn(redirect['to'], redirect['reason'])
+
+    def test_string_rewrite_renames_only_pinned_strings_outside_the_dynamic_strings(self):
+        symbols = [('getService', 0, 2), ('waitForService', 0, 3)]
+        data = self.versioned_elf(symbols, symoffset=3) + b'xx\0/vendor/lib64/libOpenCL.so\0libOpenCL.so\0'
+        derived = vendor_product.rewrite_string(data, 'libOpenCL.so', 'fpcOpenCL.so', 2)
+        self.assertEqual(data.replace(b'libOpenCL.so\0', b'fpcOpenCL.so\0'), derived)
+        with self.assertRaises(VendorError):
+            vendor_product.rewrite_string(data, 'libOpenCL.so', 'fpcOpenCL.so', 1)
+        with self.assertRaises(VendorError):
+            vendor_product.rewrite_string(data, 'libOpenCL.so', 'libOpenCL', 2)
+        # A name in the dynamic string table (a symbol here) is refused.
+        named = self.versioned_elf([('libOpenCL.so', 0, 2)], symoffset=3)
+        with self.assertRaises(VendorError):
+            vendor_product.rewrite_string(named, 'libOpenCL.so', 'fpcOpenCL.so', 1)
+        for path, rewrite in vendor_product.STRING_REWRITES.items():
+            self.assertEqual(len(rewrite['from']), len(rewrite['to']))
+            self.assertRegex(rewrite['sha256'], '^[0-9a-f]{64}$')
+            self.assertNotEqual(rewrite['source_sha256'], rewrite['sha256'])
+
     def test_symbol_rename_only_touches_one_undefined_symbol(self):
         # Rename an undefined symbol in place. The length must match and the byte
         # span must belong to no other symbol. "sym" is an undefined dynsym here.
@@ -1138,36 +1202,109 @@ class NativeProductTests(unittest.TestCase):
         shared = block[block.index('shared_libs:'):].split('\n')[0]
         self.assertIn('"vendor.qti.hardware.camera.offlinecamera-V1-ndk"', shared)
         # 'tct' alone also matches libdsi_netctrl and librmnetctl (radio closure).
-        # Fairphone's bokeh and night video nodes and the TCL and ANC libraries
-        # they link stay out.
-        for marker in ['com.tct.', 'libtct', 'bin_tctd', 'libanc_', 'Qnn', 'com.fp.node.fprtb', 'com.fp.node.nightvideo',
-                       'com.fp.node.singlertbokeh', 'libtcl_dualcam', 'cameraalgoservice', 'qseeaon', 'libdepth',
-                       'afbfusion', 'bu63169gwz', 'libqll10', 'mfnr_t4']:
+        # The TCL algorithm stack of the Fairphone Camera app is its own
+        # closure: nothing of it hangs off the camera provider, except
+        # Fairphone's two-camera live bokeh CHI node, which the provider loads
+        # for the app's portrait sessions.
+        for marker in ['bin_tctd', 'qseeaon',
+                       'libdepth', 'afbfusion', 'bu63169gwz', 'libqll10', 'mfnr_t4']:
             self.assertFalse([m for m in modules if marker in m], marker)
-        # Of Fairphone's nodes only the lens distortion node is selected, with its library.
-        self.assertEqual(['fp6_stock_vendor_lib64_camera_components_com.fp.node.distortion'],
-                         [m for m in modules if 'com.fp.node' in m])
+        provider = bp[bp.index('name: "fp6_stock_vendor_bin_hw_vendor.qti.camera.provider-service_64"'):]
+        provider = provider[:provider.index('}\n')]
+        for marker in ['tctcamera', 'cameraalgo', 'anc_', 'Qnn', 'TclImage']:
+            self.assertNotIn(marker, provider)
+        # Fairphone's nodes: lens distortion, and the Fairphone Camera's
+        # two-camera live bokeh node with its library. The night video and
+        # one-camera bokeh nodes need OpenCL and stay out, as does face
+        # super-resolution (no QNN HTP V73 skeleton in stock).
+        self.assertEqual(sorted('fp6_stock_vendor_lib64_camera_components_com.fp.node.' + n
+                                for n in ['distortion', 'fprtb']),
+                         sorted(m for m in modules if 'com.fp.node' in m))
+        self.assertIn('fp6_stock_vendor_lib64_libtcl_dualcam_bokeh_prv', modules)
+        for marker in ['libanc_supervq', 'facesr', 'libanc_face', 'libcc_fd']:
+            self.assertFalse([m for m in modules if marker in m], marker)
         self.assertEqual(['fp6_stock_vendor_lib64_libundistort'], [m for m in modules if 'undistort' in m])
-        for name in ['postproc-impl.xml', 'algoservice-default', 'vendor/etc/camera/AncRawAlgos']:
+        for name in ['postproc-impl.xml', 'algoservice-default']:
             self.assertNotIn(name, bp + make)
 
-    def test_camera_runs_without_the_opencl_runtime(self):
-        # The Adreno OpenCL runtime and compiler were selected only for the
-        # camera, and the software CAC library links the runtime. CamX's GPU
-        # node and the OpenCV users fall back without them.
-        removed = ['libOpenCL', 'libOpenCL_adreno', 'libllvm-qcom', 'libadreno_compiler_cl', 'libmmcamera_cac']
+    def test_fairphone_camera_algorithm_stack_is_its_own_reviewed_closure(self):
+        rendered = self.render()
+        modules = json.loads(rendered['modules.json'])
+        bp, make = rendered['Android.bp'].decode(), rendered['device-vendor.mk'].decode()
+
+        def block(name):
+            text = bp[bp.index('name: "' + name + '"'):]
+            return text[:text.index('}\n')]
+        # The service: no stock init file or VINTF fragment (the device defines
+        # both), and its GraphicBuffer imports bound to uicam, not libui.
+        service = block('fp6_stock_vendor_bin_hw_cameraalgoservice')
+        self.assertNotIn('init_rc', service)
+        self.assertNotIn('vintf_fragments', service)
+        for name in ['fp6_stock_vendor_bin_hw_cameraalgoservice', 'fp6_stock_vendor_lib64_libtctcameraalgo',
+                     'fp6_stock_vendor_lib64_com.tct.cameraalgo.distortion']:
+            shared = block(name)
+            shared = shared[shared.index('shared_libs:'):].split('\n')[0]
+            self.assertIn('"uicam"', shared, name)
+            self.assertNotIn('"libui"', shared, name)
+        # The algorithm pool's plugins are installed with the service it runs in
+        # (dlopen), never linked: they link libtctcameraalgo.so themselves.
+        required = service[service.index('required:'):].split('\n')[0]
+        for plugin in ['rawfusion', 'tcldualbokeh', 'scenedetect', 'watermark']:
+            self.assertIn('"fp6_stock_vendor_lib64_com.tct.cameraalgo.' + plugin + '"', required)
+        # Plugins whose algorithms abort without OpenCL or a QNN V73 skeleton
+        # are not installed: the service bypasses an algorithm it does not find.
+        for plugin in ['facesr', 'singlebokehcap', 'singlebokehprv']:
+            self.assertNotIn('com.tct.cameraalgo.' + plugin, required)
+        algo = block('fp6_stock_vendor_lib64_libtctcameraalgo')
+        self.assertNotIn('required', algo)
+        self.assertNotIn('com.tct.cameraalgo', algo[algo.index('shared_libs:'):].split('\n')[0])
+        # Only the ANC libraries used the QNN runtime and its DSP images, so
+        # none of them is installed.
+        self.assertFalse([m for m in modules if 'Qnn' in m])
+        # The app's JNI library and the service interface it links, in system_ext.
+        jni = block('fp6_stock_system_ext_lib64_libtctcameraalgo_jni.tct')
+        self.assertIn('system_ext_specific: true', jni)
+        self.assertIn('"fp6_stock_system_ext_lib64_vendor.tcl.camera.algoservice-V2-ndk"', jni)
+        # graphics.common V6 is not linked (libui links V7) but installed on its own.
+        self.assertNotIn('graphics.common-V6-ndk', jni)
+        self.assertIn('check_elf_files: false', jni)
+        self.assertIn('PRODUCT_PACKAGES += android.hardware.graphics.common-V6-ndk\n', make)
+        # NDK-built blobs with versioned libnativewindow imports skip only Soong's ELF check.
+        for name in ['libTclAISuperfine', 'libTclImage_ImageEngine']:
+            self.assertIn('check_elf_files: false', block('fp6_stock_vendor_lib64_' + name))
+        self.assertNotIn('check_elf_files', block('fp6_stock_vendor_lib64_libMNN'))
+        self.assertIn('vendor/fairphone/FP6/files/system_ext/etc/public.libraries-tct.txt:'
+                      '$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/public.libraries-tct.txt', make)
+        # MFNR needs OpenCL, which the image does not ship.
+        for marker in ['mfnr_raw', 'rawmfnr', 'libaidenoiserv2', 'libvideoml']:
+            self.assertFalse([m for m in modules if marker in m], marker)
+
+    def test_opencl_runtime_is_for_the_fairphone_camera_service_only(self):
+        # The Adreno OpenCL runtime and compiler are selected only for the
+        # Fairphone Camera's algorithm service (its RAW fusion and HDR
+        # libraries); their own SELinux label keeps every other process from
+        # loading them. The camera provider gets no edge to them, so CamX's GPU
+        # node and its OpenCV users run without OpenCL as before. The software
+        # CAC library, which links the runtime, stays out.
+        # The loader is installed as fpcOpenCL.so: CamX's AWB, OpenCV and
+        # registration libraries look for libOpenCL.so and find nothing.
+        cl = ['fpcOpenCL', 'libOpenCL_adreno', 'libllvm-qcom', 'libadreno_compiler_cl']
         paths = {r['path'] for r in self.recipe['files']}
         provider = next(r for r in self.recipe['files']
                         if r['path'] == 'vendor/bin/hw/vendor.qti.camera.provider-service_64')
         runtime = {d['path'] for d in provider['runtime_dependencies']}
-        rendered = self.render()
-        modules = json.loads(rendered['modules.json'])
-        for stem in removed:
-            self.assertNotIn('vendor/lib64/' + stem + '.so', paths)
+        modules = json.loads(self.render()['modules.json'])
+        for stem in cl:
+            self.assertIn('vendor/lib64/' + stem + '.so', paths)
+            self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)
             self.assertNotIn('vendor/lib64/' + stem + '.so', runtime)
-            self.assertNotIn('fp6_stock_vendor_lib64_' + stem, modules)
-        self.assertFalse([e for e in self.selection['edges']
-                          if e['needed'] in {s + '.so' for s in removed}])
+        self.assertNotIn('vendor/lib64/libmmcamera_cac.so', paths)
+        consumers = {e['consumer'] for e in self.selection['edges']
+                     if e['needed'] in {s + '.so' for s in cl} | {'libOpenCL.so'}}
+        self.assertNotIn('vendor/lib64/libOpenCL.so', paths)
+        self.assertEqual({'vendor/lib64/fpcOpenCL.so', 'vendor/lib64/libOpenCL_adreno.so'} |
+                         {'vendor/lib64/libanc_hdr_adapter_%s.so' % n
+                          for n in ('front_main', 'rear_main', 'rear_uw')}, consumers)
         # The GLES driver still loads the compute backend. The GPU node stays.
         for stem in ['libCB', 'camera_components_com.qti.node.gpu', 'camera_components_com.qti.node.swcac']:
             self.assertIn('fp6_stock_vendor_lib64_' + stem, modules)

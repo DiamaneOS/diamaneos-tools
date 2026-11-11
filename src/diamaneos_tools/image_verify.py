@@ -600,6 +600,32 @@ def rule_sepolicy_sources(rule, v):
     return not others, ('also ' + ', '.join(others)) if others else 'only ' + ', '.join(sorted(sources))
 
 
+def rule_sepolicy_denied(rule, v):
+    """A domain has none of the listed permissions on any type of the listed classes.
+
+    Reads the CIL files the rule names, as sepolicy_sources does, and fails on
+    every allow rule whose source (attributes expanded) includes the domain, for
+    one of the classes, with one of the permissions. For example: an app domain
+    may create no network sockets of any kind.
+    """
+    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
+    if not names:
+        return False, 'no files match ' + ', '.join(rule['files'])
+    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    attributes = cil_attribute_sets(text)
+    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
+    if rule['domain'] not in types:
+        return False, rule['domain'] + ' is not a type in the policy'
+    memo, found = {}, set()
+    for match in re.finditer(r'^\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', text, re.M):
+        src, target, cls, perms = match.groups()
+        if cls not in rule['classes'] or not set(rule['perms']) & set(perms.split()):
+            continue
+        if rule['domain'] in cil_expand(src, attributes, types, memo):
+            found.add(f'{cls} {target} through {src}')
+    return not found, ('allowed: ' + '; '.join(sorted(found))) if found else 'none allowed'
+
+
 def installed_paths(v) -> list[str]:
     """Device paths of the files in the partition directories of the target files."""
     roots = {directory + '/': '/' + partition + '/' for partition, directory in PARTITION_DIRS.items()}
@@ -1146,16 +1172,22 @@ def rule_codec2_abi_guard(rule, v):
         if count < 1:
             problems.append('no construction call to ' + name)
     # The stock 256-byte allocations are intact: an operator new call (bl _Znwm)
-    # preceded (within a few instructions) by mov w0, #<alloc_bytes>. The four
-    # GraphicBuffer construction sites each have one. Require them all.
-    alloc = re.compile(r'\bw0, #(0x[0-9a-f]+|\d+)\b')
+    # whose size argument was last set by mov w0, #<alloc_bytes>. The last
+    # instruction before the call that writes w0 or x0 decides, up to eight
+    # instructions back; an earlier call leaves x0 unknown. Every GraphicBuffer
+    # construction site has one. Require them all.
+    alloc = re.compile(r'^\s*[0-9a-f]+:\s+mov\s+w0, #(0x[0-9a-f]+|\d+)\b')
+    writes_x0 = re.compile(r'^\s*[0-9a-f]+:\s+[a-z][a-z0-9.]*\s+[wx]0\b')
     sized = 0
     for i, line in enumerate(lines):
         if is_bl.search(line) and '_Znwm' in line:
-            for prev in lines[max(0, i - 3):i]:
-                m = alloc.search(prev)
-                if m and int(m.group(1), 0) == rule['alloc_bytes']:
-                    sized += 1
+            for prev in reversed(lines[max(0, i - 8):i]):
+                if is_bl.search(prev) or re.search(r'\bblr\b', prev):
+                    break
+                if writes_x0.search(prev):
+                    m = alloc.search(prev)
+                    if m and int(m.group(1), 0) == rule['alloc_bytes']:
+                        sized += 1
                     break
     if sized < rule['min_sized_allocations']:
         problems.append('found %d %d-byte allocations before operator new, want at least %d'
@@ -1496,7 +1528,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'files_not_stock': rule_files_not_stock, 'symlink': rule_symlink,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
-         'sepolicy_sources': rule_sepolicy_sources, 'sepolicy_dormant': rule_sepolicy_dormant,
+         'sepolicy_sources': rule_sepolicy_sources, 'sepolicy_denied': rule_sepolicy_denied,
+         'sepolicy_dormant': rule_sepolicy_dormant,
          'sepolicy_xperms': rule_sepolicy_xperms,
          'overlay': rule_overlay, 'overlay_resources_denied': rule_overlay_resources_denied,
          'display_config': rule_display_config,

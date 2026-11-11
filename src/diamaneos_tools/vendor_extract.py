@@ -17,6 +17,10 @@ from .vendor import VendorError, encoded, load_json, ROOT
 # Logical partitions of the stock super image a selection may read. Each is an
 # ext4 image read with the pinned debugfs. System and odm stay out of scope.
 EXTRACT_PARTITIONS = ('vendor', 'system_ext', 'product')
+# The only inputs taken from the stock system partition (system-as-root, so system/system/...): the
+# interface library of Fairphone's camera algorithm service, which stock ships only there. It is
+# installed in system_ext (vendor_product.STOCK_JNI).
+SYSTEM_INPUTS = ('system/system/lib64/vendor.tcl.camera.algoservice-V2-ndk.so',)
 
 
 def sha(path):
@@ -76,8 +80,8 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins, tool_
     rows = selection['files'] + selection['notices'] + selection.get('build_properties', [])
     links = selection.get('symlinks', [])
     paths = [relative(r['input']) for r in rows + links]
-    if len(set(paths)) != len(paths) or any(p.parts[0] not in EXTRACT_PARTITIONS or len(p.parts) < 2
-                                            for p in paths):
+    if len(set(paths)) != len(paths) or any((p.parts[0] not in EXTRACT_PARTITIONS and p.as_posix() not in SYSTEM_INPUTS)
+                                            or len(p.parts) < 2 for p in paths):
         raise VendorError('expected unique selected stock partition paths')
     identity = hashlib.sha256(encoded({'stock': stock, 'selection': selection,
                                        'image_tools': tool_pins, 'format': 1})).hexdigest()

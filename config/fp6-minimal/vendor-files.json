@@ -5824,6 +5824,11 @@
           "path": "vendor/lib64/camera/com.qti.ois.dw9784.so",
           "soname": "com.qti.ois.dw9784.so",
           "reason": "CamX loads the sensor/OIS driver named by the FP6 sensor module data in /vendor/lib64/camera"
+        },
+        {
+          "path": "vendor/lib64/camera/components/com.fp.node.fprtb.so",
+          "soname": "com.fp.node.fprtb.so",
+          "reason": "CamX enumerates /vendor/lib64/camera/components and loads every component (camera.qcom.so path strings)"
         }
       ]
     },
@@ -16336,6 +16341,2363 @@
         "gid": 0,
         "mode": 420,
         "selinux": "u:object_r:vendor_apex_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "system_ext/etc/public.libraries-tct.txt",
+      "path": "system_ext/etc/public.libraries-tct.txt",
+      "sha256": "2cce7cb00ed18f749d2728d983592d908f76def1585eec01b1f795a54c25681f",
+      "bytes": 28,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "f8df087558910f8d0c468f22246df217c8c4b79f1d054bebbb36350bd93cac16"
+      ],
+      "purpose": "Stock JNI and interface library of the Fairphone Camera app (App Store, FP6): the app reaches the algorithm service through them.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:system_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "system_ext/lib64/libtctcameraalgo_jni.tct.so",
+      "path": "system_ext/lib64/libtctcameraalgo_jni.tct.so",
+      "sha256": "cf11874249bb599ec51f744eb0b23dc8858278dc5c74ae4672042fd125ca1566",
+      "bytes": 201024,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "f8df087558910f8d0c468f22246df217c8c4b79f1d054bebbb36350bd93cac16"
+      ],
+      "purpose": "Stock JNI and interface library of the Fairphone Camera app (App Store, FP6): the app reaches the algorithm service through them.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:system_lib_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "system/system/lib64/vendor.tcl.camera.algoservice-V2-ndk.so",
+      "path": "system_ext/lib64/vendor.tcl.camera.algoservice-V2-ndk.so",
+      "sha256": "9b9bc50f937d2b75922dfa067d907a200236024bc3d486976f81edea108f0b33",
+      "bytes": 185856,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "f8df087558910f8d0c468f22246df217c8c4b79f1d054bebbb36350bd93cac16"
+      ],
+      "purpose": "Stock JNI and interface library of the Fairphone Camera app (App Store, FP6): the app reaches the algorithm service through them.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:system_lib_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/bin/hw/cameraalgoservice",
+      "path": "vendor/bin/hw/cameraalgoservice",
+      "sha256": "6ffa9ba9bcc5898674ca0d15314e27eb949952c367bbf60c9cf3b1da9f730fd5",
+      "bytes": 126720,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so",
+        "vendor/lib64/vendor.tcl.camera.algoservice-V2-ndk.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL camera algorithm service of the Fairphone Camera app (offered in the App Store for the FP6): started on demand by servicemanager for that app only, in its own domain (device camera/fpcamera); installed through the reviewed NEEDED_REWRITES derivation (libui.so to uicam.so, its GraphicBuffer imports to GraphicBufCam).",
+      "metadata": {
+        "uid": 0,
+        "gid": 2000,
+        "mode": 493,
+        "selinux": "u:object_r:hal_algoservice_default_exec:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.aisuperfine.so",
+          "soname": "com.tct.cameraalgo.aisuperfine.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.b2y.so",
+          "soname": "com.tct.cameraalgo.b2y.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.distortion.so",
+          "soname": "com.tct.cameraalgo.distortion.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.gs.so",
+          "soname": "com.tct.cameraalgo.gs.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.hdrchecker.so",
+          "soname": "com.tct.cameraalgo.hdrchecker.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.hwmfnr.so",
+          "soname": "com.tct.cameraalgo.hwmfnr.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.mirror.so",
+          "soname": "com.tct.cameraalgo.mirror.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.motiondetect.so",
+          "soname": "com.tct.cameraalgo.motiondetect.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.scenedetect.so",
+          "soname": "com.tct.cameraalgo.scenedetect.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.tcldualbokeh.so",
+          "soname": "com.tct.cameraalgo.tcldualbokeh.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.watermark.so",
+          "soname": "com.tct.cameraalgo.watermark.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        },
+        {
+          "path": "vendor/lib64/com.tct.cameraalgo.rawfusion.so",
+          "soname": "com.tct.cameraalgo.rawfusion.so",
+          "reason": "The TCL algorithm pool (libtctcameraalgo.so, in this service) opens each plugin it is configured with (com.tct.cameraalgo.*) with dlopen by path. The plugins link libtctcameraalgo.so, so the edge hangs off the service"
+        }
+      ]
+    },
+    {
+      "input": "vendor/etc/camera/400_528_float16.tflite",
+      "path": "vendor/etc/camera/400_528_float16.tflite",
+      "sha256": "bdea048ce056a19337398499777d494dc879f13de8b273ba4e2d070c4474a7e3",
+      "bytes": 2326844,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/MotionDetParams.cfg",
+      "path": "vendor/etc/camera/MotionDetParams.cfg",
+      "sha256": "caa849df69bd92be3094ffdbcda7ba886d942bad326e1dbd57d0c91dc039eec5",
+      "bytes": 1311,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/MotionDetParams_oneshot.cfg",
+      "path": "vendor/etc/camera/MotionDetParams_oneshot.cfg",
+      "sha256": "2d5852eece6e6676dd1fd8e52c22a47cb3def10254b4e5ef75301c50fdefe139",
+      "bytes": 1311,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/algoservice/400_528_float16.tflite",
+      "path": "vendor/etc/camera/algoservice/400_528_float16.tflite",
+      "sha256": "bdea048ce056a19337398499777d494dc879f13de8b273ba4e2d070c4474a7e3",
+      "bytes": 2326844,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/algoservice/bayer_preproc.bin",
+      "path": "vendor/etc/camera/algoservice/bayer_preproc.bin",
+      "sha256": "863989c9e30f26d798803f183e241584ad325132c41aba51eae173ae3a147c3a",
+      "bytes": 49272,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/algoservice/image_bpc_1f7ad02c58698f97b7bdb2505d00cb3a82a21b7c6abd22e8260c762b44f0d87f.clbin",
+      "path": "vendor/etc/camera/algoservice/image_bpc_1f7ad02c58698f97b7bdb2505d00cb3a82a21b7c6abd22e8260c762b44f0d87f.clbin",
+      "sha256": "a40f4a3cf430368de60f4d38f89009ddc827d3c5cb167f3c47f04db0a60a8d42",
+      "bytes": 9336,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/algoservice/imx896_low_iso.model",
+      "path": "vendor/etc/camera/algoservice/imx896_low_iso.model",
+      "sha256": "1a6d21808acd3fce9e31714e8e904008ba07e929f25a77ae7499c10fd5fa78f1",
+      "bytes": 2581768,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/anc_hdrchecker_config.json",
+      "path": "vendor/etc/camera/anc_hdrchecker_config.json",
+      "sha256": "036e23a44da8e4a4f6bc1996b1d71ae4d8787b7b72a91cf71a964fb3cbe6c7e1",
+      "bytes": 11470,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResBlurDet_14132813453306724852.bin",
+      "path": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResBlurDet_14132813453306724852.bin",
+      "sha256": "903391457f6e9035e36314e8ff82a0604f050ff73bf020b3aa38f83a4a6d5109",
+      "bytes": 2212288,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResClassificationDet_11249559976143278055.bin",
+      "path": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResClassificationDet_11249559976143278055.bin",
+      "sha256": "d4c6960bdd111ff96b04cc1badbf6878755fbcdca730f8dea3478a2c877913ea",
+      "bytes": 432912,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResFaceDet_2529891757476932932.bin",
+      "path": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResFaceDet_2529891757476932932.bin",
+      "sha256": "9f69d72b90fa8d87a8fe5037bbdfc166e6817ed1e4d77ef67d336c8a005a4f15",
+      "bytes": 958840,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResHumanBall3Det_13009528756855277580.bin",
+      "path": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResHumanBall3Det_13009528756855277580.bin",
+      "sha256": "a0aa747b4b0995e0de5dc8ce05c30840b635490a05271db4a3f25494e7e21422",
+      "bytes": 2273112,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResPolandHumanPoint_16271021517991567208.bin",
+      "path": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResPolandHumanPoint_16271021517991567208.bin",
+      "sha256": "babf93eb129fdd8d31be0aed32bf34302b629cdd65e820a19f0205d5979d147e",
+      "bytes": 2181600,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResSmileDet_17274125041247498845.bin",
+      "path": "vendor/etc/camera/app/motion/cbb/cache/MOD_HKResSmileDet_17274125041247498845.bin",
+      "sha256": "e2016545f949968747c7066a0d1ef9dd7bf8c69cd9346e513eaf9e86cfee1f89",
+      "bytes": 433128,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/model/HumanPoint_112_20230907.tflite",
+      "path": "vendor/etc/camera/app/motion/cbb/model/HumanPoint_112_20230907.tflite",
+      "sha256": "a2a875db6debbe852534ce54ae3e9a6a55bb662de3f53d159c2c5709eabbbe92",
+      "bytes": 1931288,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/model/blur_128_20230529.tflite",
+      "path": "vendor/etc/camera/app/motion/cbb/model/blur_128_20230529.tflite",
+      "sha256": "4cb70f43ae960a17bc0723fb5ce6ea9fa860977271d8868a2a4bb631711ce5c9",
+      "bytes": 1235760,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/model/faceDetector_slim_256.tflite",
+      "path": "vendor/etc/camera/app/motion/cbb/model/faceDetector_slim_256.tflite",
+      "sha256": "32a04db274d6fbafa40471191f55b12ab3538a63ec6a2f147d8975f125abfb86",
+      "bytes": 726808,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/model/highlight_capture_96_0922.tflite",
+      "path": "vendor/etc/camera/app/motion/cbb/model/highlight_capture_96_0922.tflite",
+      "sha256": "058fe0b8b1bf9388d55cb3e8799ebd2cebe1d2a5e7dc3d5b69506a743722f53c",
+      "bytes": 174424,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/model/smiling_133837.tflite",
+      "path": "vendor/etc/camera/app/motion/cbb/model/smiling_133837.tflite",
+      "sha256": "52dd10d5799cd5e5529b909811b5252b26d6abda4764a6c6aec783675e1e0421",
+      "bytes": 174160,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/model/yolox_oneshot_256_20231007.tflite",
+      "path": "vendor/etc/camera/app/motion/cbb/model/yolox_oneshot_256_20231007.tflite",
+      "sha256": "5e8466eca6dddb5aeec0e2780ed1972e01edda26030f7f0d8299c54104f2a300",
+      "bytes": 1897444,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/model/yolox_oneshot_320_20231007.tflite",
+      "path": "vendor/etc/camera/app/motion/cbb/model/yolox_oneshot_320_20231007.tflite",
+      "sha256": "70a6cdd849ea216cf60af2b8a6ea60663cc8b6bb6053cae28a35dd74bf2edd15",
+      "bytes": 1897444,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/xml/app_oneshot_flash_shot_frame.xml",
+      "path": "vendor/etc/camera/app/motion/cbb/xml/app_oneshot_flash_shot_frame.xml",
+      "sha256": "aebe445bad362a987c1ffeb8343467cf42b1d61dc45316f10df916a7111b2243",
+      "bytes": 1717,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/xml/app_oneshot_recommend_frame.xml",
+      "path": "vendor/etc/camera/app/motion/cbb/xml/app_oneshot_recommend_frame.xml",
+      "sha256": "a352fb33bfb936af84e874774517c92df2c75b384a12a79c367a6bdc4213e82b",
+      "bytes": 2052,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/app/motion/cbb/xml/app_oneshot_select_frame.xml",
+      "path": "vendor/etc/camera/app/motion/cbb/xml/app_oneshot_select_frame.xml",
+      "sha256": "26fbf953cb5f9b2e351e8f6ed883f820f69939698cc8c1dd7f8eb2feb73d9629",
+      "bytes": 2530,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/cameraalgoserviceVersionInfo.xml",
+      "path": "vendor/etc/camera/cameraalgoserviceVersionInfo.xml",
+      "sha256": "aa027ce78575baae3829fff4a565cdb59c76d58034c68a70c06a4f0bebbc0a8c",
+      "bytes": 226,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/cnet_h384w512_quan_0317_int8.tflite",
+      "path": "vendor/etc/camera/cnet_h384w512_quan_0317_int8.tflite",
+      "sha256": "af052439b6b77d65f1dedd7c2889459d883fe15a98eef1aa2355154e8e9a90e6",
+      "bytes": 534768,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/detect_fruit_uint8_v1.0.2.tflite",
+      "path": "vendor/etc/camera/detect_fruit_uint8_v1.0.2.tflite",
+      "sha256": "98c38c328df9dfbab6f02d24268c23960e0da576c9302e1187d96e0b299c0fc9",
+      "bytes": 3415280,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/gc08a8_high_iso.model",
+      "path": "vendor/etc/camera/gc08a8_high_iso.model",
+      "sha256": "28ca444b714da0a495bbf267443297a7916e35c1e9dbc1ad687f4d40cf53fa61",
+      "bytes": 2446984,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/gc08a8_low_iso.model",
+      "path": "vendor/etc/camera/gc08a8_low_iso.model",
+      "sha256": "b48b12dac77cf4bbd4fc6081c4fca888ab3193754a59d710f3ee0bb5cb4ab066",
+      "bytes": 2446984,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/gc08a8_mfnr_ai.model",
+      "path": "vendor/etc/camera/gc08a8_mfnr_ai.model",
+      "sha256": "7334bdbe6e4cb179e65b10876718171974b0ae4be706c206c57ecb8eaa6acce7",
+      "bytes": 2446984,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/golden_dualcam_cali_read.bin",
+      "path": "vendor/etc/camera/golden_dualcam_cali_read.bin",
+      "sha256": "ca6a62f28121b551b031eb9471f768c75883e1c90a271e124b97d154597b7d62",
+      "bytes": 416,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/hi3231q_high_iso.model",
+      "path": "vendor/etc/camera/hi3231q_high_iso.model",
+      "sha256": "9bfa3022dae7086ecc97f56aab66727d1cde8129ade915faacdd194b74934c25",
+      "bytes": 2446984,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/hi3231q_low_iso.model",
+      "path": "vendor/etc/camera/hi3231q_low_iso.model",
+      "sha256": "25b2774bd8eeb368c9d926f926a750586ecf799f2e13d4d49500e558859f60ab",
+      "bytes": 2446984,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/hi3231q_mfnr_ai.model",
+      "path": "vendor/etc/camera/hi3231q_mfnr_ai.model",
+      "sha256": "1bad44a0a7b096a4327f288a37980501c64b19505e321a3e6f5fd6425987c9eb",
+      "bytes": 2446984,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/imx896_high_iso.model",
+      "path": "vendor/etc/camera/imx896_high_iso.model",
+      "sha256": "8e62e2bc5c4604830491f59c3a2e45e5385443027a85adecefa2d93265f5a639",
+      "bytes": 2581048,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/imx896_low_iso.model",
+      "path": "vendor/etc/camera/imx896_low_iso.model",
+      "sha256": "39e4fb55ad89c5178c695271bd9ea1f9ea173e5872572035689b2010502ce21d",
+      "bytes": 2449376,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/imx896_mfnr_ai.model",
+      "path": "vendor/etc/camera/imx896_mfnr_ai.model",
+      "sha256": "e47ad0cd446da2ae6fc2b61c8ed8372c14f8d31c6f6e6dee83b312a329ebdd77",
+      "bytes": 2581048,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/intsense_config_singlebokeh.bin",
+      "path": "vendor/etc/camera/intsense_config_singlebokeh.bin",
+      "sha256": "8a5bdbac1f3b38d4ac158d6a92656446a3dab585f5339b93fb217521876c9c37",
+      "bytes": 13617,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/modnet_c12v2_in_h416_w544.bin",
+      "path": "vendor/etc/camera/modnet_c12v2_in_h416_w544.bin",
+      "sha256": "ef49570f6f44c03f03feb81c40efe9ac96cd14f339d9b270b0114d9004b46267",
+      "bytes": 324144,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/modnet_c12v2_in_h416_w544.mnn",
+      "path": "vendor/etc/camera/modnet_c12v2_in_h416_w544.mnn",
+      "sha256": "e5db16669ecd3dad0880e25a08b2a8627cae4605461e2ad3a28deacd328b28c3",
+      "bytes": 7867488,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/params_prod_20220218_8_latest_toend.tflite",
+      "path": "vendor/etc/camera/params_prod_20220218_8_latest_toend.tflite",
+      "sha256": "bdf8f2e15474dea2740df4cc0294723f72ecf23a9360d497706f9fa807508bc6",
+      "bytes": 1936496,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/s5khm6_high_iso.model",
+      "path": "vendor/etc/camera/s5khm6_high_iso.model",
+      "sha256": "442e87bcbc82778cd7450da6ce11aaba0bea7dfffe6fa4a5f3ccfd281c69cac1",
+      "bytes": 2581056,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/s5khm6_low_iso.model",
+      "path": "vendor/etc/camera/s5khm6_low_iso.model",
+      "sha256": "a6d9e26974d0d2c7e7269c58dd71411d63f16a592788cda1cf05d7b4e696e082",
+      "bytes": 2532584,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/s5khm6_mfnr_ai.model",
+      "path": "vendor/etc/camera/s5khm6_mfnr_ai.model",
+      "sha256": "8cff6f8dd9fd98e2baf1ff0b17f3ec986c2e3c149ee7baaca85873932d1cf757",
+      "bytes": 2581056,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/scene_v6_quant.tflite",
+      "path": "vendor/etc/camera/scene_v6_quant.tflite",
+      "sha256": "fc9e287b5761c02a8996373c029133f7d51b087c1a874ffcc8e79799d4241678",
+      "bytes": 663704,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/segmentation_high_precision.cl.bin",
+      "path": "vendor/etc/camera/segmentation_high_precision.cl.bin",
+      "sha256": "1038df8d95dc6371bc716c77e460e71bbf2449bd663c9840ae0aa32a49176c67",
+      "bytes": 643312,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/segmentation_low_precision.cl.bin",
+      "path": "vendor/etc/camera/segmentation_low_precision.cl.bin",
+      "sha256": "d123f1494c4994f9f2301c5dfe2d85a5b8083c7e6a183409b0d2a87cf82d6020",
+      "bytes": 582712,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/sensorParamConfig.xml",
+      "path": "vendor/etc/camera/sensorParamConfig.xml",
+      "sha256": "5ee996edd8e31494c81fcb18f39f25e5374ad4e03b8e708f4d17117a7a29c555",
+      "bytes": 3376,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/sf_scene_0",
+      "path": "vendor/etc/camera/sf_scene_0",
+      "sha256": "5fa23c00fdec2ca38c85f7629d93d859f41aa60f1e5ca3b6911e126715d76140",
+      "bytes": 1928552,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/tclbokeh_golden.bin",
+      "path": "vendor/etc/camera/tclbokeh_golden.bin",
+      "sha256": "1298df1c532eea32405c70c50db42828863e2d742d8cca3ca3f0aecca7e3ea51",
+      "bytes": 416,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/tuningversion_fps.txt",
+      "path": "vendor/etc/camera/tuningversion_fps.txt",
+      "sha256": "c65b5edc8a5dd91f8b18029f1652dcceef4f11e002f69e50fde26c2d7a6c0dd3",
+      "bytes": 323,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.aisuperfine.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.aisuperfine.so",
+      "sha256": "24e5017144e0ebefeb44fe9587b2856905fc7e9f4aec11876d2d68c2b2ed2acc",
+      "bytes": 24648,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libTclAISuperfine.so",
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.b2y.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.b2y.so",
+      "sha256": "47b0cd563cfd541a36304866edaf8e7a4e2d33407cd192b1e5510cf08dd4758b",
+      "bytes": 16200,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libqcomisphidl.so",
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.distortion.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.distortion.so",
+      "sha256": "a89ec6a3a2c4e9326d089cf844081c80ddf8b3e5ee39f3d5cb883d3811bb3d75",
+      "bytes": 36992,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so",
+        "vendor/lib64/libundistort.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL camera algorithm library of the Fairphone Camera app; installed through the reviewed NEEDED_REWRITES derivation (libui.so to uicam.so, its GraphicBuffer imports to GraphicBufCam).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.gs.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.gs.so",
+      "sha256": "c6dd067f6834992532c421cb1842517798a9c68b355e7ada467affc49139f458",
+      "bytes": 24352,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.hdrchecker.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.hdrchecker.so",
+      "sha256": "29579afb13f02322843ae068b750c3b6b565bfba207f54c022cfb8e5b03a5416",
+      "bytes": 19608,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libanc_hdr_check_nothing.so",
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.hwmfnr.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.hwmfnr.so",
+      "sha256": "25b8009fa39401c89533e5b9f74d30abbae30b411f564e5c5bb547f91e454049",
+      "bytes": 16176,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.mirror.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.mirror.so",
+      "sha256": "e039403a236e5f90b09ffbb852445d6af6d0c0edff3dffa9f9175c1ac7a34ccb",
+      "bytes": 20368,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.motiondetect.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.motiondetect.so",
+      "sha256": "afcd57b88d4b791e2619327a02884590828f6b222fd240bb9830bc586cfafd7a",
+      "bytes": 108640,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libmotionDetV2.so",
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.scenedetect.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.scenedetect.so",
+      "sha256": "3cccd9d7e1454d77b94dc84c5a26641e94e3122043d4e582b037ffe5861aae17",
+      "bytes": 457448,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@1.0.so",
+        "vendor/lib64/com.tct.cameraalgo.hdrchecker.so",
+        "vendor/lib64/libtclSceneDetector.so",
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.tcldualbokeh.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.tcldualbokeh.so",
+      "sha256": "bdef3f250dcafd4bb4974e3330addee52f7f313145686ce12c4cbe3d6e0e5d3e",
+      "bytes": 29152,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtcl_dualcam_bokeh_cap.so",
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.watermark.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.watermark.so",
+      "sha256": "1e1a00929297a80416b27d9c78a4888e8589b9a32deb79da6e033240c16c9127",
+      "bytes": 32848,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libMNN.so",
+      "path": "vendor/lib64/libMNN.so",
+      "sha256": "8ee358e8c32b805751dbcfeae7882eae8026fae8aa6d4645a75ae5e580c58c7c",
+      "bytes": 1583880,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libTHIS.so",
+      "path": "vendor/lib64/libTHIS.so",
+      "sha256": "0a4f5d7be4b074edab2168dbc55dca20bab502bbe482a95858029006c4226478",
+      "bytes": 1144728,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libTclAISuperfine.so",
+      "path": "vendor/lib64/libTclAISuperfine.so",
+      "sha256": "6011f9053542d83ee445a033e283508ebc9ba882cf3e37fde2cb646477a33d17",
+      "bytes": 1185752,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libTHIS.so",
+        "vendor/lib64/libopencv_core.so",
+        "vendor/lib64/libopencv_imgproc.so",
+        "vendor/lib64/libtcltflitev2.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libTclImage_ImageEngine.so",
+      "path": "vendor/lib64/libTclImage_ImageEngine.so",
+      "sha256": "7b10c805716b078841f3c6003d90342741b4ed5456582c5655f1935ee9a325d4",
+      "bytes": 555528,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libMNN.so",
+        "vendor/lib64/libopencv_core.so",
+        "vendor/lib64/libopencv_imgcodecs.so",
+        "vendor/lib64/libopencv_imgproc.so",
+        "vendor/lib64/libtclyuv.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libtcltflitev2.so",
+          "soname": "libtcltflitev2.so",
+          "reason": "The TCL image engine opens TCL's TFLite runtime with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libanc_hdr_check_nothing.so",
+      "path": "vendor/lib64/libanc_hdr_check_nothing.so",
+      "sha256": "30e2a6b3c2a93f33530e8679e98f4d6e4a0befec1f4541ebb7f38b1edd04e7cb",
+      "bytes": 2340512,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libc++_shared.so",
+      "path": "vendor/lib64/libc++_shared.so",
+      "sha256": "54eb5038dc5d8f53a29256110747b765e71a33239bb7ac85312a4e43b7888e58",
+      "bytes": 6235072,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libmotionDetV2.so",
+      "path": "vendor/lib64/libmotionDetV2.so",
+      "sha256": "cc491a6ad3c5729f653f41221e539cbc5667efeb5098aaf316536a690ed73716",
+      "bytes": 6032912,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libopencv_core.so",
+      "path": "vendor/lib64/libopencv_core.so",
+      "sha256": "fd8ee28e6e3451048bd502a62135c2036370c5129a9c2c0cff520972a4cf2a01",
+      "bytes": 3348472,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libopencv_imgcodecs.so",
+      "path": "vendor/lib64/libopencv_imgcodecs.so",
+      "sha256": "d273429eec8633510a60f08ebc49978c55ef722278536df06a6590486daeb07a",
+      "bytes": 2826752,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libopencv_core.so",
+        "vendor/lib64/libopencv_imgproc.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libopencv_imgproc.so",
+      "path": "vendor/lib64/libopencv_imgproc.so",
+      "sha256": "f461a4d34e43a66bd9da6594b2c70bca35c9584a06230e4ebf36221b26f2f89d",
+      "bytes": 2838112,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libopencv_core.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libqcomisphidl.so",
+      "path": "vendor/lib64/libqcomisphidl.so",
+      "sha256": "58c4fdd614178dcb596a6eaf779852733ca668f83a603afd2b48447b232006f5",
+      "bytes": 41360,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtclSceneDetector.so",
+      "path": "vendor/lib64/libtclSceneDetector.so",
+      "sha256": "4bba233fa3651a686d301bfe9889b0f20880d05e58f6091e2ed8150c41ee5e51",
+      "bytes": 472888,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libopencv_core.so",
+        "vendor/lib64/libopencv_imgproc.so",
+        "vendor/lib64/libtcltflitev2.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtcl_dualcam_bokeh_cap.so",
+      "path": "vendor/lib64/libtcl_dualcam_bokeh_cap.so",
+      "sha256": "52d9b5bbd0d94e5e04d4692f48d264a451b71c6daf6a628ed148b01685e395cc",
+      "bytes": 17629072,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtcltflitev2.so",
+      "path": "vendor/lib64/libtcltflitev2.so",
+      "sha256": "1b3fd25c9c2daee0d60095b139bb2e5544a7cc6a0c82d98dfe49f016a4ac3c2e",
+      "bytes": 5718696,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtclyuv.so",
+      "path": "vendor/lib64/libtclyuv.so",
+      "sha256": "c3e09ba6b9dfcdfc1115b8807100c9622f1623e45fc783bc43e69d468788f248",
+      "bytes": 407392,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtctcameraalgo.so",
+      "path": "vendor/lib64/libtctcameraalgo.so",
+      "sha256": "2bbe8ab62e29251bee8edba2521a00b67fa57c2870a55df680d1fad2f1025000",
+      "bytes": 768656,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/android.hardware.sensors@1.0.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL camera algorithm library of the Fairphone Camera app; installed through the reviewed NEEDED_REWRITES derivation (libui.so to uicam.so, its GraphicBuffer imports to GraphicBufCam).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/camera/components/com.fp.node.fprtb.so",
+      "path": "vendor/lib64/camera/components/com.fp.node.fprtb.so",
+      "sha256": "beee2310c5952cb36cd94d9673ebb05096e6c51848eaaea7fbef2cc70c11ffb6",
+      "bytes": 57656,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libchilog.so",
+        "vendor/lib64/libcom.qti.chinodeutils.so",
+        "vendor/lib64/libtcl_dualcam_bokeh_prv.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Fairphone CHI node for the two-camera live bokeh preview of the Fairphone Camera app's portrait mode.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libtcl_dualcam_bokeh_prv.so",
+      "path": "vendor/lib64/libtcl_dualcam_bokeh_prv.so",
+      "sha256": "278b56c27121fb4ccda1e8044af2c555712a556246e0f7c892af45032ecf1990",
+      "bytes": 6772992,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL two-camera bokeh preview library, linked by the Fairphone live bokeh CHI node.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/cache_front_main",
+      "path": "vendor/etc/camera/AncRawAlgos/cache_front_main",
+      "sha256": "97fe997d6f17a12636e6f9b1cd4fb371fa9495309971145961ee1e1ced621f8b",
+      "bytes": 2148188,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/cache_rear_main",
+      "path": "vendor/etc/camera/AncRawAlgos/cache_rear_main",
+      "sha256": "947abf504a9de61b9990ad5880e7c6d2c0790602a170f30f15227d93709d7cda",
+      "bytes": 2501232,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/cache_rear_uw",
+      "path": "vendor/etc/camera/AncRawAlgos/cache_rear_uw",
+      "sha256": "fdd5f6e516aa0f0e3a516b71e5e787b64a13f8c7fd7cd09ed2fd4ff22c6002fd",
+      "bytes": 3162476,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/effect_param_front_main.json",
+      "path": "vendor/etc/camera/AncRawAlgos/effect_param_front_main.json",
+      "sha256": "b07ac35fe510eb076f1fb43989883a341b2ee30230fd0d8d982f2578546efca5",
+      "bytes": 86,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/effect_param_rear_main.json",
+      "path": "vendor/etc/camera/AncRawAlgos/effect_param_rear_main.json",
+      "sha256": "b4fe8aab54cd06d480a66ac4056fe6b79a591cb442c3faf6177b0f928eb6f5e9",
+      "bytes": 914,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/effect_param_rear_uw.json",
+      "path": "vendor/etc/camera/AncRawAlgos/effect_param_rear_uw.json",
+      "sha256": "57d6780fab157d46a688c5ca93c5ea43b516bba3b31b813f1aa08a15aa8b86eb",
+      "bytes": 555,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/hc_opr_lite_cache_front_main",
+      "path": "vendor/etc/camera/AncRawAlgos/hc_opr_lite_cache_front_main",
+      "sha256": "7c62fbd14d2f6769ae88cbec9ad562c78dcbabdfa8bf6561a6d9b10fbebd3571",
+      "bytes": 1264404,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/hc_opr_lite_cache_rear_main",
+      "path": "vendor/etc/camera/AncRawAlgos/hc_opr_lite_cache_rear_main",
+      "sha256": "7c62fbd14d2f6769ae88cbec9ad562c78dcbabdfa8bf6561a6d9b10fbebd3571",
+      "bytes": 1264404,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/hc_opr_lite_cache_rear_uw",
+      "path": "vendor/etc/camera/AncRawAlgos/hc_opr_lite_cache_rear_uw",
+      "sha256": "7c62fbd14d2f6769ae88cbec9ad562c78dcbabdfa8bf6561a6d9b10fbebd3571",
+      "bytes": 1264404,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/siq_ocl_cache_front_main",
+      "path": "vendor/etc/camera/AncRawAlgos/siq_ocl_cache_front_main",
+      "sha256": "6b030b239ab5ba94ce52ef1fcb80795dd471a03e1b66e9e81af6ffee595cec49",
+      "bytes": 49574,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/siq_ocl_cache_rear_main",
+      "path": "vendor/etc/camera/AncRawAlgos/siq_ocl_cache_rear_main",
+      "sha256": "73aa4d16b945d46fe965bbf44f2f77524c562b1103ce0967bf7e25b49e170b6c",
+      "bytes": 59190,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/siq_ocl_cache_rear_uw",
+      "path": "vendor/etc/camera/AncRawAlgos/siq_ocl_cache_rear_uw",
+      "sha256": "73c2aaef824cd5fdbb1092eb0001fa0b6eff63955008297ff13ffed2c8dd317f",
+      "bytes": 110202,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/superiq_model_front_main",
+      "path": "vendor/etc/camera/AncRawAlgos/superiq_model_front_main",
+      "sha256": "6d14299383b636a4e5f9f3d9d6c32b4ae9df857f77ea3d0331603e9bb96acbc6",
+      "bytes": 27241007,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/superiq_model_rear_main",
+      "path": "vendor/etc/camera/AncRawAlgos/superiq_model_rear_main",
+      "sha256": "f99206666c042cbdd67c6711c62c42a684349a902f713f026791dee55a34cfc6",
+      "bytes": 28883891,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/etc/camera/AncRawAlgos/superiq_model_rear_uw",
+      "path": "vendor/etc/camera/AncRawAlgos/superiq_model_rear_uw",
+      "sha256": "1aa28ed1a446b34eeb52fa6d5107921e6e93e22c2701a79ac4afffedd8981228",
+      "bytes": 28314155,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock configuration, tuning or model data of the TCL camera algorithms of the Fairphone Camera app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_configs_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/com.tct.cameraalgo.rawfusion.so",
+      "path": "vendor/lib64/com.tct.cameraalgo.rawfusion.so",
+      "sha256": "3cf96cabc3198f851c50268b9a3b0fc5fdd6c3d8ae2dd6e4389053b5c62bb673",
+      "bytes": 53576,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [
+        "vendor/lib64/libtctcameraalgo.so"
+      ],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libanc_hdr.so",
+          "soname": "libanc_hdr.so",
+          "reason": "The RAW fusion plugin opens the ANC HDR library with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libanc_hdr.so",
+      "path": "vendor/lib64/libanc_hdr.so",
+      "sha256": "6433951f0534c7936a8fc8620034ac1e8e156498b38b655d0ae37ec9ea827e51",
+      "bytes": 2592600,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libanc_hdr_adapter_front_main.so",
+          "soname": "libanc_hdr_adapter_front_main.so",
+          "reason": "The ANC HDR library opens the adapter its configuration names for each camera with dlopen"
+        },
+        {
+          "path": "vendor/lib64/libanc_hdr_adapter_rear_main.so",
+          "soname": "libanc_hdr_adapter_rear_main.so",
+          "reason": "The ANC HDR library opens the adapter its configuration names for each camera with dlopen"
+        },
+        {
+          "path": "vendor/lib64/libanc_hdr_adapter_rear_uw.so",
+          "soname": "libanc_hdr_adapter_rear_uw.so",
+          "reason": "The ANC HDR library opens the adapter its configuration names for each camera with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libanc_hdr_adapter_front_main.so",
+      "path": "vendor/lib64/libanc_hdr_adapter_front_main.so",
+      "sha256": "39c3bc03767a27c486070b57e285510e2799f345b15dbd85e854371fcd0f0e47",
+      "bytes": 21461144,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/fpcOpenCL.so",
+          "soname": "fpcOpenCL.so",
+          "reason": "The ANC model runner opens the OpenCL runtime with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libanc_hdr_adapter_rear_main.so",
+      "path": "vendor/lib64/libanc_hdr_adapter_rear_main.so",
+      "sha256": "e2aa7f73369f70ad3132f1d7d7c82b44d506299ef208b733b79e0297cfdc6cbc",
+      "bytes": 21703696,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/fpcOpenCL.so",
+          "soname": "fpcOpenCL.so",
+          "reason": "The ANC model runner opens the OpenCL runtime with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libanc_hdr_adapter_rear_uw.so",
+      "path": "vendor/lib64/libanc_hdr_adapter_rear_uw.so",
+      "sha256": "9e8a8b37d192e2919e3ff90cdb6156a060938eb45d49d8200ad70e11fff6e049",
+      "bytes": 21553176,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:camera",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock TCL or ANC camera algorithm library of the Fairphone Camera app (App Store, FP6), loaded by the algorithm service or the app.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:vendor_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/fpcOpenCL.so",
+          "soname": "fpcOpenCL.so",
+          "reason": "The ANC model runner opens the OpenCL runtime with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libOpenCL.so",
+      "path": "vendor/lib64/fpcOpenCL.so",
+      "sha256": "671d4c60e8effd7d63c9fb85aa9de09f1264b7377bac161f95c5822d7f36a8a3",
+      "bytes": 68152,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Adreno OpenCL loader, for the Fairphone Camera's algorithm service only: installed as fpcOpenCL.so, the name only the service's rewritten ANC HDR adapters look for, so the camera provider keeps running without OpenCL.",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libOpenCL_adreno.so",
+          "soname": "libOpenCL_adreno.so",
+          "reason": "The OpenCL loader opens the Adreno backend with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libOpenCL_adreno.so",
+      "path": "vendor/lib64/libOpenCL_adreno.so",
+      "sha256": "1662f89cc0e4f96bb27bb65393e7b54a95503ab1ad1a361ca5e600dfa6996b3f",
+      "bytes": 179928,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Adreno OpenCL runtime or compiler, for the Fairphone Camera's algorithm service only: its own SELinux label lets no other process load it (sepolicy/fpcamera-vendor).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      },
+      "runtime_dependencies": [
+        {
+          "path": "vendor/lib64/libllvm-qcom.so",
+          "soname": "libllvm-qcom.so",
+          "reason": "The Adreno OpenCL backend compiles kernels through libCB, which opens the LLVM backend and the CL compiler with dlopen"
+        },
+        {
+          "path": "vendor/lib64/libadreno_compiler_cl.so",
+          "soname": "libadreno_compiler_cl.so",
+          "reason": "The Adreno OpenCL backend compiles kernels through libCB, which opens the LLVM backend and the CL compiler with dlopen"
+        }
+      ]
+    },
+    {
+      "input": "vendor/lib64/libllvm-qcom.so",
+      "path": "vendor/lib64/libllvm-qcom.so",
+      "sha256": "cea310b138ad5f0025ba68dea93c430468a34254e3a16cfef33b0dae4c3e7434",
+      "bytes": 290264,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Adreno OpenCL runtime or compiler, for the Fairphone Camera's algorithm service only: its own SELinux label lets no other process load it (sepolicy/fpcamera-vendor).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
+        "capabilities_hex": ""
+      }
+    },
+    {
+      "input": "vendor/lib64/libadreno_compiler_cl.so",
+      "path": "vendor/lib64/libadreno_compiler_cl.so",
+      "sha256": "08e09ff4f03d9a5cd2cc8e9aba3254827038eca0a1857c9fd8235c817493f839",
+      "bytes": 33796528,
+      "component_id": "camera-stack",
+      "inventory_ref": "userspace_hal_families:graphics-display-media",
+      "dependencies": [],
+      "notices": [
+        "651ccb755ba744386c0d95ff8a85d7cab81a0f4a670c0d6d3d39e2c7ea599ac5"
+      ],
+      "purpose": "Stock Adreno OpenCL runtime or compiler, for the Fairphone Camera's algorithm service only: its own SELinux label lets no other process load it (sepolicy/fpcamera-vendor).",
+      "metadata": {
+        "uid": 0,
+        "gid": 0,
+        "mode": 420,
+        "selinux": "u:object_r:same_process_hal_file:s0",
         "capabilities_hex": ""
       }
     }

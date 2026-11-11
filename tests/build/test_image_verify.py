@@ -221,6 +221,25 @@ class RuleTests(unittest.TestCase):
         self.assertIn('hal_y_default', detail)
         self.assertFalse(subject.rule_sepolicy_sources(dict(rule, target='absent_type'), self.harness(members))[0])
 
+    def test_sepolicy_denied_finds_grants_through_attributes(self):
+        plat = (b'(type app_a)\n(type app_b)\n(type port)\n'
+                b'(typeattributeset netdomain (app_b))\n'
+                b'(typeattributeset appdomain (app_a app_b))\n'
+                b'(allow appdomain self (unix_stream_socket (create connect)))\n'
+                b'(allow netdomain self (tcp_socket (create connect)))\n'
+                b'(allow netdomain port (tcp_socket (name_connect)))\n')
+        members = {'SYSTEM/etc/selinux/plat_sepolicy.cil': plat}
+        rule = {'files': ['SYSTEM/etc/selinux/plat_sepolicy.cil'], 'domain': 'app_a',
+                'classes': ['tcp_socket', 'udp_socket'], 'perms': ['create', 'name_connect']}
+        self.assertTrue(subject.rule_sepolicy_denied(rule, self.harness(members))[0])
+        ok, detail = subject.rule_sepolicy_denied(dict(rule, domain='app_b'), self.harness(members))
+        self.assertFalse(ok)
+        self.assertIn('tcp_socket self through netdomain', detail)
+        self.assertIn('tcp_socket port through netdomain', detail)
+        self.assertTrue(subject.rule_sepolicy_denied(dict(rule, domain='app_b', perms=['bind']),
+                                                     self.harness(members))[0])
+        self.assertFalse(subject.rule_sepolicy_denied(dict(rule, domain='absent'), self.harness(members))[0])
+
     def test_soc_serial_and_thermal_hal_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         ueventd = (b'/sys/devices/soc0         serial_number    0400   root   root\n'
@@ -741,7 +760,7 @@ class RuleTests(unittest.TestCase):
         from diamaneos_tools import vendor_product
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         present, guard = rules['camera-distortion-node'], rules['camera-distortion-graphicbuffer-abi']
-        library, absent = rules['camera-undistort-library-stock'], rules['camera-no-other-fairphone-nodes']
+        library, nodes = rules['camera-undistort-library-stock'], rules['fpcamera-camx-nodes']
         node, uiv34 = 'VENDOR/lib64/camera/components/com.fp.node.distortion.so', 'VENDOR/lib64/uiv34.so'
         # The check names exactly what the vendor product renames in the node.
         rewrite = vendor_product.NEEDED_REWRITES[node.replace('VENDOR', 'vendor', 1)]
@@ -792,19 +811,33 @@ class RuleTests(unittest.TestCase):
         both = dyn.replace('[libutils.so]', '[libui.so]')
         self.assertEqual((False, 'still depends on libui.so'), guarded(both, text))
         self.assertFalse(guarded(dyn, text.replace('mov\tw0, #0x100', 'mov\tw0, #0xd30', 1))[0])
+        # The size may be set a few instructions before the call, as long as
+        # nothing writes w0 or x0 or calls out in between.
+        far = text.replace('    bbf0:\tbl\t0x13a10 <_Znwm@plt>\n',
+                           '    bbf0:\tadd\tx8, x21, x26\n    bbf4:\tstr\txzr, [sp, #0x70]\n'
+                           '    bbf8:\tsub\tx21, x8, #0xe\n    bbfc:\tbl\t0x13a10 <_Znwm@plt>\n', 1)
+        self.assertEqual((True, ''), guarded(dyn, far))
+        for between in ('    bbf6:\tmov\tx0, x19\n', '    bbf6:\tbl\t0x13b00 <strlen@plt>\n'):
+            with self.subTest(between=between):
+                self.assertFalse(guarded(dyn, far.replace('    bbf8:', between + '    bbf8:', 1))[0])
 
         check = lambda rule, members: subject.RULES[rule['type']](rule, self.harness(members))[0]
         installed = {path: b'elf' for path in present['paths']}
         self.assertEqual({node, 'VENDOR/lib64/libundistort.so', uiv34}, set(installed))
         self.assertTrue(check(present, installed))
-        self.assertTrue(check(absent, installed))
-        for path in installed:
-            self.assertFalse(check(present, {p: b'elf' for p in installed if p != path}), path)
-        self.assertEqual(6, len(absent['paths']))
-        for path in absent['paths']:
-            self.assertFalse(check(absent, {**installed, path: b'elf'}), path)
-        for stem in ('fprtb', 'nightvideo', 'singlertbokeh'):
-            self.assertIn(f'VENDOR/lib64/camera/components/com.fp.node.{stem}.so', absent['paths'])
+        # The Fairphone Camera's two-camera live bokeh node ships with the
+        # library only it links. The nodes that need OpenCL stay out.
+        unusable = rules['fpcamera-unusable-algorithms']
+        self.assertEqual(['VENDOR/lib64/camera/components/com.fp.node.fprtb.so',
+                          'VENDOR/lib64/libtcl_dualcam_bokeh_prv.so'], nodes['paths'])
+        for stem in ('nightvideo', 'singlertbokeh'):
+            self.assertIn(f'VENDOR/lib64/camera/components/com.fp.node.{stem}.so', unusable['paths'])
+        both = {path: b'elf' for path in nodes['paths']}
+        self.assertTrue(check(nodes, both) and check(unusable, both))
+        for path in nodes['paths']:
+            self.assertFalse(check(nodes, {p: b'elf' for p in nodes['paths'] if p != path}), path)
+        for path in unusable['paths']:
+            self.assertFalse(check(unusable, {**both, path: b'elf'}), path)
 
         # The library check is bound to the selected stock row: same bytes, owner, mode and label.
         recipe = json.loads((ROOT / 'config/fp6-minimal/vendor-files.json').read_text())

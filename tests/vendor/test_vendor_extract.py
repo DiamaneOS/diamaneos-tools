@@ -124,7 +124,7 @@ class ExtractionTests(unittest.TestCase):
         self.assertFalse((self.output/'current').exists())
     def test_unsafe_paths_and_wrong_partition(self):
         for name in ('../escape','vendor/../../escape','/absolute','vendor/a\ncommand','userdata/file',
-                     'system/lib64/libc.so','odm/etc/file','system_ext'):
+                     'system/lib64/libc.so','system/system/lib64/libc.so','odm/etc/file','system_ext'):
             with self.subTest(name=name):
                 self.selection['files'][0]['input']=name;self.assertRaises(VendorError,self.extract)
         self.assertFalse(self.calls)
