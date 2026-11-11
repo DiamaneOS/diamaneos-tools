@@ -8,13 +8,13 @@
   },
   "upstream": {
     "manifest_url": "https://github.com/GrapheneOS/platform_manifest.git",
-    "release_tag": "2026110200",
-    "release_ref": "refs/tags/2026110200",
-    "tag_object": "433433b931eeb4a33613a52acc545c08835e5f94",
-    "peeled_commit": "abed042a17e948a9734e4c3927ce936b5648129f",
-    "default_manifest_sha256": "150ae4ac808f279994fe36040883106c09fbd660f1cb3ccc5343cf011f1b04c2",
+    "release_tag": "2026110700",
+    "release_ref": "refs/tags/2026110700",
+    "tag_object": "c786138d42a5deb2c7513c7d509e559bad04d330",
+    "peeled_commit": "465b830d8c9fe671a10c322a6151a5f9fd904c28",
+    "default_manifest_sha256": "2079c95ac6ecd2f5f90a9514f8a7c253517f0f56f3bc0f51f90be9ee72ef2a2f",
     "project_count": 1056,
-    "project_map_sha256": "a3219a27158a02c8afe6fc4026b776f33547daa4a65ba41910ad399fa06fe632",
+    "project_map_sha256": "335b094948c7b305d35e1e324a29901b74df1ec63cde67db38c07144a96ce4fd",
     "project_map_format": "UTF-8 lines sorted bytewise: path TAB name TAB remote TAB 40-lowercase-hex-revision LF; missing path uses name and missing remote uses manifest default remote",
     "allowed_signers_url": "https://grapheneos.org/allowed_signers",
     "allowed_signers_sha256": "344f59c6f058699e63fea68e35953b341c14e3bf1fbc1256f6baa84aa2aca1d0",
@@ -28,7 +28,7 @@
       "verification": "repo-launcher-gpg-required"
     },
     "release_scope": "stable; explicitly listed for emulator, generic and other targets",
-    "verified_on": "2026-11-05"
+    "verified_on": "2026-11-11"
   },
   "host": {
     "architecture": "x86_64",
