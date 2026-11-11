@@ -40,7 +40,7 @@ before the build.
 
 ## Build
 
-The toolchain is Clang `r584948c` and Rust `1.91.1.p3` from the pinned prebuilts, the kernel build
+The toolchain is Clang `r596125` and Rust `1.91.1.p3` from the pinned prebuilts, the kernel build
 tools and the host libraries the kernel's own host tools link. The build starts from an empty
 environment, so nothing of the calling shell reaches it.
 

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "How the FP6 kernel set is built on the 6.18 common kernel: toolchain, kernel configuration, device kernel and the vendor module packages in build order. Packaging is in fp6-kernel-packaging.json.",
   "toolchain": {
-    "clang": "toolchain/clang/clang-r584948c",
+    "clang": "toolchain/clang/clang-r596125",
     "rust": "toolchain/rust/1.91.1.p3",
     "bindgen": "toolchain/clang-tools/linux-x86/bin/bindgen",
     "kernel_build_tools": "toolchain/kernel-build-tools/linux_musl-x86",

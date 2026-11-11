@@ -91,7 +91,7 @@ class ToolchainTests(unittest.TestCase):
     def test_the_environment_holds_the_pinned_toolchain_and_nothing_of_the_callers(self):
         with patch.dict('os.environ', {'LD_PRELOAD': 'evil.so', 'MAKEFLAGS': '-j1'}):
             env, make = build.toolchain(self.root, self.plan, self.root / 'farm', '1793273496', [Path('/ws/common'), Path('/ws/run/out')])
-        self.assertTrue(env['PATH'].startswith(str(self.root / 'toolchain/clang/clang-r584948c/bin')))
+        self.assertTrue(env['PATH'].startswith(str(self.root / 'toolchain/clang/clang-r596125/bin')))
         self.assertNotIn('LD_PRELOAD', env)
         self.assertNotIn('MAKEFLAGS', env)
         self.assertEqual('1793273496', env['SOURCE_DATE_EPOCH'])

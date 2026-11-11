@@ -16,7 +16,7 @@
       "path": "toolchain/clang",
       "url": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86",
       "revision": "4a7d0a5e443c27d8f68fbd46abfab464e1355a69",
-      "sparse": ["/*", "!/*/", "/clang-r584948c/"]
+      "sparse": ["/*", "!/*/", "/clang-r596125/"]
     },
     {
       "name": "rust",
