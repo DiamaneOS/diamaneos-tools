@@ -322,7 +322,7 @@
      "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/usb"}},
     {"id": "display-interfaces", "description": "vendor/qcom/opensource/commonsys-intf/display: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/display-commonsys-intf",
      "follow": {"kind": "branch", "ref": "display-sysintf.lnx.17.0.r7-rel", "newer_branches": "^display-sysintf\\.lnx\\.([0-9]+\\.[0-9]+\\.r[0-9]+)-rel$"},
-     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/commonsys-intf/display"}},
+     "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/commonsys-intf/display"}, "reviewed": "0f88d75f764d91335ea3e8ff876b55729da31e98"},
     {"id": "qcom-interfaces", "description": "vendor/qcom/opensource/interfaces: used unmodified, tracked upstream directly (no DiamaneOS fork).", "url": "https://git.codelinaro.org/clo/la/platform/vendor/qcom-opensource/interfaces",
      "follow": {"kind": "branch", "ref": "android-core-sysintf.lnx.17.0.r4-rel", "newer_branches": "^android-core-sysintf\\.lnx\\.([0-9]+\\.[0-9]+\\.r[0-9]+)-rel$"},
      "pin": {"repository": "manifest", "file": "diamaneos.xml", "xml_project_path": "vendor/qcom/opensource/interfaces"}},
