@@ -230,7 +230,7 @@
       "branch": "main",
       "scope": "server",
       "upstream_revision": "29ff6dc8179fa99f6bd5ba2e5716a5a60f5f4913",
-      "reviewed": "6d11ce7563bfd536ee2901a602b186aa86851b0e",
+      "reviewed": "4bbd61af0347ce44728b5fa7e5462ec3d01e416f",
       "upstream": {
         "url": "https://github.com/GrapheneOS/grapheneos.org",
         "ref": "main",
@@ -258,7 +258,7 @@
       "branch": "main",
       "scope": "server",
       "upstream_revision": "03c746ac638b8b2341e3aa5a64bf1c803ba927c6",
-      "reviewed": "03c746ac638b8b2341e3aa5a64bf1c803ba927c6",
+      "reviewed": "d0fae043dc0f8641470f2f503e11a4daa6f01abe",
       "upstream": {
         "url": "https://github.com/GrapheneOS/apps.grapheneos.org",
         "ref": "main",
