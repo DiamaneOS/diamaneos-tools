@@ -254,13 +254,77 @@ class SyncFlowTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, 'dirty or untracked content: device/example'):
             self.sync(self.context(official=True))
 
+    def add_patch_series(self):
+        """A patch project in the manifest, with one patch for device/example."""
+        from diamaneos_tools import patches
+        base = 'https://example.invalid/'
+        scratch = self.root / 'scratch'
+        git(self.root, 'clone', '-q', str(self.example), str(scratch))
+        (scratch / 'example.mk').write_text('PRODUCT := example\nHARDENED := true\n')
+        diff = subprocess.run(['git', '-C', str(scratch), 'diff', '--full-index'], check=True,
+                              capture_output=True).stdout
+        shutil.rmtree(scratch)
+        queue = self.root / 'remotes/patches'
+        remote(queue, {'README': 'patches\n'})
+        (queue / 'patches').mkdir()
+        (queue / 'patches/0001.patch').write_bytes(diff)
+        series = {'schema': 1, 'patches': [{
+            'id': '0001', 'project': 'device/example', 'file': 'patches/0001.patch',
+            'sha256': hashlib.sha256(diff).hexdigest(), 'title': 'Harden the example', 'kind': 'fix',
+            'files': patches.pins(self.example, 'HEAD', queue / 'patches/0001.patch')}]}
+        (queue / 'series.json').write_text(json.dumps(series, indent=1))
+        git(queue, 'add', '-A')
+        git(queue, 'commit', '-qm', 'series')
+        included = self.manifest_repository / 'diamaneos.xml'
+        included.write_text(included.read_text().replace(
+            '</manifest>', f'<project name="platform_patches" path="{patches.PROJECT}" remote="diamaneos"/></manifest>'))
+        git(self.manifest_repository, 'commit', '-qam', 'patch series')
+        self.urls[base + 'platform_patches'] = str(queue)
+        os.environ['FAKE_REPO_URLS'] = json.dumps(self.urls)
+
+    def test_a_patch_series_in_the_manifest_is_applied_and_recorded(self):
+        plain = self.sync()
+        self.assertNotIn('patches', plain)
+        self.assertNotIn('patches_sha256', steps.source_record({'outputs': plain}))
+        self.add_patch_series()
+        outputs = self.sync(self.context(official=True))
+        example = self.src / 'device/example'
+        self.assertIn('HARDENED', (example / 'example.mk').read_text())
+        # The checkout stays at the manifest commit, and so does the resolved manifest.
+        commit = git(self.example, 'rev-parse', 'HEAD')
+        self.assertEqual(commit, git(example, 'rev-parse', 'HEAD'))
+        rows, _ = build.parse_project_map(self.ctx.resolved_manifest.read_bytes())
+        self.assertIn(('device/example', commit), [(row[0], row[3]) for row in rows])
+        self.assertEqual({'base': commit, 'tree': git(example, 'write-tree'), 'patches': ['0001']},
+                         outputs['patches']['projects']['device/example'])
+        self.assertEqual(outputs['patches']['sha256'], outputs['patches_sha256'])
+        self.assertEqual(outputs['patches_sha256'], steps.source_record({'outputs': outputs})['patches_sha256'])
+        # The series is no local change, also for an official build.
+        self.assertEqual(([], None), (outputs['modified'], outputs['modified_sha256']))
+        self.assertNotIn('deviations', outputs)
+        # A sync that changes nothing under the patch: the same record, and the file keeps its time.
+        stamp = (example / 'example.mk').stat().st_mtime_ns
+        again = self.sync(self.context(official=True))
+        self.assertEqual(outputs['patches'], again['patches'])
+        self.assertEqual(stamp, (example / 'example.mk').stat().st_mtime_ns)
+        # The patched file changes upstream: the sync stops and names the patch.
+        (self.example / 'example.mk').write_text('PRODUCT := changed\n')
+        git(self.example, 'commit', '-qam', 'change')
+        with self.assertRaisesRegex(bw.BuildStepError, '0001: 1 file.s. are not what the patch was pinned to'):
+            self.sync()
+        self.assertEqual('PRODUCT := changed\n', (example / 'example.mk').read_text())
+        with self.assertRaisesRegex(build.BuildError, 'the patch series is not applied to device/example'):
+            build.verify_branch_checkout(self.ctx.environment, self.src, self.ctx.environment_sha256,
+                                         allow_modified=True)
+
     def test_build_vendor_checks_a_plain_repo_checkout_and_records_it_like_a_sync(self):
         synced = self.sync()  # Stands in for a plain "repo init" and "repo sync".
         shutil.rmtree(self.ctx.workspace.state_dir)
         ctx = self.context()
         ctx.check_only = True
         plan = steps.plan_sync(ctx)
-        self.assertEqual(['Check the repo tool and manifest', 'Clear stale inputs', 'Verify the source tree'],
+        self.assertEqual(['Check the repo tool and manifest', 'Apply the patch series', 'Clear stale inputs',
+                          'Verify the source tree'],
                          [action.description for action in plan.actions])
         self.assertFalse(any(action.argv or action.network for action in plan.actions))
         checked = self.sync(ctx)

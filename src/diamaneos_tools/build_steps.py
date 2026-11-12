@@ -24,7 +24,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from . import build, devices, ota_test, policy_provenance, product_inputs, source_sync
+from . import build, devices, ota_test, patches, policy_provenance, product_inputs, source_sync
 from . import build_workspace as bw
 from .build_workspace import Action, BuildStepError, CheckFailed, HostError, UsageError
 
@@ -479,6 +479,23 @@ def plan_sync(ctx: Context) -> StepPlan:
         if moved:
             ctx.echo('    moved stale generated inputs aside: ' + ', '.join(moved))
 
+    def lift_patches():
+        # repo sync stops at a staged file that changed upstream, so the series comes off first.
+        try:
+            memo['mtimes'] = patches.reset(ws.src, ctx.echo, strict=False)
+        except patches.PatchError as error:
+            raise BuildStepError(str(error)) from None
+
+    def apply_patches():
+        rows = build.parse_project_map(build.repo_manifest(ws.src))[0]
+        try:
+            record = patches.apply(ws.src, rows, ctx.echo, allow_modified=not ctx.official,
+                                   mtimes=memo.get('mtimes'))
+        except patches.PatchError as error:
+            raise BuildStepError(str(error)) from None
+        if record is None:
+            ctx.echo(f'    the manifest has no patch series at {patches.PROJECT}')
+
     def verify():
         result = build.verify_branch_checkout(env, ws.src, ctx.environment_sha256,
                                               resolved_path=ctx.resolved_manifest,
@@ -539,17 +556,23 @@ def plan_sync(ctx: Context) -> StepPlan:
         Action('Clear moved projects', func=clear_renamed,
                detail='remove clean checkouts of projects the manifest now takes from another repository at the '
                       'same path, so repo checks out the new one'),
+        Action('Take the patch series off', func=lift_patches,
+               detail=f'unstage the patches of {patches.PROJECT}, so repo can move every project'),
         Action('Download the source', detail='at the pinned resolved manifest' if pinned else '',
                argv=['repo', 'sync', '--no-manifest-update', '--optimized-fetch', f'-j{jobs}', '--retry-fetches=4']
                + (['-c', '--no-tags'] if ctx.shallow else []) + (['-m', ctx.pinned_manifest] if pinned else []),
                cwd=ws.src, network=True, env=GIT_HTTP, short_tmp=True),
+        Action('Apply the patch series', func=apply_patches,
+               detail=f'the patches of {patches.PROJECT}, each only onto the file contents it is pinned to, as '
+                      'staged changes on the manifest commits'),
         Action('Clear stale inputs', func=retire, detail='move stale generated inputs aside'),
         Action('Verify the source tree', func=verify,
-               detail='every project at its resolved commit, nothing undeclared, then record the resolved manifest'),
+               detail='every project at its resolved commit, the patch series and nothing else on top, nothing '
+                      'undeclared, then record the resolved manifest'),
     ]
     if ctx.check_only:
-        # After a plain "repo sync": the checks and the record of a sync, without repo.
-        actions = [check_action] + actions[-2:]
+        # After a plain "repo sync": the patch series, the checks and the record of a sync, without repo.
+        actions = [check_action] + actions[-3:]
 
     def outputs():
         result = ctx.cache['sync']
@@ -567,6 +590,8 @@ def plan_sync(ctx: Context) -> StepPlan:
                   'shallow': ctx.shallow,
                   'pinned_manifest': pinned.record() if pinned else None,
                   'modified': result['modified'], 'modified_sha256': result['modified_sha256']}
+        if result.get('patches'):
+            values.update(patches=result['patches'], patches_sha256=result['patches_sha256'])
         if result.get('deviations'):
             values.update(deviations=result['deviations'], deviations_sha256=result['deviations_sha256'])
         different = sorted(k for k, v in (pinned.expected_source if pinned else {}).items() if values.get(k) != v)
@@ -818,6 +843,9 @@ def source_record(sync: dict) -> dict:
         record['modified_sha256'] = sync['outputs']['modified_sha256']
     if sync['outputs'].get('deviations_sha256'):
         record['deviations_sha256'] = sync['outputs']['deviations_sha256']
+    # The same for the patch series: a manifest without one keeps its identity.
+    if sync['outputs'].get('patches_sha256'):
+        record['patches_sha256'] = sync['outputs']['patches_sha256']
     return record
 
 
@@ -999,6 +1027,9 @@ def plan_android(ctx: Context) -> StepPlan:
             if result.get('deviations_sha256') != sync['outputs'].get('deviations_sha256'):
                 raise BuildStepError('the deviations of the source tree are not the ones "diamaneos build sync" '
                                      'recorded. Run "diamaneos build sync" again')
+            if result.get('patches_sha256') != sync['outputs'].get('patches_sha256'):
+                raise BuildStepError('the applied patch series is not the one "diamaneos build sync" recorded. '
+                                     'Run "diamaneos build sync" again')
             if key == 'preflight':
                 warn_modified(ctx, result['modified'])
                 check_policy_provenance(ctx)
@@ -1029,7 +1060,8 @@ def plan_android(ctx: Context) -> StepPlan:
     def outputs():
         before, after = ctx.cache['preflight'], ctx.cache['postflight']
         if any(before.get(key) != after.get(key)
-               for key in ('resolved_project_map_sha256', 'modified_sha256', 'deviations_sha256')):
+               for key in ('resolved_project_map_sha256', 'modified_sha256', 'deviations_sha256',
+                           'patches_sha256')):
             raise BuildStepError('the source tree changed during the build')
         target_files = find_target_files(ctx)
         target_sha256 = bw.sha_file(target_files)
@@ -1116,9 +1148,10 @@ def plan_manual_android(ctx: Context) -> StepPlan:
         commit = sync['outputs'].get('manifest_commit') if sync['outputs'].get('pinned_manifest') else None
         result = ctx.cache.get('sync') or build.verify_branch_checkout(
             ctx.environment, ws.src, ctx.environment_sha256, manifest_commit=commit, allow_modified=not ctx.official)
-        if (result['resolved_manifest_sha256'], result['modified_sha256'], result.get('deviations_sha256')) != (
+        if (result['resolved_manifest_sha256'], result['modified_sha256'], result.get('deviations_sha256'),
+                result.get('patches_sha256')) != (
                 sync['outputs']['resolved_manifest_sha256'], sync['outputs'].get('modified_sha256'),
-                sync['outputs'].get('deviations_sha256')):
+                sync['outputs'].get('deviations_sha256'), sync['outputs'].get('patches_sha256')):
             raise BuildStepError(f'the source changed since "diamaneos build vendor {ctx.device.codename}" checked '
                                  'it. Run it again, then m')
         state['source'] = result

@@ -58,6 +58,13 @@ fixture trees and local Git remotes, no network:
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/overlays -t .
 ```
 
+**Patch series.** `bin/diamaneos patches` applies the pinned patches of `diamaneos/patches` (see
+[BUILD.md](BUILD.md#the-patch-series)). Tests use small local Git repositories, no network:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/patches -t .
+```
+
 **Fonts.** `bin/diamaneos fonts check` reads a product `fonts_customization.xml` and its fonts as
 Android does at boot (FontCustomizationParser, FontListParser and SystemFonts at the pinned
 release). A mistake there can drop every system font or stop boot. `--help` lists the findings.

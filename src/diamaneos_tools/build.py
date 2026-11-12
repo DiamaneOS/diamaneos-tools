@@ -680,8 +680,11 @@ def verify_manifest_checkout(config: dict, source: Path, allowed_signers: Path,
     generated, descriptor_sha256 = verify_generated_inputs(source, environment_sha256)
     verify_source_layout(config, source, rows, signed_xml, resolved, generated)
 
-    verify_projects(source, rows)
+    series, patched = patch_series(source, rows)
+    verify_projects(source, rows, patched=patched)
     return {
+        "patches": series,
+        "patches_sha256": series["sha256"] if series else None,
         "repo_tool_release_tag": repo_tag,
         "repo_tool_tag_object": repo_pin["tag_object"],
         "repo_tool_commit": repo_pin["peeled_commit"],
@@ -949,14 +952,31 @@ def changes_digest(checkout: Path, status: bytes) -> str:
     return digest.hexdigest()
 
 
-def verify_projects(source: Path, rows, allow_modified: bool = False) -> dict:
+def patch_series(source: Path, rows, allow_modified: bool = False) -> tuple:
+    """(record, patches by project) of the applied patch series, (None, {}) when the manifest has none.
+
+    Fails unless every project the series names holds exactly the series'
+    pinned changes, staged on its resolved commit (see patches.py).
+    """
+    from . import patches
+    try:
+        return patches.inspect(source, rows, allow_modified)
+    except patches.PatchError as error:
+        raise BuildError(str(error)) from None
+
+
+def verify_projects(source: Path, rows, allow_modified: bool = False, patched: dict | None = None) -> dict:
     """Every project is checked out at its resolved commit.
 
     A project with local changes (changed, added or deleted files) fails,
     unless ``allow_modified``: then the result maps each such project to the
     digest of its changes. A revision mismatch and a changed manifest
-    checkout always fail.
+    checkout always fail. For a project of the applied patch series
+    (``patched``, from patch_series) the series' own staged changes are not
+    local changes. Everything else in it is.
     """
+    from . import patches
+    patched = patched or {}
     dirty, modified = [], {}
     for path, _name, _remote, revision in rows:
         checkout = source / path
@@ -965,8 +985,14 @@ def verify_projects(source: Path, rows, allow_modified: bool = False) -> dict:
         head = _run(["git", "-C", str(checkout), "rev-parse", "HEAD"]).stdout.decode().strip()
         if head != revision:
             raise BuildError(f"source project revision mismatch: {path}")
-        status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1", "-z",
-                       "--untracked-files=all"]).stdout
+        if path in patched:
+            try:
+                status = patches.local_status(checkout, patched[path])
+            except patches.PatchError as error:
+                raise BuildError(str(error)) from None
+        else:
+            status = _run(["git", "-C", str(checkout), "status", "--porcelain=v1", "-z",
+                           "--untracked-files=all"]).stdout
         if not status:
             continue
         if allow_modified:
@@ -1090,7 +1116,8 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
     replaces the branch-head check when the checkout reproduces a recorded
     resolved manifest (see verify_manifest_repository). With
     ``allow_modified``, projects with local changes pass and are listed in
-    ``modified``, with ``modified_sha256`` binding their changes.
+    ``modified``, with ``modified_sha256`` binding their changes. A project
+    the patch series names must carry exactly the series (``patches``).
 
     ``allow_modified`` is every build that is not official. For it, what an
     official build refuses beyond local changes passes and is listed in
@@ -1135,7 +1162,8 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
     deviations_sha256 = sha256_bytes(json.dumps(
         {"notes": notes, "undeclared": undeclared_fingerprint(source, undeclared)}, sort_keys=True).encode()) \
         if notes else None
-    modified = verify_projects(source, rows, allow_modified)
+    series, patched = patch_series(source, rows, allow_modified)
+    modified = verify_projects(source, rows, allow_modified, patched)
     if resolved_path is not None:
         resolved_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = resolved_path.with_name(resolved_path.name + ".tmp")
@@ -1157,6 +1185,8 @@ def verify_branch_checkout(config: dict, source: Path, environment_sha256: str |
         "modified_sha256": sha256_bytes(json.dumps(modified, sort_keys=True).encode()) if modified else None,
         "deviations": notes,
         "deviations_sha256": deviations_sha256,
+        "patches": series,
+        "patches_sha256": series["sha256"] if series else None,
         "source_layout_verified": True,
         "generated_inputs": sorted(generated),
         "generated_input_descriptor_sha256": descriptor_sha256,

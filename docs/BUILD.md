@@ -517,6 +517,9 @@ The plain Android flow of [BUILDING.md](BUILDING.md): `repo sync`, `build vendor
 
 - `build vendor` on its own checks the checkout as `sync` does after its `repo sync`, runs no `repo`
   command and records it as the sync.
+- That check also applies [the patch series](#the-patch-series), so `m` builds the patched sources.
+  Before the next `repo sync`, take the series off with `patches reset`: `repo sync` stops at a
+  patched file that changed upstream.
 - An official build needs the pinned `repo` tool, the environment's `repo_tool` release tag: `repo
   init --repo-rev=v2.73`. Other builds warn about another version.
 - `build vendor` makes the vendor files again only when its recipes, code or settings changed, and
@@ -750,6 +753,45 @@ commands](#the-build-commands).
   - `repo manifest` gives exactly that composition.
 - Every build records the resolved manifest, so the exact commit of each project is known
   afterwards.
+
+## The patch series
+
+- A fix that upstream is expected to make itself, or a library update upstream will overtake, can
+  be kept as a patch instead of a fork commit. The patches live in one manifest project at
+  `diamaneos/patches`. A manifest without that project builds as before.
+- `series.json` there names every patch in order: its id, project, patch file and SHA-256, a title,
+  its kind (`fix`, `backport` or `import`) and, for each file it touches, the file's mode and blob
+  before and after.
+- These pins decide everything:
+  - A patch is applied only to the exact file contents it was reviewed against. Other commits in
+    the same project do not disturb it.
+  - A patch that changes other files, or gives other contents, than its pins is refused.
+  - A patched project is exactly its manifest commit plus the pinned changes.
+- `build sync` takes the series off before `repo sync` and stages it again afterwards.
+  - A patched project stays at its manifest commit, so the resolved manifest names the same commits
+    with and without the series.
+  - `git diff --cached` in a project shows the patches, `git diff` shows your own edits on top.
+- The source check accepts the staged series and nothing else on top.
+  - The build record holds the series' SHA-256, the patch project's commit and, per project, the
+    base commit, the patched tree and the patch ids.
+  - An official build refuses local changes in the patch project.
+- When a pinned file changes upstream, the sync stops and names the patch.
+
+```sh
+bin/diamaneos patches status --source SRC   # applied, unpatched or other, per project
+bin/diamaneos patches check --source SRC    # per patch: fits, refresh, upstream or conflict
+bin/diamaneos patches apply --source SRC
+bin/diamaneos patches reset --source SRC
+bin/diamaneos patches pins --source SRC PROJECT FILE.patch   # the SHA-256 and pins for series.json
+```
+
+- `check` judges each patch against the project's manifest commit:
+  - `fits`: the pinned files are unchanged.
+  - `refresh`: a pinned file changed elsewhere and the patch still applies. Renew its pins with
+    `pins`.
+  - `upstream`: the project already has the change, so the patch can go.
+  - `conflict`: the patch no longer applies and its change is not there. It needs a new version, or
+    removal when its test passes without it.
 
 ## Upstream tracking
 

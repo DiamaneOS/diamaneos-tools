@@ -500,7 +500,8 @@ class PlanTests(unittest.TestCase):
         # The checking sync runs no repo command.
         ctx = self.context()
         ctx.check_only = True
-        self.assertEqual(['Check the repo tool and manifest', 'Clear stale inputs', 'Verify the source tree'],
+        self.assertEqual(['Check the repo tool and manifest', 'Apply the patch series', 'Clear stale inputs',
+                          'Verify the source tree'],
                          [action.description for action in steps.plan_sync(ctx).actions])
 
     def test_build_all_follows_the_manifest_branch(self):

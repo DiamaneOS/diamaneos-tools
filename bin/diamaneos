@@ -63,6 +63,9 @@ def main(argv=None):
     if argv[:1] == ['forks']:
         from diamaneos_tools import forks
         return forks.main(argv[1:])
+    if argv[:1] == ['patches']:
+        from diamaneos_tools import patches
+        return patches.main(argv[1:])
     if argv[:2] == ['fonts', 'check']:
         from diamaneos_tools import fonts
         return fonts.main(argv[2:])
@@ -84,9 +87,10 @@ def main(argv=None):
         print("  build kernel -> build the kernel from source (for maintainers, the build uses the kernel prebuilts)")
         print("  flash-steps -> fastboot commands for a verified test build (never runs fastboot)")
         print("")
-        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|flash-steps|ota-test|build preflight|build kernel-config|signing|attestation-releases|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check|strings check} [...]")
+        print("usage: diamaneos {build all|build sync|build kernel|build vendor|build android|build package|build verify|patches|flash-steps|ota-test|build preflight|build kernel-config|signing|attestation-releases|vendor stage|vendor extract|vendor generate|vendor product|kernel prepare|kernel build|kernel publish|build inputs|forks check|forks status|forks update|fonts check|overlays check|strings check} [...]")
         print("routes: build all -> sync, vendor, android, package and verify in one workspace")
         print("        build preflight -> fail-closed pinned build-input verification")
+        print("        patches -> the patch series on top of the synced sources: apply, reset, status, check, pins")
         print("        build kernel-config -> read-only generated kernel configuration policy check")
         print("        fonts check -> product font customization as Android reads it")
         print("        images check -> the image checks of build verify on any image set, also a re-signed one")

@@ -38,8 +38,8 @@ repo sync -j8
 tools/diamaneos/bin/diamaneos build vendor <codename>
 ```
 
-Checks the source, downloads the device maker's factory package, checks its SHA-256 and takes the
-vendor files out of it into the source tree.
+Checks the source, applies DiamaneOS's [patch series](BUILD.md#the-patch-series), downloads the device
+maker's factory package, checks its SHA-256 and takes the vendor files out of it into the source tree.
 
 - `<codename>` is the device's codename, listed on the [supported
   devices](https://diamaneos.de/devices/) page.
@@ -99,12 +99,15 @@ bash flash-all.sh
 ## Updating
 
 ```sh
+tools/diamaneos/bin/diamaneos patches reset --source .
 repo sync --force-sync -j8
 tools/diamaneos/bin/diamaneos build vendor <codename>
 m droid target-files-package otatools-package
 tools/diamaneos/bin/diamaneos build package
 ```
 
+- `patches reset` takes the patch series off, so `repo` can move every project. `build vendor`
+  applies the new series again.
 - `--force-sync` lets `repo` replace a project that now comes from another repository at the same
   path.
 - Run `m` in a shell set up as in step 3 (`envsetup.sh` and `lunch`).
