@@ -295,14 +295,20 @@ Image configuration right after configuring, by default with the production prof
 - The `baseline` always applies:
   - CFI, shadow call stack, hardened usercopy, fortify, stack and heap initialization and KASLR.
   - Page table check, enforced, and call-clobbered registers zeroed on return.
+  - Heap: random kmalloc caches, slab buckets, slab canaries, freelist hardening and randomisation, no slab
+    merging, and KFENCE at 500 ms with 63 objects.
+  - Kernel PAC and BTI, a strong per-task stack protector and a random kernel stack offset.
+  - List hardening that stops on corruption, page allocator shuffling, a strict IOMMU, sealed system
+    mappings, UBSAN bounds checks and panic on oops.
+  - The lockdown LSM from early boot, and no user namespaces.
   - Forced module signatures with SHA-256, SELinux with development mode and lockdown at integrity
     level.
   - The Rust binder without the C binder, debugfs not mountable and pstore with ramoops.
   - No `/dev/mem`, kexec, KGDB or hibernation.
   - Exports trimmed to the symbol lists (`CONFIG_TRIM_UNUSED_KSYMS`).
   - No TIPC. The open data stack replaced both ends and no TIPC socket exists.
-- The `production` tier refuses lockdep and the lock debug options, and adds dmesg restricted from boot and `CONFIG_UBSAN_TRAP`, so UBSAN stops at
-  the fault and has no report handlers.
+- The `production` tier refuses lockdep and the lock debug options, and adds dmesg restricted from boot, `CONFIG_UBSAN_TRAP`, so UBSAN stops at
+  the fault and has no report handlers, and the local bounds checks that need the trap.
 - `--config-profile development` checks only the baseline and records the production
   differences.
 - The debug tier replaces baseline rules the debug aids need and may not name a production rule.

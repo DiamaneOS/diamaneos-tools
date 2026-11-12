@@ -104,11 +104,22 @@ class KernelConfigTests(unittest.TestCase):
     def test_the_shipped_policies_keep_tipc_and_the_debug_options_out(self):
         self.assertEqual('off', self.policy['baseline']['CONFIG_TIPC'])
         self.assertEqual({'CONFIG_DEBUG_LOCK_ALLOC', 'CONFIG_DEBUG_MUTEXES', 'CONFIG_DEBUG_SPINLOCK', 'CONFIG_LOCKDEP', 'CONFIG_PROVE_LOCKING',
-                          'CONFIG_SECURITY_DMESG_RESTRICT', 'CONFIG_UBSAN_TRAP'}, set(self.policy['production']))
+                          'CONFIG_SECURITY_DMESG_RESTRICT', 'CONFIG_UBSAN_LOCAL_BOUNDS', 'CONFIG_UBSAN_TRAP'}, set(self.policy['production']))
         vendor = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())['baseline']
         self.assertEqual('not-built-in', vendor['CONFIG_CORESIGHT'])
         for key in ('CONFIG_USB_CONFIGFS_F_QDSS', 'CONFIG_USB_F_FS_IPC_LOGGING', 'CONFIG_QCOM_EUD'):
             self.assertEqual('off', vendor[key])
+
+    def test_the_shipped_baseline_pins_the_heap_stack_and_control_flow_hardening(self):
+        # Options the GKI configuration turns on. The pins keep a rebase from dropping one silently.
+        on = ('ARM64_BTI_KERNEL ARM64_PTR_AUTH_KERNEL BUG_ON_DATA_CORRUPTION IOMMU_DEFAULT_DMA_STRICT KFENCE LIST_HARDENED '
+              'MSEAL_SYSTEM_MAPPINGS PAGE_TABLE_CHECK PAGE_TABLE_CHECK_ENFORCED PANIC_ON_OOPS RANDOMIZE_KSTACK_OFFSET_DEFAULT '
+              'RANDOM_KMALLOC_CACHES SECURITY_LOCKDOWN_LSM SECURITY_LOCKDOWN_LSM_EARLY SHUFFLE_PAGE_ALLOCATOR SLAB_BUCKETS '
+              'SLAB_CANARY SLAB_FREELIST_HARDENED SLAB_FREELIST_RANDOM STACKPROTECTOR_PER_TASK STACKPROTECTOR_STRONG UBSAN_BOUNDS '
+              'ZERO_CALL_USED_REGS').split()
+        expected = {**{name: 'y' for name in on}, 'SLAB_MERGE_DEFAULT': 'n', 'USER_NS': 'n',
+                    'KFENCE_SAMPLE_INTERVAL': '500', 'KFENCE_NUM_OBJECTS': '63'}
+        self.assertEqual(expected, {name: self.policy['baseline'].get('CONFIG_' + name) for name in expected})
 
     def test_development_still_enforces_hardening(self):
         data = self.config(False)
