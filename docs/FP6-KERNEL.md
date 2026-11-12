@@ -294,6 +294,7 @@ Image configuration right after configuring, by default with the production prof
 
 - The `baseline` always applies:
   - CFI, shadow call stack, hardened usercopy, fortify, stack and heap initialization and KASLR.
+  - Page table check, enforced, and call-clobbered registers zeroed on return.
   - Forced module signatures with SHA-256, SELinux with development mode and lockdown at integrity
     level.
   - The Rust binder without the C binder, debugfs not mountable and pstore with ramoops.

@@ -35,6 +35,8 @@
     "CONFIG_MODULE_SIG_FORCE": "y",
     "CONFIG_MODULE_SIG_SHA256": "y",
     "CONFIG_MODVERSIONS": "y",
+    "CONFIG_PAGE_TABLE_CHECK": "y",
+    "CONFIG_PAGE_TABLE_CHECK_ENFORCED": "y",
     "CONFIG_PROC_KCORE": "n",
     "CONFIG_PSTORE": "y",
     "CONFIG_PSTORE_CONSOLE": "y",
@@ -49,7 +51,8 @@
     "CONFIG_TIPC": "off",
     "CONFIG_TRIM_UNUSED_KSYMS": "y",
     "CONFIG_UNICODE": "y",
-    "CONFIG_USERFAULTFD": "y"
+    "CONFIG_USERFAULTFD": "y",
+    "CONFIG_ZERO_CALL_USED_REGS": "y"
   },
   "production": {
     "CONFIG_DEBUG_LOCK_ALLOC": "off",
