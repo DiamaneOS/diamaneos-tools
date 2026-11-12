@@ -595,6 +595,8 @@ come from, named in the set's `build.json`.
 - Each image set carries both scripts. They check that the phone is the device the set is for,
   unlocked and in the bootloader, and that the files match `SHA256SUMS`. They stop at the first
   failed command.
+- A US Fairphone 6 reports `FP6_US` in the bootloader. It is the same phone with the same firmware,
+  and the scripts take both names.
 - They write the firmware and the boot images in the bootloader, restart the phone into fastbootd
   for the logical partitions, then return to the bootloader for the wipe images.
 - Before the boot images they cancel an update the OS left pending (`fastboot snapshot-update

@@ -359,12 +359,16 @@ class FlashStepTests(unittest.TestCase):
                 'snapshot-update-status': '(bootloader) snapshot-update-status:merging'}
         status, calls, _ = self.run_install_script(good)
         self.assertEqual((0, [' '.join(a) for a in flash_all.commands(self.record)]), (status, calls))
+        # A US Fairphone 6 reports FP6_US: the same install.
+        status, calls, _ = self.run_install_script(dict(good, product='(bootloader) product: FP6_US'))
+        self.assertEqual((0, [' '.join(a) for a in flash_all.commands(self.record)]), (status, calls))
         # Without a pending update, or a bootloader that reports none, nothing is cancelled.
         for line in ('snapshot-update-status: none', ''):
             status, calls, _ = self.run_install_script(dict(good, **{'snapshot-update-status': line}))
             self.assertEqual((0, [' '.join(a) for a in flash_all.commands(self.record)
                                   if a != flash_all.CANCEL]), (status, calls))
-        for name, line, message in (('product', 'product: FP5', 'is for the Fairphone 6 (FP6)'),
+        for name, line, message in (('product', 'product: FP5', 'is for the Fairphone 6 (FP6 or FP6_US)'),
+                                    ('product', 'product: FP6_USA', 'is for the Fairphone 6 (FP6 or FP6_US)'),
                                     ('unlocked', 'unlocked: no', 'bootloader is locked'),
                                     ('is-userspace', 'is-userspace: yes', 'fastbootd')):
             with self.subTest(name):

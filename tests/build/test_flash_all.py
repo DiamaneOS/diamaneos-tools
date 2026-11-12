@@ -1,4 +1,8 @@
+import os
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from diamaneos_tools import flash_all
 
@@ -63,6 +67,52 @@ class FlashAllRelockTest(unittest.TestCase):
         for text in scripts.values():
             self.assertIn('which anyone can download', text)
             self.assertNotIn(';', flash_all.TEST_KEY_LOCK + flash_all.ASK + flash_all.NOT_CONFIRMED)
+
+
+class FlashAllProductTest(unittest.TestCase):
+    """A US Fairphone 6 reports FP6_US in the bootloader: the same phone and firmware as FP6."""
+
+    def run_checks(self, product):
+        # The shell script against a fake fastboot, up to the checksums, which fail in the empty folder.
+        with tempfile.TemporaryDirectory() as work:
+            folder = Path(work)
+            (folder / flash_all.SH).write_text(flash_all.scripts(record())[flash_all.SH])
+            (folder / 'bin').mkdir()
+            fake = folder / 'bin' / 'fastboot'
+            fake.write_text('#!/bin/sh\ncase "$*" in\n'
+                            f'"getvar product") echo "product: {product}" >&2 ;;\n'
+                            '"getvar is-userspace") echo "is-userspace: no" >&2 ;;\n'
+                            '"getvar unlocked") echo "unlocked: yes" >&2 ;;\n'
+                            'esac\necho "Finished. Total time: 0.001s" >&2\n')
+            fake.chmod(0o755)
+            env = {**os.environ, 'PATH': f'{folder / "bin"}:/usr/bin:/bin'}
+            return subprocess.run(['/bin/sh', str(folder / flash_all.SH)], cwd=folder, env=env,
+                                  capture_output=True, text=True, timeout=60)
+
+    def test_the_shell_script_takes_fp6_and_fp6_us_only(self):
+        refused = 'This image set is for the Fairphone 6 (FP6 or FP6_US).'
+        for product in ('FP6', 'FP6_US'):
+            with self.subTest(product):
+                result = self.run_checks(product)
+                self.assertNotEqual(0, result.returncode)
+                self.assertNotIn(refused, result.stderr)
+        for product in ('FP6X', 'FP6_USA', 'FP5', ''):
+            with self.subTest(product):
+                self.assertIn(refused, self.run_checks(product).stderr)
+
+    def test_the_batch_script_tries_each_name_and_drops_longer_ones(self):
+        line = next(line for line in flash_all.scripts(record())[flash_all.BAT].split('\r\n')
+                    if line.startswith('fastboot getvar product'))
+        tests, refusal = line.rsplit(' || ', 1)
+        self.assertEqual('(echo This image set is for the Fairphone 6 ^(FP6 or FP6_US^). Connect that phone in '
+                         'fastboot mode. & exit /b 1)', refusal)
+        self.assertEqual(['fastboot getvar product 2>&1 | findstr /r /c:"product: *FP6" | findstr /v /r '
+                          '/c:"product: *FP6[0-9A-Za-z_.]" /c:"product: *FP6-" >nul',
+                          'fastboot getvar product 2>&1 | findstr /r /c:"product: *FP6_US" | findstr /v /r '
+                          '/c:"product: *FP6_US[0-9A-Za-z_.]" /c:"product: *FP6_US-" >nul'], tests.split(' || '))
+
+    def test_another_product_keeps_its_own_name(self):
+        self.assertEqual(('FP5',), flash_all.bootloader_products(record(product='FP5')))
 
 
 class FlashAllFastbootdTest(unittest.TestCase):

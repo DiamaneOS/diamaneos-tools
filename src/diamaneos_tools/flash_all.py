@@ -21,8 +21,11 @@ SH, BAT = 'flash-all.sh', 'flash-all.bat'
 # Where the user learns to unlock the bootloader and the critical partitions.
 INSTALL_GUIDE = 'https://diamaneos.de/install/cli/'
 # What the bootloader must report before anything is written.
+# The names the bootloader reports for a product. A US Fairphone 6 reports FP6_US: the same phone and the same
+# firmware, named from the region in its factory record.
+BOOTLOADER_PRODUCTS = {'FP6': ('FP6', 'FP6_US')}
 CHECKS = (('product', '{product}',
-           'This image set is for the {name} ({product}). Connect that phone in fastboot mode.'),
+           'This image set is for the {name} ({products}). Connect that phone in fastboot mode.'),
           ('is-userspace', 'no', 'The phone is in fastbootd. Run "fastboot reboot bootloader" and start again.'),
           ('unlocked', 'yes', 'The bootloader is locked. Unlock it as {guide} describes, then start again.'))
 # Printed again when the script ends, because the lock is the user's next step. It
@@ -65,7 +68,13 @@ CRITICAL = ('Device critical unlocked: true',
 
 def fields(record: dict) -> dict:
     """The values the messages name: the product, the device profile's name, maker and keys, and the guide."""
-    return dict(record['device'], product=record['product'], guide=INSTALL_GUIDE)
+    return dict(record['device'], product=record['product'], products=' or '.join(bootloader_products(record)),
+                guide=INSTALL_GUIDE)
+
+
+def bootloader_products(record: dict) -> tuple[str, ...]:
+    """What getvar product may report for the set's product."""
+    return BOOTLOADER_PRODUCTS.get(record['product'], (record['product'],))
 
 
 def commands(record: dict, lock: bool = False) -> list[list[str]]:
@@ -177,7 +186,11 @@ def shell(record: dict) -> str:
            f'[ $n -lt 90 ] || fail "{STUCK.format(**values)}"; sleep 2; done; }}']
     for name, wanted, message in CHECKS:
         wanted, message = wanted.format(**values), message.format(**values)
-        out.append(f'[ "$(value {name})" = "{wanted}" ] || fail \'{message}\'')
+        if name == 'product':
+            out.append(f'case "$(value product)" in {"|".join(bootloader_products(record))}) ;; '
+                       f'*) fail \'{message}\' ;; esac')
+        else:
+            out.append(f'[ "$(value {name})" = "{wanted}" ] || fail \'{message}\'')
     if record.get('firmware'):
         out.append('info=$(fastboot oem device-info 2>&1) || true')
         out.append(f'printf "%s\\n" "$info" | grep -q "{CRITICAL[0]}" || fail \'{CRITICAL[1].format(**values)}\'')
@@ -228,10 +241,13 @@ def batch(record: dict) -> str:
            'where fastboot >nul 2>&1 || (echo fastboot is not installed ^(Android platform-tools^). & exit /b 1)']
     values = fields(record)
     for name, wanted, message in CHECKS:
-        wanted, message = wanted.format(**values), _escaped(message.format(**values))
-        # The second filter drops a longer value, which findstr matches too ("FP6X" for "FP6").
-        out.append(f'fastboot getvar {name} 2>&1 | findstr /r /c:"{name}: *{wanted}" | findstr /v /r '
-                   f'/c:"{name}: *{wanted}[0-9A-Za-z_.]" /c:"{name}: *{wanted}-" >nul || (echo {message} & exit /b 1)')
+        message = _escaped(message.format(**values))
+        # One test per accepted value, tried in turn. The second filter drops a longer value, which findstr
+        # matches too ("FP6X" for "FP6").
+        tests = [f'fastboot getvar {name} 2>&1 | findstr /r /c:"{name}: *{value}" | findstr /v /r '
+                 f'/c:"{name}: *{value}[0-9A-Za-z_.]" /c:"{name}: *{value}-" >nul'
+                 for value in (bootloader_products(record) if name == 'product' else (wanted.format(**values),))]
+        out.append(' || '.join(tests) + f' || (echo {message} & exit /b 1)')
     if record.get('firmware'):
         out.append(f'fastboot oem device-info 2>&1 | findstr /c:"{CRITICAL[0]}" >nul || '
                    f'(echo {_escaped(CRITICAL[1].format(**values))} & exit /b 1)')
