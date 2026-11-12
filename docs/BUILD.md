@@ -500,7 +500,8 @@ bin/diamaneos ota-test incremental --base "$N" --successor "$N1" --output "$OUT/
 - Its build date is N's plus 60 seconds and its build number N's with `.1`, such as `2026102700.1`.
   `DIAMANEOS_BUILD_NUMBER` must be unset.
 - `build.json` marks it (`ota_test`, with the build it follows), and release signing refuses it.
-- Build it in a workspace of its own, never the one N came from.
+- N's workspace can build it once N's image set is made: the incremental reads only the two image sets.
+  The workspace then keeps N's pinned tree, and a build with other changes needs a plain `build sync` first.
 - `ota-test incremental` makes the incremental with N+1's `otatools.zip` and checks it: an A/B
   package from N's build number to N+1's, N+1's date, no wipe or downgrade flag.
   - Image sets of public test keys use the test key in `otatools.zip`.
