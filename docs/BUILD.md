@@ -491,7 +491,8 @@ update. Two builds of one tree share their build date, and the update needs a la
 bin/diamaneos ota-test plan --base "$N"
 bin/diamaneos build all --workspace "$TEST_WORKSPACE" --resolved-manifest "$N/resolved-manifest.xml" \
   --build-json "$N/build.json" --ota-successor-of "$N"
-bin/diamaneos ota-test incremental --base "$N" --successor "$N1" --output "$OUT/n-to-n1-incr.zip"
+bin/diamaneos ota-test incremental --base "$N" --successor "$N1" --output "$OUT/n-to-n1-incr.zip" \
+  --source-root "$SOURCE_ROOT"
 ```
 
 - N+1 is N's tree: the sync must have N's resolved manifest, with no local changes.

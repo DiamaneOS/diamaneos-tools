@@ -248,6 +248,10 @@ def make_incremental(base_dir: Path, successor_dir: Path, output: Path, *, sourc
     partial = output.with_name(output.name + '.partial')
     if output.exists() or record_path.exists():
         raise UsageError(f'{output} or its record exists already')
+    # Signing the package runs signapk, which needs java. Say so before the payload is made.
+    if shutil.which('java', path=tool_path(Path(os.devnull), source_root)) is None:
+        raise UsageError('signing the package needs java: give --source-root with the source checkout '
+                         '(its prebuilts/jdk), or put java on PATH')
     tool = successor_record.get('otatools') or {}
     scratch = Path(scratch or output.parent / '.ota-test-tmp')
     bin_dir = image_verify.unpack_otatools(successor_dir / tool.get('file', 'otatools.zip'), tool.get('sha256'), scratch)

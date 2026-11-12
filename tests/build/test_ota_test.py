@@ -229,6 +229,10 @@ class Incremental(unittest.TestCase):
         self.successor_dir = image_set(self.root / 'n1', '2026111100.1', BASE_DATE + 60, mark=ota_test.successor_mark(base))
         self.output = self.root / 'out' / 'n-to-n1-incr.zip'
         self.output.parent.mkdir()
+        # The fake ota_from_target_files signs nothing: java only has to be found.
+        which = patch.object(ota_test.shutil, 'which', return_value='/usr/bin/java')
+        which.start()
+        self.addCleanup(which.stop)
 
     def make(self, **kw):
         return ota_test.make_incremental(self.base_dir, self.successor_dir, self.output, echo=lambda *a: None, **kw)
@@ -249,6 +253,13 @@ class Incremental(unittest.TestCase):
         self.assertFalse(self.output.with_name(self.output.name + '.partial').exists())
         with self.assertRaisesRegex(bw.UsageError, 'exists already'):
             self.make()
+
+    def test_no_java_stops_before_the_payload(self):
+        with patch.object(ota_test.shutil, 'which', return_value=None):
+            with self.assertRaisesRegex(bw.UsageError, 'needs java: give --source-root'):
+                self.make()
+        self.assertFalse((self.root / 'out' / '.ota-test-tmp').exists())
+        self.assertFalse(self.output.exists())
 
     def test_a_successor_of_another_base_is_refused(self):
         other = image_set(self.root / 'other', '2026111000', BASE_DATE - 86400)
