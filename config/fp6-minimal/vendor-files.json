@@ -18784,5 +18784,12 @@
       "sha256": "8ddbb1a76f125bc3e7e5ab2ad0916e22b0473cb45fbcc84c547c59ea81da14b7",
       "bytes": 15183
     }
+  ],
+  "catalog_apps": [
+    {
+      "input": "system/system/priv-app/FPCamera/FPCamera.apk",
+      "sha256": "3b271af8fac2df22f7b1a011b29a8db7a8c50bb9eba10f0786171d46a88a8556",
+      "bytes": 152974508
+    }
   ]
 }

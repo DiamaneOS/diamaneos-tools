@@ -985,8 +985,10 @@ from `notice_kind` in `config/fp6-build.json`.
 - It does not mount a filesystem, run factory scripts or copy device-unique state.
 - The extraction contract is specific to these ext4 stock images. It rejects an unexpected
   filesystem or another partition (system, odm) rather than guessing another decoder.
-- `stock-files/current` contains the regular files, notice files, symlinks and build property file
-  declared in [`config/fp6-minimal/vendor-files.json`](../config/fp6-minimal/vendor-files.json).
+- Two reviewed files of the stock system partition are the exception: the interface library of the
+  camera algorithm service and Fairphone's camera APK, which is read for its size and SHA-256.
+- `stock-files/current` contains the regular files, notice files, symlinks, build property file and
+  camera APK declared in [`config/fp6-minimal/vendor-files.json`](../config/fp6-minimal/vendor-files.json).
 - Scratch raw images are removed after extraction.
 
 **Product generation** (`vendor product`):
@@ -1083,6 +1085,32 @@ from `notice_kind` in `config/fp6-build.json`.
     generation's `provenance.json` and the vendor step's state.
   - The bound is the release date, not the stock build date: stock builds are made before the patch
     date they carry.
+
+- **Fairphone Camera feature.**
+  - Fairphone's camera app (`com.fps.camera`) is not in the image. The App Store installs it.
+  - The app loads the stock camera libraries and calls the stock algorithm service the recipe
+    selects, so the APK that fits a build is the one its stock release ships.
+  - The recipe pins that APK (`/system/priv-app/FPCamera/FPCamera.apk` in the stock image) by size
+    and SHA-256 under `catalog_apps`.
+  - Extraction reads the APK out of the stock system image and checks it against the pin.
+    Generation checks it again. It is read, never installed.
+  - Generation writes `de.diamaneos.fairphone_camera.app.xml`, which the build installs in
+    `/vendor/etc/permissions`. It declares one system feature: `de.diamaneos.fairphone_camera.apk_`
+    followed by the first 16 hex characters of the APK's SHA-256.
+  - A catalog version of the app lists the feature of its own APK, next to the device's
+    `de.diamaneos.fairphone_camera`. The App Store offers a version only on a build that declares
+    every feature the version lists.
+  - `build verify` requires exactly one such feature in the image: the one of the APK the tools
+    pin for the stock release `build.json` names (check `fpcamera-app-apk-feature`).
+  - Moving to another stock release includes the app:
+    - Pin the camera APK of the new stock package under `catalog_apps`. The vendor step stops when
+      the stock image holds another APK than the pinned one.
+    - Test the app on the phone with the new OS build, also when the APK is the same: photo,
+      video, 60 fps video, the modes that use the algorithm service (portrait, night and HDR) and
+      no network access for the app.
+    - The same APK keeps its feature and needs no new catalog version.
+    - Another APK gets its own catalog version, tied to its own hash and published together with
+      that OS release. The earlier catalog version stays tied to the earlier APK.
 
 **Selected files alone** (`vendor generate`). It materializes a recipe conforming to
 `schemas/vendor-files.schema.json` from extracted partitions, without generating the product:

@@ -9,6 +9,9 @@ DiamaneOS delivers it.
   (`selected_build` in the inventory below), byte for byte, and `diamaneos flash-steps` writes it
   before the OS when the phone runs older firmware ([Delivery](#delivery)).
 - Every update carries the A/B firmware of that release too ([Delivery](#delivery)).
+- The same release decides which Fairphone Camera APK the App Store offers on a build: the one that
+  release ships ([BUILD.md](BUILD.md#extract-and-generate-the-vendor-product), Fairphone Camera
+  feature).
 - [`config/fp6-firmware-inventory.json`](../config/fp6-firmware-inventory.json) lists every image of
   the selected and the earlier tracked factory packages (`selected_build`, `previous_build`, `releases`)
   with size and SHA-256, plus Qualcomm version strings, signing metadata, AVB rollback data, the Wi-Fi

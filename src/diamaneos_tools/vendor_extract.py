@@ -19,8 +19,11 @@ from .vendor import VendorError, encoded, load_json, ROOT
 EXTRACT_PARTITIONS = ('vendor', 'system_ext', 'product')
 # The only inputs taken from the stock system partition (system-as-root, so system/system/...): the
 # interface library of Fairphone's camera algorithm service, which stock ships only there. It is
-# installed in system_ext (vendor_product.STOCK_JNI).
-SYSTEM_INPUTS = ('system/system/lib64/vendor.tcl.camera.algoservice-V2-ndk.so',)
+# installed in system_ext (vendor_product.STOCK_JNI). And Fairphone's camera app, which the recipe
+# pins under catalog_apps: it is read for its size and SHA-256 and never installed
+# (vendor_product.CAMERA_APK).
+SYSTEM_INPUTS = ('system/system/lib64/vendor.tcl.camera.algoservice-V2-ndk.so',
+                 'system/system/priv-app/FPCamera/FPCamera.apk')
 
 
 def sha(path):
@@ -77,7 +80,8 @@ def extract(super_image, image_tools, output, stock, selection, tool_pins, tool_
     observed_tools = tool_identity(image_tools, tool_pins, tool_policy)
     if tool_policy == 'recorded':
         tool_pins = observed_tools
-    rows = selection['files'] + selection['notices'] + selection.get('build_properties', [])
+    rows = (selection['files'] + selection['notices'] + selection.get('build_properties', [])
+            + selection.get('catalog_apps', []))
     links = selection.get('symlinks', [])
     paths = [relative(r['input']) for r in rows + links]
     if len(set(paths)) != len(paths) or any((p.parts[0] not in EXTRACT_PARTITIONS and p.as_posix() not in SYSTEM_INPUTS)

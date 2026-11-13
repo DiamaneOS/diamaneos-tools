@@ -93,6 +93,35 @@ class SelectedFilesTests(unittest.TestCase):
         with self.assertRaisesRegex(vendor.VendorError, 'repeated'):
             vendor_files.selection(dict(recipe, build_properties=[row]), stock)
 
+    @unittest.skipUnless(importlib.util.find_spec('jsonschema'), 'the recipe schema check needs jsonschema')
+    def test_catalog_apps_are_pinned_inputs_not_installed_files(self):
+        data = b'Synthetic camera app; not a real APK.'
+        name = 'system/system/priv-app/FPCamera/FPCamera.apk'
+        row = {'input': name, 'sha256': sha(data), 'bytes': len(data)}
+        stock = self.kwargs['stock']
+        vendor_files.selection(dict(self.recipe, catalog_apps=[row]), stock)
+        for bad in ([dict(row, input='vendor/app/Other/Other.apk')], [dict(row, input=self.path)], [dict(row, bytes=0)],
+                    [dict(row, sha256='3b27')], [dict(row, path=name)], [row, row], []):
+            with self.subTest(bad=bad), self.assertRaises(vendor.VendorError):
+                vendor_files.selection(dict(self.recipe, catalog_apps=bad), stock)
+        # The app is checked where it lies and copied nowhere.
+        (self.inputs / name).parent.mkdir(parents=True)
+        (self.inputs / name).write_bytes(data)
+        vendor_files.verify_input(self.inputs, row)
+        self.recipe['catalog_apps'] = [row]
+        self.generate()
+        self.assertEqual([], list((self.output / 'current').rglob('*.apk')))
+        for change in ({'bytes': len(data) + 1}, {'sha256': sha(b'another app')}):
+            with self.subTest(change=change), self.assertRaises(vendor.VendorError):
+                vendor_files.verify_input(self.inputs, dict(row, **change))
+        (self.inputs / name).write_bytes(data[:-1] + b'!')
+        with self.assertRaisesRegex(vendor.VendorError, 'digest mismatch'):
+            vendor_files.verify_input(self.inputs, row)
+        (self.inputs / name).unlink()
+        (self.inputs / name).symlink_to(self.inputs / self.path)
+        with self.assertRaises(OSError):
+            vendor_files.verify_input(self.inputs, row)
+
     def test_bad_selection_preserves_previous_tree(self):
         self.generate()
         previous = os.readlink(self.output / 'current')

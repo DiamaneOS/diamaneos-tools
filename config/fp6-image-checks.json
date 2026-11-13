@@ -4237,6 +4237,14 @@
       ]
     },
     {
+      "id": "fpcamera-app-apk-feature",
+      "why": "A Fairphone Camera APK fits only the stock camera libraries and algorithm service it was shipped with. The vendor step declares one system feature named after the SHA-256 of the APK that the build's stock release ships, a catalog version of the app lists the feature of its own APK, and the App Store offers a version only on a build that declares it. So the image declares exactly one such feature, and it names the APK the tools pin for the stock release of the build record.",
+      "type": "catalog_app_feature",
+      "app": "system/system/priv-app/FPCamera/FPCamera.apk",
+      "prefix": "de.diamaneos.fairphone_camera.apk_",
+      "file": "VENDOR/etc/permissions/de.diamaneos.fairphone_camera.app.xml"
+    },
+    {
       "id": "fpcamera-service-graphicbuffer-abi",
       "why": "The stock TCL algorithm service's 256-byte GraphicBuffer allocations bind the Android 14 sized compat object (uicam), not Android 17 libui's 3376-byte one.",
       "type": "codec2_abi_guard",

@@ -1274,6 +1274,44 @@ def rule_component_override(rule, v):
     return not problems, '; '.join(problems)
 
 
+def rule_catalog_app_feature(rule, v):
+    """The image declares exactly one system feature whose name starts with the rule's prefix, in
+    the rule's file. The name is the prefix and the start of the SHA-256 of the stock app the
+    tools pin for the build's stock release (catalog_apps in vendor-files.json).
+
+    A catalog version of that app lists the feature of its own APK, so it never reaches a build
+    whose stock files belong to another APK. SystemConfig reads features from the top level of
+    etc/sysconfig and etc/permissions of each partition. An unavailable-feature entry counts too,
+    since it takes the feature away again."""
+    from . import vendor_product
+    recipe = json.loads(VENDOR_FILES.read_bytes())
+    build = v.record.get('stock_build')
+    if not build or recipe.get('stock_build') != build:
+        return False, f'the tools pin the stock files of {recipe.get("stock_build")}, the build record names {build}'
+    feature = vendor_product.catalog_app_feature(recipe, rule['app'], rule['prefix'])
+    if feature is None:
+        return False, 'the selected-file recipe does not pin ' + rule['app']
+    want = [(feature, rule['file'])]
+    found = []
+    for partition in ALLOWLIST_PARTITIONS:
+        for sub in ('etc/sysconfig/', 'etc/permissions/'):
+            folder = f'{partition}/{sub}'
+            for name in v.tf.names:
+                if not name.startswith(folder) or '/' in name[len(folder):] or v.tf.is_symlink(name):
+                    continue
+                data = v.tf.read(name)
+                if rule['prefix'].encode() not in data:
+                    continue
+                for entry in ET.fromstring(data).iter():
+                    declared = entry.get('name') or ''
+                    if entry.tag in ('feature', 'unavailable-feature') and declared.startswith(rule['prefix']):
+                        found.append((declared if entry.tag == 'feature' else 'unavailable ' + declared, name))
+    if sorted(found) != want:
+        listed = ', '.join(f'{declared} in {name}' for declared, name in sorted(found)) or 'no such feature'
+        return False, f'declares {listed} (want exactly {feature} in {rule["file"]}, for the app of {build})'
+    return True, f'{feature} for the app of {build}'
+
+
 def rule_zip_contains(rule, v):
     """A text in a file or in one of its dex files (only the dex files with dex_only). Texts in
     'absent' must be in neither."""
@@ -1535,7 +1573,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'display_config': rule_display_config,
          'apk': rule_apk, 'elf_exports': rule_elf_exports,
          'binary_count': rule_binary_count, 'devicetree': rule_devicetree,
-         'component_override': rule_component_override, 'zip_contains': rule_zip_contains,
+         'component_override': rule_component_override, 'catalog_app_feature': rule_catalog_app_feature,
+         'zip_contains': rule_zip_contains,
          'dex_url_hosts': rule_dex_url_hosts,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
          'no_diagnostic_sanitizer': rule_no_diagnostic_sanitizer,

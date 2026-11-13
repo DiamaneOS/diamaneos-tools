@@ -93,6 +93,19 @@ def copy_verified(root, item, destination):
             raise VendorError('selected input digest mismatch')
 
 
+def verify_input(root, item):
+    """Authenticate an input that is read for its identity and copied nowhere."""
+    with regular_input(root, item['input']) as source:
+        if os.fstat(source.fileno()).st_size != item['bytes']:
+            raise VendorError('selected input size mismatch')
+        value, size = hashlib.sha256(), 0
+        while data := source.read(1024 * 1024):
+            size += len(data)
+            value.update(data)
+        if size != item['bytes'] or value.hexdigest() != item['sha256']:
+            raise VendorError('selected input digest mismatch')
+
+
 def selection(recipe, stock):
     """Check the selected-file recipe. stock is the stock image recipe."""
     if safe_json.schema_errors(recipe, 'vendor-files.schema.json'):
@@ -135,12 +148,15 @@ def selection(recipe, stock):
         raise VendorError('missing or unused selected-file notice')
     for notice in recipe['notices']:
         safe_path(notice['input'])
-    # Build property files are read for their values, never installed.
-    for item in recipe.get('build_properties', []):
+    # Build property files are read for their values, never installed. Catalog
+    # apps (stock apps the App Store installs, not the image) are read for
+    # their size and SHA-256 only.
+    read_only = recipe.get('build_properties', []) + recipe.get('catalog_apps', [])
+    for item in read_only:
         if safe_path(item['input']) in inputs:
             raise VendorError('repeated selected file or destination')
         inputs.add(item['input'])
-    if sum(i['bytes'] for i in recipe['files'] + recipe['notices'] + recipe.get('build_properties', [])) > MAX_TOTAL_BYTES:
+    if sum(i['bytes'] for i in recipe['files'] + recipe['notices'] + read_only) > MAX_TOTAL_BYTES:
         raise VendorError('selected files exceed total size bound')
     for item in selected:
         for dependency in item.get('dependencies', []):

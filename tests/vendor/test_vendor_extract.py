@@ -116,6 +116,24 @@ class ExtractionTests(unittest.TestCase):
         self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
         self.selection['build_properties'][0]=dict(input='vendor/lib64/hal@1.0.so',bytes=len(self.data),sha256=digest)
         self.assertRaises(VendorError,self.extract)
+    def test_catalog_app_is_read_from_the_stock_system_image_and_checked(self):
+        digest=hashlib.sha256(self.data).hexdigest()
+        name='system/system/priv-app/FPCamera/FPCamera.apk'
+        self.assertIn(name,subject.SYSTEM_INPUTS)
+        self.selection['catalog_apps']=[dict(input=name,bytes=len(self.data),sha256=digest)]
+        result=self.extract()
+        self.assertEqual(2,result['file_count'])
+        self.assertEqual(['system_a','vendor_a'],[c[2] for c in self.calls if Path(c[0]).name=='lpunpack'])
+        dumps={c[2]:Path(c[-1]).name for c in self.calls if Path(c[0]).name=='debugfs_static' and c[2].startswith('dump ')}
+        self.assertEqual('system_a.img',dumps['dump /system/priv-app/FPCamera/FPCamera.apk tree/'+name])
+        self.assertEqual(self.data,(self.output/'current'/name).read_bytes())
+        previous=os.readlink(self.output/'current')
+        # The stock image holds another APK than the recorded one: nothing is published.
+        self.selection['catalog_apps'][0]['sha256']='1'*64
+        self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
+        # No other file of the system partition comes along this way.
+        self.selection['catalog_apps'][0]=dict(input='system/system/priv-app/Other/Other.apk',bytes=len(self.data),sha256=digest)
+        self.assertRaises(VendorError,self.extract);self.assertEqual(previous,os.readlink(self.output/'current'))
     def test_absolute_alias_cannot_leave_its_partition(self):
         target='/vendor/lib64/hal@1.0.so'
         self.selection['symlinks'].append(dict(input='system_ext/lib64/alias.so',target=target,

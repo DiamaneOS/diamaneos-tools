@@ -889,6 +889,80 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(ok(cil + b'(allow hal_power_default hal_camera_default (process (setsched)))\n'))
         self.assertFalse(ok(cil.replace(b'(typeattributeset hal_power_client (hal_camera_default))\n', b'')))
 
+    def test_camera_apk_feature_rule(self):
+        from diamaneos_tools import vendor_product
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['fpcamera-app-apk-feature']
+        # The rule looks for the app, the name and the file of the vendor step.
+        self.assertEqual(vendor_product.CAMERA_APK, rule['app'])
+        self.assertEqual(vendor_product.CAMERA_APK_FEATURE, rule['prefix'])
+        self.assertEqual('VENDOR/etc/permissions/' + vendor_product.CAMERA_APK_FEATURE_FILE, rule['file'])
+        recipe = json.loads((ROOT / 'config/fp6-minimal/vendor-files.json').read_text())
+        stock = json.loads((ROOT / 'config/build-environment-fp6.json').read_text())['device_inputs']['selected_stock_build']
+        self.assertEqual(stock, recipe['stock_build'])
+        name = 'de.diamaneos.fairphone_camera.apk_3b271af8fac2df22'
+        generated = vendor_product.camera_apk_feature_file(vendor_product.camera_apk_feature(recipe))
+        generic = 'VENDOR/etc/permissions/de.diamaneos.fairphone_camera.xml'
+        # The device's own feature is not an APK feature, and a comment declares nothing.
+        good = {rule['file']: generated,
+                generic: b'<!-- not de.diamaneos.fairphone_camera.apk_0000000000000000 -->\n'
+                         b'<permissions><feature name="de.diamaneos.fairphone_camera" /></permissions>',
+                'VENDOR/etc/permissions/android.hardware.nfc.xml':
+                    b'<permissions><feature name="android.hardware.nfc" /></permissions>'}
+
+        def check(members, build=stock):
+            return subject.rule_catalog_app_feature(rule, self.harness(members, record={'stock_build': build}))
+        passed = (True, name + ' for the app of ' + stock)
+        self.assertEqual(passed, check(good))
+        self.assertEqual(passed, subject.RULES[rule['type']](rule, self.harness(good, record={'stock_build': stock})))
+        other = generated.replace(b'3b271af8fac2df22', b'0123456789abcdef')
+        entry = b'<config><%s name="' + name.encode() + b'" /></config>'
+        for change, problem in [
+                # An image from before the vendor step wrote the feature.
+                ({rule['file']: None}, 'declares no such feature'),
+                # The feature of another APK than the one the stock release ships.
+                ({rule['file']: other}, 'declares de.diamaneos.fairphone_camera.apk_0123456789abcdef in ' + rule['file']),
+                # Two APKs at once, in any folder SystemConfig reads.
+                ({'ODM/etc/sysconfig/camera.xml': other.replace(b'permissions>', b'config>')},
+                 'apk_0123456789abcdef in ODM/etc/sysconfig/camera.xml'),
+                ({'PRODUCT/etc/permissions/camera.xml': generated}, name + ' in PRODUCT/etc/permissions/camera.xml'),
+                # The right name, but not in the file the vendor step writes.
+                ({rule['file']: None, 'SYSTEM_EXT/etc/permissions/camera.xml': generated}, 'want exactly ' + name),
+                ({'SYSTEM/etc/sysconfig/camera.xml': entry % b'unavailable-feature'}, 'unavailable ' + name)]:
+            with self.subTest(change=sorted(change)):
+                ok, detail = check({k: v for k, v in {**good, **change}.items() if v is not None})
+                self.assertFalse(ok)
+                self.assertIn(problem, detail)
+        # Files outside the folders SystemConfig reads, and their subfolders, declare nothing.
+        self.assertEqual(passed, check({**good, 'VENDOR/etc/permissions/old/camera.xml': other,
+                                        'VENDOR/etc/camera/camera.xml': other}))
+        # The pinned APK is the one of the build's stock release, or the check cannot tell.
+        for build in (None, '', 'FP6.QREL.16.111.0'):
+            with self.subTest(build=build):
+                ok, detail = check(good, build)
+                self.assertFalse(ok)
+                self.assertIn('the tools pin the stock files of ' + stock, detail)
+
+        def pin(changed):
+            pinned = self.root / 'pinned-vendor-files.json'
+            pinned.write_text(json.dumps(changed))
+            return mock.patch.object(subject, 'VENDOR_FILES', pinned)
+        # The tools' pin decides which APK is the right one: a new stock release with another APK.
+        row, = recipe['catalog_apps']
+        moved = dict(recipe, stock_build='FP6.QREL.16.120.0', catalog_apps=[dict(row, sha256='0123456789abcdef' + 'f' * 48)])
+        with pin(moved):
+            ok, detail = check(good, 'FP6.QREL.16.120.0')
+            self.assertFalse(ok)
+            self.assertIn('want exactly de.diamaneos.fairphone_camera.apk_0123456789abcdef in ' + rule['file'], detail)
+            self.assertTrue(check({**good, rule['file']: other}, 'FP6.QREL.16.120.0')[0])
+        # A new stock release that ships the same APK keeps the feature.
+        with pin(dict(recipe, stock_build='FP6.QREL.16.120.0')):
+            self.assertEqual((True, name + ' for the app of FP6.QREL.16.120.0'), check(good, 'FP6.QREL.16.120.0'))
+        with pin({key: value for key, value in recipe.items() if key != 'catalog_apps'}):
+            self.assertEqual((False, 'the selected-file recipe does not pin ' + rule['app']), check(good))
+        with pin(dict(recipe, catalog_apps=[row, row])), self.assertRaises(ValueError):
+            check(good)
+
     def test_audio_effects_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         cfg, fx = 'VENDOR/etc/audio/sku_volcano/audio_effects.xml', 'VENDOR/lib64/soundfx/'
