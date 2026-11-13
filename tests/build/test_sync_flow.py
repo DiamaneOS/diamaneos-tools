@@ -317,6 +317,17 @@ class SyncFlowTests(unittest.TestCase):
             build.verify_branch_checkout(self.ctx.environment, self.src, self.ctx.environment_sha256,
                                          allow_modified=True)
 
+    def test_a_sync_record_without_the_series_is_stale_once_the_manifest_has_one(self):
+        plain = self.sync()
+        self.assertTrue(steps.plan_sync(self.ctx).valid({'outputs': plain}))
+        self.add_patch_series()
+        outputs = self.sync()
+        plan = steps.plan_sync(self.ctx)
+        self.assertTrue(plan.valid({'outputs': outputs}))
+        # What tools from before the series wrote for the same manifest: no patch record.
+        old = {key: value for key, value in outputs.items() if key not in ('patches', 'patches_sha256')}
+        self.assertFalse(plan.valid({'outputs': old}))
+
     def test_build_vendor_checks_a_plain_repo_checkout_and_records_it_like_a_sync(self):
         synced = self.sync()  # Stands in for a plain "repo init" and "repo sync".
         shutil.rmtree(self.ctx.workspace.state_dir)

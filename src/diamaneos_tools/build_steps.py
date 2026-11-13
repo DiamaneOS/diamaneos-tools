@@ -601,8 +601,18 @@ def plan_sync(ctx: Context) -> StepPlan:
 
     def valid(state):
         path = ctx.resolved_manifest
-        return ((ws.src / '.repo').is_dir() and path.is_file()
-                and bw.sha_file(path) == state['outputs'].get('resolved_manifest_sha256'))
+        if not ((ws.src / '.repo').is_dir() and path.is_file()
+                and bw.sha_file(path) == state['outputs'].get('resolved_manifest_sha256')):
+            return False
+        # Tools from before the patch series record a sync of a manifest that has one without applying it.
+        # That record is stale, so the sync runs again and applies the series.
+        if state['outputs'].get('patches_sha256'):
+            return True
+        try:
+            rows = build.parse_project_map(path.read_bytes())[0]
+        except build.BuildError:
+            return True  # The steps that use the resolved manifest report it.
+        return all(row[0] != patches.PROJECT for row in rows)
 
     return StepPlan('sync', inputs, actions, outputs, valid)
 

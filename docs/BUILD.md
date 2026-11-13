@@ -771,6 +771,8 @@ commands](#the-build-commands).
   - A patched project stays at its manifest commit, so the resolved manifest names the same commits
     with and without the series.
   - `git diff --cached` in a project shows the patches, `git diff` shows your own edits on top.
+  - A sync recorded without the series, for a manifest that has one, is stale. The next build runs
+    the sync again.
 - The source check accepts the staged series and nothing else on top.
   - The build record holds the series' SHA-256, the patch project's commit and, per project, the
     base commit, the patched tree and the patch ids.
