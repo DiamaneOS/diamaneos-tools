@@ -958,6 +958,25 @@ def remove_otatools(ctx: Context) -> None:
         shutil.rmtree(cached[1].parent.parent, ignore_errors=True)
 
 
+BUILD_DATE_PROPERTY = re.compile(r'^ro\.(?:[a-z_]+\.)?build\.date\.utc=(\d+)$', re.M)
+
+
+def drop_stale_build_properties(out: Path, datetime: int) -> list[str]:
+    """Removes the generated build.prop files in ``out`` that carry another
+    build date. Soong takes the date file as an order-only input, so a rebuild
+    with the same build number and a new source date keeps the old date in
+    every partition. A removed file is generated again by the build."""
+    dropped = []
+    for path in sorted((out / 'soong' / '.intermediates' / 'build' / 'soong').glob('*/*/build.prop')):
+        if path.is_symlink() or not path.is_file():
+            continue
+        dates = set(BUILD_DATE_PROPERTY.findall(path.read_text(errors='replace')))
+        if dates and dates != {str(datetime)}:
+            path.unlink()
+            dropped.append(path.parent.parent.name)
+    return dropped
+
+
 def android_outputs_match(workspace, outputs):
     """Both recorded archives must still exist with their recorded bytes."""
     try:
@@ -1060,9 +1079,16 @@ def plan_android(ctx: Context) -> StepPlan:
              'BUILD_USERNAME': config['build_identity']['username'],
              'BUILD_HOSTNAME': config['build_identity']['hostname'],
              **({OFFICIAL_FLAG: 'true'} if ctx.official else {})})
+    def fresh_date():
+        dropped = drop_stale_build_properties(ctx.out, datetime) if datetime is not None else []
+        if dropped:
+            ctx.echo('    generated again with this build date: ' + ', '.join(dropped))
+
     actions = [Action('Install the vendor tree', func=install),
                Action('Verify the source tree', func=preflight('preflight'),
                       detail='the source tree, the generated inputs and the device policy provenance record'),
+               Action('Drop build properties of another build date', func=fresh_date,
+                      detail='a rebuild with the same build number keeps the old date otherwise'),
                compile_action,
                Action('Check the source is unchanged', func=preflight('postflight'),
                       detail='after the build')]

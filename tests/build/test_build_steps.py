@@ -366,7 +366,7 @@ class PlanTests(unittest.TestCase):
                 steps.plan_android(ctx)
             ctx.dry_run = True
             plan = steps.plan_android(ctx)
-        self.assertIn('<newest source commit time>', plan.actions[2].env['BUILD_DATETIME'])
+        self.assertIn('<newest source commit time>', plan.actions[3].env['BUILD_DATETIME'])
 
     def test_a_prerequisite_keeps_the_options_it_was_built_with(self):
         os.environ.pop('DIAMANEOS_BUILD_NUMBER', None)  # the class sets one for official plans
@@ -399,6 +399,35 @@ class PlanTests(unittest.TestCase):
         # The kernel prebuilts commit from the resolved manifest is an Android input.
         self.assertEqual('k', plan.inputs['sync']['kernel_prebuilts_commit'])
         self.assertNotIn('kernel', plan.inputs)
+
+    def test_android_drops_build_properties_of_another_build_date(self):
+        # Soong does not write build.prop again when only the build date changed.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            base = out / 'soong' / '.intermediates' / 'build' / 'soong'
+            for name, text in (('system-build.prop', 'ro.system.build.date.utc=5\nro.build.date.utc=5\n'),
+                               ('odm-build.prop', 'ro.odm.build.date.utc=7\n'),
+                               ('mixed-build.prop', 'ro.build.date.utc=7\nro.product.build.date.utc=5\n'),
+                               ('other-build.prop', 'ro.build.type=user\n')):
+                (base / name / 'android_common').mkdir(parents=True)
+                (base / name / 'android_common' / 'build.prop').write_text(text)
+            self.assertEqual(['mixed-build.prop', 'system-build.prop'], steps.drop_stale_build_properties(out, 7))
+            left = sorted(p.parent.parent.name for p in base.glob('*/*/build.prop'))
+            self.assertEqual(['odm-build.prop', 'other-build.prop'], left)
+            self.assertEqual([], steps.drop_stale_build_properties(out, 7))
+            self.assertEqual([], steps.drop_stale_build_properties(out / 'missing', 7))
+
+    def test_android_plans_the_date_check_before_the_build(self):
+        ctx = self.context()
+        for name in ('sync', 'vendor'):
+            ctx.workspace.write_state(name, {'status': 'PASS', 'inputs_sha256': 'x',
+                                             'outputs': {'project_map_sha256': 'p', 'kernel_prebuilts_commit': 'k'}})
+        with patch.object(steps, 'android_identity', return_value='a' * 64), \
+                patch.object(steps, 'newest_commit_time', return_value=1):
+            plan = steps.plan_android(ctx)
+        titles = [action.description for action in plan.actions]
+        self.assertLess(titles.index('Drop build properties of another build date'),
+                        next(i for i, title in enumerate(titles) if title.startswith('Build Android')))
 
     def test_image_tools_get_a_fixed_build_number_and_the_source_date(self):
         # Otherwise aapt2's version string carries the build day, its hash
