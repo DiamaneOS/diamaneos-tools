@@ -594,6 +594,11 @@ class NativeSignatureTests(unittest.TestCase):
         self.assertEqual(certificate_digest, accepted.fingerprint('PRESIGNED', 'SYSTEM/app/Fixture/Fixture.apk'))
         with self.assertRaisesRegex(inputs.SigningError, 'Production refuses AOSP public test certificates'):
             native.PublicKeys(self.inventory_path, self.tools, production=True, policy=policy)
+        policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+        policy['preserved_mac_signers'] = [{'seinfo': 'fixture', 'certificate_sha256': certificate_digest}]
+        native.PublicKeys(self.inventory_path, self.tools, production=False, policy=policy)
+        with self.assertRaisesRegex(inputs.SigningError, 'Production refuses AOSP public test certificates'):
+            native.PublicKeys(self.inventory_path, self.tools, production=True, policy=policy)
 
     def test_public_avb_test_key_is_rejected_in_production(self):
         key = self.source / 'external/avb/test/data/testkey_rsa4096.pem'

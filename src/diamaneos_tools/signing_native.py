@@ -485,6 +485,7 @@ class PublicKeys:
         denied = {public for _certificate, public in pairs}
         approved = {digest for rule in self.policy['presigned_packages'] + self.policy.get('presigned_apexes', [])
                     for digest in rule['certificate_sha256']}
+        approved |= {rule['certificate_sha256'] for rule in self.policy.get('preserved_mac_signers', [])}
         require(not set(self.public_ids.values()) & denied
                 and not approved & {digest for digest, _public in pairs},
                 'Production refuses AOSP public test certificates')

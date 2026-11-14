@@ -175,7 +175,7 @@ def _unique_files(policies):
     _unique([row for rows in policies.values() for row in rows], identical_globals=True)
 
 
-def _replacements(handle, metadata, roles, public, tools, certificates, snapshots):
+def _replacements(handle, metadata, roles, public, tools, certificates, snapshots, policies):
     require(za.metadata_members(handle) == metadata, 'Unsigned package metadata differs from the supplied mapping')
     require(isinstance(roles, dict), 'Missing exact package roles')
     destinations, kept = {}, set()
@@ -195,6 +195,15 @@ def _replacements(handle, metadata, roles, public, tools, certificates, snapshot
         require(isinstance(pins, list) and len(pins) == 1 and isinstance(pins[0], str)
                 and SHA256.fullmatch(pins[0]), 'Presigned MAC authority lacks one exact external pin')
         kept.add(pins[0])
+    # A signer that no package in the build carries (an app the App Store installs). Its certificate
+    # stays only as the single certificate of signers with exactly the approved global seinfo.
+    lone = {}
+    for rule in public.policy.get('preserved_mac_signers', []):
+        fields(rule, {'seinfo', 'certificate_sha256'})
+        pin, label = rule['certificate_sha256'], rule['seinfo']
+        require(isinstance(pin, str) and SHA256.fullmatch(pin) and isinstance(label, str) and VALUE.fullmatch(label)
+                and pin not in kept and pin not in lone, 'Preserved MAC signer repeats a pin or lacks an exact one')
+        lone[pin] = label
 
     mapped = {}
 
@@ -233,6 +242,13 @@ def _replacements(handle, metadata, roles, public, tools, certificates, snapshot
         if old in kept:
             _der(tools, certificates[old], 'DER')
             require(old not in mapped or mapped[old] == old, 'Presigned MAC certificate would be replaced')
+            mapped[old] = old
+        elif old in lone:
+            _der(tools, certificates[old], 'DER')
+            require(old not in mapped, 'Preserved MAC certificate would be replaced')
+            rows = [row for rows in policies.values() for row in rows if old in row[0]]
+            require(rows and all(row == ((old,), lone[old], ()) for row in rows),
+                    'Preserved MAC signer selects more than its approved seinfo')
             mapped[old] = old
         require(old in mapped, 'MAC certificate has no independently approved replacement or preservation mapping')
     return mapped
@@ -299,7 +315,7 @@ def prepare_mac_permissions(original, metadata, role_map, keys, tools):
         snapshots = {}
         with _opened(original) as stream, za.archive(stream) as handle:
             policies, certificates = _read_policies(handle, _inventory(handle))
-            replacements = _replacements(handle, metadata, role_map, keys, tools, certificates, snapshots)
+            replacements = _replacements(handle, metadata, role_map, keys, tools, certificates, snapshots, policies)
             expected = {name: [{'certificates': sorted(replacements[c] for c in certs), 'seinfo': label or None,
                                 'packages': dict(packages)} for certs, label, packages in rows]
                         for name, rows in policies.items()}

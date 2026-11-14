@@ -148,6 +148,18 @@ Presigned bytes remain identical and verify against exact policy identities. Enc
 receive complete role checks. SELinux certificate replacement follows the native default
 key mapping and preserves independently approved certificates.
 
+`preserved_mac_signers` approves a signer of the SELinux MAC policy that no package in
+the build carries: an app the App Store installs.
+
+- Each entry binds one certificate SHA-256 to one global seinfo. The certificate stays
+  unchanged only as the single certificate of signers with exactly that seinfo.
+- Any other use of it, and any other unknown certificate, refuses.
+- The FP6 entry is the Fairphone Camera's signer with seinfo `fpcamera`. Its pin is the
+  first signer in the rotation lineage of the stock `FPCamera.apk` that the vendor recipe
+  pins under `catalog_apps`.
+- The same certificate is `fpcamera.x509.pem` in the device tree's
+  `sepolicy/fpcamera-system-ext-private`.
+
 ```sh
 bin/diamaneos signing command --plan "$PLAN" \
   --target-files "$IMAGES/target-files.zip" --signed-target-files "$SIGNED_TARGET_FILES" \

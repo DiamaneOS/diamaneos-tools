@@ -46,6 +46,18 @@
         }
       }
     },
+    "preserved_mac_signers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seinfo", "certificate_sha256"],
+        "properties": {
+          "seinfo": {"type": "string", "pattern": "^[A-Za-z0-9_.]{1,255}$"},
+          "certificate_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
     "presigned_packages": {
       "type": "array",
       "items": {

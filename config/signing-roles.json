@@ -43,6 +43,9 @@
       "payload_key_sha256": "eccb1a18e3d92c0d3212e337582d13973a88361d523dd251d88571a320f28ead"
     }
   ],
+  "preserved_mac_signers": [
+    {"seinfo": "fpcamera", "certificate_sha256": "0f00b338d27aa1cd1c4a00e8584501ffb36775a07af42e1cc394ca1ed0908470"}
+  ],
   "presigned_packages": [
     {"metadata_name": "AppCompatConfig.apk", "artifact_basename": "AppCompatConfig.apk", "parent_apex": null, "certificate_sha256": ["e5044303e85b4cceaae00ecf8823c9c6f937a8e3a2fb632ec9fa45b2c33b4bd1"]},
     {"metadata_name": "AppStore.apk", "artifact_basename": "AppStore.apk", "parent_apex": null, "certificate_sha256": ["559ffb104edd9386a39d512063cb7458c5ec0e29c9b52a91068ce950dd768a47"]},

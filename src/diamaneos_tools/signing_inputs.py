@@ -178,6 +178,10 @@ def validate_config(config):
             'Presigned APEX metadata and artifact identity differ')
     require(not {r['metadata_name'] for r in apexes} & {r['metadata_name'] for r in rules},
             'Presigned APK/APEX policy identities overlap')
+    signers = config.get('preserved_mac_signers', [])
+    pins = {pin for rule in rules + apexes for pin in rule['certificate_sha256']}
+    require(len({r['certificate_sha256'] for r in signers}) == len(signers) == len({r['seinfo'] for r in signers})
+            and not pins & {r['certificate_sha256'] for r in signers}, 'Duplicate preserved MAC signer policy')
 
 
 def presigned_apex_rule(policy, logical):

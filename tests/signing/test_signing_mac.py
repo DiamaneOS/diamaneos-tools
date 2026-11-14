@@ -162,6 +162,55 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
             'parent_apex': None, 'certificate_sha256': [self.pin('vendor_fixture')]})
         self.assertEqual(3, self.verify()['global_selectors'])
 
+    def catalog_signer(self, body=None):
+        vendor = '<signer signature="' + self.hex('vendor_fixture') + '"><seinfo value="catalog_label"/></signer>'
+        xml = self.xml.replace('</policy>', (body or vendor) + '</policy>')
+        self.original_xml(xml); self.signed_xml(self.replaced(xml))
+
+    def approve_catalog_signer(self, seinfo='catalog_label', name='vendor_fixture'):
+        self.keys.policy['preserved_mac_signers'] = [{'seinfo': seinfo, 'certificate_sha256': self.pin(name)}]
+
+    def test_preserved_signer_without_a_package_keeps_its_certificate_for_the_approved_seinfo(self):
+        self.catalog_signer()
+        with self.assertRaisesRegex(inputs.SigningError, 'independently approved'): self.prepare()
+        self.approve_catalog_signer()
+        expected = self.prepare()
+        self.assertIn({'certificates': [self.pin('vendor_fixture')], 'seinfo': 'catalog_label', 'packages': {}},
+                      expected[MEMBER])
+        self.assertEqual(3, self.verify(expected)['global_selectors'])
+        # The signed policy must still carry it: dropped or replaced fails the plan.
+        self.signed_xml(self.replaced(self.xml))
+        with self.assertRaises(inputs.SigningError): self.verify(expected)
+        self.signed_xml(self.replaced(self.xml).replace('</policy>', '<signer signature="' + self.hex('shared')
+                        + '"><seinfo value="catalog_label"/></signer></policy>'))
+        with self.assertRaises(inputs.SigningError): self.verify(expected)
+
+    def test_preserved_signer_refuses_another_seinfo_package_selectors_and_shared_signers(self):
+        self.approve_catalog_signer()
+        vendor = self.hex('vendor_fixture')
+        approved = '<signer signature="' + vendor + '"><seinfo value="catalog_label"/></signer>'
+        for body in ('<signer signature="' + vendor + '"><seinfo value="other_label"/></signer>',
+                     '<signer signature="' + vendor + '"><package name="example.catalog"><seinfo value="catalog_label"/></package></signer>',
+                     '<signer signature="' + vendor + '"><cert signature="' + self.hex('old_testkey') + '"/><seinfo value="catalog_label"/></signer>',
+                     approved + '<signer signature="' + vendor + '"><package name="example.catalog"><seinfo value="other_label"/></package></signer>'):
+            with self.subTest(body=body):
+                self.catalog_signer(body)
+                with self.assertRaisesRegex(inputs.SigningError, 'more than its approved seinfo'): self.prepare()
+
+    def test_unknown_certificate_does_not_borrow_a_preserved_seinfo(self):
+        self.approve_catalog_signer(name='shared')
+        self.catalog_signer()
+        with self.assertRaisesRegex(inputs.SigningError, 'independently approved'): self.prepare()
+
+    def test_preserved_signer_pin_cannot_be_a_build_key_or_a_presigned_pin(self):
+        self.approve_catalog_signer(seinfo='default', name='old_testkey')
+        with self.assertRaisesRegex(inputs.SigningError, 'Preserved MAC certificate would be replaced'): self.prepare()
+        self.catalog_signer()
+        self.approve_catalog_signer()
+        self.keys.policy['presigned_packages'].append({'metadata_name': 'Vendor.apk', 'artifact_basename': 'Vendor.apk',
+            'parent_apex': None, 'certificate_sha256': [self.pin('vendor_fixture')]})
+        with self.assertRaisesRegex(inputs.SigningError, 'repeats a pin'): self.prepare()
+
     def test_presigned_metadata_requires_approval_and_resigning_does_not_invent_mac_selectors(self):
         self.apk_metadata += 'name="Vendor.apk" certificate="PRESIGNED" private_key="PRESIGNED"\n'
         self.roles['Vendor.apk'] = {'kind': 'apk', 'container': 'PRESIGNED', 'payload': None}
@@ -398,6 +447,31 @@ class SigningMacTests(TemporaryInputs, unittest.TestCase):
                       {MEMBER: [dict(expected[MEMBER][0], certificates=[])]},
                       {MEMBER: [dict(expected[MEMBER][0], certificates=['not-a-pin'])]}):
             with self.assertRaises(inputs.SigningError): self.verify(value)
+
+
+class PreservedMacSignerPolicyTests(unittest.TestCase):
+    def setUp(self):
+        self.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
+
+    def test_reviewed_policy_keeps_one_certificate_for_one_seinfo(self):
+        inputs.validate_config(self.policy)
+        self.assertEqual([{'seinfo': 'fpcamera', 'certificate_sha256':
+                           '0f00b338d27aa1cd1c4a00e8584501ffb36775a07af42e1cc394ca1ed0908470'}],
+                         self.policy['preserved_mac_signers'])
+
+    def test_unknown_fields_duplicates_and_presigned_pins_refuse(self):
+        presigned = self.policy['presigned_packages'][0]['certificate_sha256'][0]
+        changes = [lambda p: p['preserved_mac_signers'][0].pop('seinfo'),
+                   lambda p: p['preserved_mac_signers'][0].update(package='com.example'),
+                   lambda p: p['preserved_mac_signers'][0].update(seinfo='not a label'),
+                   lambda p: p['preserved_mac_signers'][0].update(certificate_sha256='a' * 40),
+                   lambda p: p['preserved_mac_signers'][0].update(certificate_sha256=presigned),
+                   lambda p: p['preserved_mac_signers'].append(dict(p['preserved_mac_signers'][0], seinfo='other')),
+                   lambda p: p['preserved_mac_signers'].append(dict(p['preserved_mac_signers'][0],
+                                                                    certificate_sha256='b' * 64))]
+        for index, change in enumerate(changes):
+            p = copy.deepcopy(self.policy); change(p)
+            with self.subTest(change=index), self.assertRaises(inputs.SigningError): inputs.validate_config(p)
 
 
 if __name__ == '__main__':
