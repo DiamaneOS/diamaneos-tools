@@ -307,6 +307,8 @@ Image configuration right after configuring, by default with the production prof
   - No `/dev/mem`, kexec, KGDB or hibernation.
   - Exports trimmed to the symbol lists (`CONFIG_TRIM_UNUSED_KSYMS`).
   - No TIPC. The open data stack replaced both ends and no TIPC socket exists.
+  - No Gunyah VM functions (irqfd, ioeventfd) and no Qualcomm trusted VM support. Android virtual
+    machines are off, and nothing on the FP6 uses them.
 - The `production` tier refuses lockdep and the lock debug options, and adds dmesg restricted from boot, `CONFIG_UBSAN_TRAP`, so UBSAN stops at
   the fault and has no report handlers, and the local bounds checks that need the trap.
 - `--config-profile development` checks only the baseline and records the production
