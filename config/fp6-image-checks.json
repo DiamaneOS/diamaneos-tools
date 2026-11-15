@@ -5952,7 +5952,7 @@
     },
     {
       "id": "media-hw-decode-states",
-      "why": "The user's hardware video decoding choice applies once per boot: a stored 1 (all video), otherwise 0 (never). The state selects the codec list and target specification, and only 1 opens the decoder node to the codec service.",
+      "why": "The user's hardware video decoding choice applies once per boot: a stored 1 (all video) or 3 (selected apps), otherwise 0 (never). The state selects the codec list and target specification, and only 1 and 3 open the decoder node to the codec service. 3 is set up exactly as 1: the codec service then checks each caller.",
       "type": "text",
       "files": [
         "VENDOR/etc/init/init.fp6.media.rc"
@@ -5961,15 +5961,18 @@
         "^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 1\\n\\n",
         "^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 0\\n\\n",
         "(?s)^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1\\n.*^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 0\\n",
+        "^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=3\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 3\\n\\n",
+        "(?s)^on zygote-start && property:persist\\.diamaneos\\.hw_video_decode=3\\n.*^on zygote-start\\n    setprop ro\\.vendor\\.diamaneos\\.hw_video_decode 0\\n",
         "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=0\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1\\n(?:\\n|\\Z)",
-        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_hwdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_hwdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)"
+        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=1\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_hwdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_hwdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)",
+        "^on early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=3\\n    setprop ro\\.media\\.xml_variant\\.codecs _volcano_v1_hwdec\\n    setprop vendor\\.media\\.target_variant _volcano_v1_hwdec\\n    wait /dev/video32\\n    chown root mediacodec /dev/video32\\n    chmod 0660 /dev/video32\\n(?:\\n|\\Z)"
       ],
       "absent_regex": [
-        "^on (?!zygote-start && property:persist\\.diamaneos\\.hw_video_decode=1$|early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=[01]$).*hw_video_decode",
-        "(?s)(^[ \\t]+setprop ro\\.vendor\\.diamaneos\\.hw_video_decode .*){3}",
-        "(?s)(^[ \\t]+setprop ro\\.media\\.xml_variant\\.codecs .*){3}",
-        "(?s)(^[ \\t]+setprop vendor\\.media\\.target_variant .*){2}",
-        "(?s)(^[ \\t]+ch(?:own|mod) [^\\n]*/dev/video32\\n.*){3}",
+        "^on (?!zygote-start && property:persist\\.diamaneos\\.hw_video_decode=[13]$|early-boot && property:ro\\.vendor\\.diamaneos\\.hw_video_decode=[013]$).*hw_video_decode",
+        "(?s)(^[ \\t]+setprop ro\\.vendor\\.diamaneos\\.hw_video_decode .*){4}",
+        "(?s)(^[ \\t]+setprop ro\\.media\\.xml_variant\\.codecs .*){4}",
+        "(?s)(^[ \\t]+setprop vendor\\.media\\.target_variant .*){3}",
+        "(?s)(^[ \\t]+ch(?:own|mod) [^\\n]*/dev/video32\\n.*){5}",
         "_secdec"
       ]
     },
@@ -5987,6 +5990,7 @@
       "absent_regex": [
         "^persist\\.diamaneos\\.hw_video_decode=",
         "^ro\\.vendor\\.diamaneos\\.hw_video_decode=",
+        "^diamaneos\\.hw_video_decode\\.uid\\.",
         "^ro\\.media\\.xml_variant\\.codecs="
       ]
     },
@@ -6199,8 +6203,57 @@
       ]
     },
     {
+      "id": "media-hw-decode-app-writers",
+      "why": "Only system_server (and init, which may set any property) marks an app UID as selected for hardware video decoding. A domain that could would give any app the hardware decoders.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "diamaneos_hw_video_decode_app_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "init",
+        "system_server"
+      ]
+    },
+    {
+      "id": "media-hw-decode-app-readers",
+      "why": "Only the codec service and mediaserver read which app UIDs are selected for hardware video decoding, besides system_server, init and dumpstate, which may read any property. No app learns which apps are selected.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "diamaneos_hw_video_decode_app_prop",
+      "cls": "file",
+      "perm": "read",
+      "allowed": [
+        "dumpstate",
+        "init",
+        "mediacodec",
+        "mediaserver",
+        "system_server"
+      ]
+    },
+    {
       "id": "media-hw-decode-property-types",
-      "why": "Both hardware video decoding properties accept only 0 (never) and 1 (all video).",
+      "why": "Both hardware video decoding mode properties accept only 0 (never), 1 (all video) and 3 (selected apps). The per-app properties of selected apps have their own type, accept only 0 and 1, and no other property shares that type.",
       "type": "text",
       "files": [
         "SYSTEM_EXT/etc/selinux/system_ext_property_contexts",
@@ -6208,8 +6261,12 @@
       ],
       "match": "any",
       "regex": [
-        "^persist\\.diamaneos\\.hw_video_decode\\s+u:object_r:diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$",
-        "^ro\\.vendor\\.diamaneos\\.hw_video_decode\\s+u:object_r:vendor_diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1$"
+        "^persist\\.diamaneos\\.hw_video_decode\\s+u:object_r:diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1\\s+3$",
+        "^ro\\.vendor\\.diamaneos\\.hw_video_decode\\s+u:object_r:vendor_diamaneos_hw_video_decode_prop:s0\\s+exact\\s+enum\\s+0\\s+1\\s+3$",
+        "^diamaneos\\.hw_video_decode\\.uid\\.\\s+u:object_r:diamaneos_hw_video_decode_app_prop:s0\\s+prefix\\s+enum\\s+0\\s+1$"
+      ],
+      "absent_regex": [
+        "^(?!diamaneos\\.hw_video_decode\\.uid\\.\\s)\\S+\\s+u:object_r:diamaneos_hw_video_decode_app_prop:"
       ]
     },
     {

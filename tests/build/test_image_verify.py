@@ -2236,6 +2236,7 @@ class RuleTests(unittest.TestCase):
         self.assertEqual([self.MEDIA_RC], rule['files'])
         choice = ('on zygote-start && property:persist.diamaneos.hw_video_decode=1\n'
                   '    setprop ro.vendor.diamaneos.hw_video_decode 1\n')
+        selected = choice.replace('decode=1', 'decode=3').replace('decode 1', 'decode 3')
         default = 'on zygote-start\n    setprop ro.vendor.diamaneos.hw_video_decode 0\n'
         node = '    wait /dev/video32\n    chown root mediacodec /dev/video32\n    chmod 0660 /dev/video32\n'
         state = lambda value, variant, open_node: (
@@ -2243,26 +2244,34 @@ class RuleTests(unittest.TestCase):
             '    setprop ro.media.xml_variant.codecs %s\n' % (value, variant)
             + ('    setprop vendor.media.target_variant %s\n' % variant + node if open_node else ''))
         never, all_video = state('0', '_volcano_v1', False), state('1', '_volcano_v1_hwdec', True)
+        selected_apps = state('3', '_volcano_v1_hwdec', True)
         service = ('# The codec service; its decoders open only /dev/video32.\n'
                    'service vendor-qti-media-c2-hal-1-0 /vendor/bin/hw/vendor.qti.media.c2@1.0-service\n'
                    '    class hal\n    user mediacodec\n    group mediacodec\n')
-        parts = [service, choice, default, never, all_video]
+        parts = [service, choice, selected, default, never, all_video, selected_apps]
         good = '\n'.join(parts)
         check = lambda text: subject.rule_text(rule, self.harness({self.MEDIA_RC: text.encode()}))[0]
         self.assertTrue(check(good))
-        # The order of the two states is free.
-        self.assertTrue(check('\n'.join([service, choice, default, all_video, never])))
+        # The order of the states is free, and so is that of the two stored choices.
+        self.assertTrue(check('\n'.join([service, choice, selected, default, selected_apps, all_video, never])))
+        self.assertTrue(check('\n'.join([service, selected, choice, default, never, all_video, selected_apps])))
         swap = lambda old, new: '\n'.join(new if part == old else part for part in parts)
         for case, text in [
                 # A read-only property keeps its first value: the default must come last.
-                ('the default first', '\n'.join([service, default, choice, never, all_video])),
-                ('no stored 1', '\n'.join([service, default, never, all_video])),
-                ('no default', '\n'.join([service, choice, never, all_video])),
+                ('the default first', '\n'.join([service, default, choice, selected, never, all_video, selected_apps])),
+                ('the default before a stored 3',
+                 '\n'.join([service, choice, default, selected, never, all_video, selected_apps])),
+                ('no stored 1', '\n'.join([service, selected, default, never, all_video, selected_apps])),
+                ('no stored 3', '\n'.join([service, choice, default, never, all_video, selected_apps])),
+                ('no default', '\n'.join([service, choice, selected, never, all_video, selected_apps])),
                 ('default all video', swap(default, default.replace(' 0\n', ' 1\n'))),
                 ('default protected video only', swap(default, default.replace(' 0\n', ' 2\n'))),
                 ('a stored 1 sets never', swap(choice, choice.replace('decode 1\n', 'decode 0\n'))),
-                ('a stored 2 sets protected video only', '\n'.join([service, choice, choice.replace('1', '2'), default,
-                                                                    never, all_video])),
+                ('a stored 3 sets all video', swap(selected, selected.replace('decode 3\n', 'decode 1\n'))),
+                ('a stored 3 sets never', swap(selected, selected.replace('decode 3\n', 'decode 0\n'))),
+                ('a stored 2 sets protected video only', '\n'.join([service, choice, choice.replace('1', '2'), selected,
+                                                                    default, never, all_video, selected_apps])),
+                ('a stored 1 also sets 3', swap(choice, choice + '    setprop ro.vendor.diamaneos.hw_video_decode 3\n')),
                 # The first step sets only the state: the default action always runs.
                 ('the default action also opens the node', swap(default, default + node)),
                 ('a stored 1 also selects a codec list',
@@ -2276,8 +2285,16 @@ class RuleTests(unittest.TestCase):
                 ('all video selects no decoder', swap(all_video, state('1', '_volcano_v1', False))),
                 ('all video keeps the node closed', swap(all_video, all_video.replace(node, ''))),
                 ('all video opens the node to all', swap(all_video, all_video.replace('chmod 0660', 'chmod 0666'))),
-                ('no action for state 0', '\n'.join([service, choice, default, all_video])),
-                ('no action for state 1', '\n'.join([service, choice, default, never])),
+                ('selected apps keeps the node closed', swap(selected_apps, selected_apps.replace(node, ''))),
+                ('selected apps selects no decoder', swap(selected_apps, state('3', '_volcano_v1', False))),
+                ('selected apps opens the node to all',
+                 swap(selected_apps, selected_apps.replace('chmod 0660', 'chmod 0666'))),
+                ('no action for state 0', '\n'.join([service, choice, selected, default, all_video, selected_apps])),
+                ('no action for state 1', '\n'.join([service, choice, selected, default, never, selected_apps])),
+                ('no action for state 3', '\n'.join([service, choice, selected, default, never, all_video])),
+                ('a state 4', good + '\n' + state('4', '_volcano_v1_hwdec', True)),
+                ('a stored 4', '\n'.join([service, choice, selected, selected.replace('3', '4'), default, never,
+                                         all_video, selected_apps])),
                 # Nothing else acts on the choice or the state.
                 ('a state for protected video only', good + '\n' + state('2', '_volcano_v1_secdec', True)),
                 ('a property-only trigger', good + '\non property:persist.diamaneos.hw_video_decode=1\n' + node),
@@ -2297,18 +2314,65 @@ class RuleTests(unittest.TestCase):
         rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
             'media-hw-decode-property-types']
         system_ext, vendor = rule['files']
-        choice = b'persist.diamaneos.hw_video_decode          u:object_r:diamaneos_hw_video_decode_prop:s0 exact enum 0 1\n'
-        state = b'ro.vendor.diamaneos.hw_video_decode u:object_r:vendor_diamaneos_hw_video_decode_prop:s0 exact enum 0 1\n'
+        apps = (b'diamaneos.hw_video_decode.uid.             u:object_r:diamaneos_hw_video_decode_app_prop:s0 '
+                b'prefix enum 0 1\n')
+        choice = (b'persist.diamaneos.hw_video_decode          u:object_r:diamaneos_hw_video_decode_prop:s0 exact enum 0 1 3\n'
+                  + apps)
+        state = b'ro.vendor.diamaneos.hw_video_decode u:object_r:vendor_diamaneos_hw_video_decode_prop:s0 exact enum 0 1 3\n'
         check = lambda a, b: subject.rule_text(rule, self.harness({system_ext: b'# choice\n' + a, vendor: b'# state\n' + b}))[0]
         self.assertTrue(check(choice, state))
-        for case, a, b in [('a third choice', choice.replace(b'0 1', b'0 1 2'), state),
-                           ('a third state', choice, state.replace(b'0 1', b'0 1 2')),
-                           ('the choice as any string', choice.replace(b'exact enum 0 1', b'exact string'), state),
+        for case, a, b in [('a fourth choice', choice.replace(b'0 1 3', b'0 1 2 3'), state),
+                           ('a fourth state', choice, state.replace(b'0 1 3', b'0 1 2 3')),
+                           ('no selected apps choice', choice.replace(b'0 1 3', b'0 1'), state),
+                           ('no selected apps state', choice, state.replace(b'0 1 3', b'0 1')),
+                           ('no per-app properties', choice.replace(apps, b''), state),
+                           ('per-app properties as any string', choice.replace(b'prefix enum 0 1', b'prefix string'), state),
+                           ('per-app properties under the choice type',
+                            choice.replace(b'diamaneos_hw_video_decode_app_prop', b'diamaneos_hw_video_decode_prop'), state),
+                           ('another property with the per-app type', choice,
+                            state + b'vendor.foo u:object_r:diamaneos_hw_video_decode_app_prop:s0 exact enum 0 1\n'),
+                           ('the choice as any string', choice.replace(b'exact enum 0 1 3', b'exact string'), state),
                            ('the state under another type', choice, state.replace(b'vendor_diamaneos_hw_video_decode_prop',
                                                                                     b'vendor_default_prop')),
                            ('no entry for the choice', b'', state), ('no entry for the state', choice, b'')]:
             with self.subTest(case=case):
                 self.assertFalse(check(a, b))
+
+    def test_media_hardware_decoding_app_policy_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        plat, system_ext, vendor = ('SYSTEM/etc/selinux/plat_sepolicy.cil',
+                                    'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil')
+        get = b'(file (read getattr map open))'
+        system_ext_cil = (b'(type diamaneos_hw_video_decode_app_prop)\n'
+                          b'(typeattributeset property_type (diamaneos_hw_video_decode_app_prop))\n'
+                          b'(allow system_server diamaneos_hw_video_decode_app_prop (property_service (set)))\n'
+                          b'(allow system_server diamaneos_hw_video_decode_app_prop ' + get + b')\n'
+                          b'(allow mediaserver diamaneos_hw_video_decode_app_prop ' + get + b')\n')
+        good = {
+            plat: (b'(type init)\n(type dumpstate)\n(type system_server)\n(type mediaserver)\n(type mediacodec)\n'
+                   b'(type untrusted_app)\n(type system_app)\n(typeattributeset appdomain (untrusted_app system_app))\n'
+                   b'(allow init property_type (property_service (set)))\n'
+                   b'(allow init property_type (file (read open)))\n(allow dumpstate property_type (file (read open)))\n'),
+            system_ext: system_ext_cil,
+            vendor: b'(allow mediacodec diamaneos_hw_video_decode_app_prop ' + get + b')\n',
+            'PRODUCT/etc/selinux/product_sepolicy.cil': b'', 'VENDOR/etc/selinux/plat_pub_versioned.cil': b'',
+            'ODM/etc/selinux/odm_sepolicy.cil': b''}
+        check = lambda rule_id, members: subject.RULES[rules[rule_id]['type']](rules[rule_id], self.harness(members))[0]
+        for rule_id in ('media-hw-decode-app-writers', 'media-hw-decode-app-readers'):
+            self.assertTrue(check(rule_id, good), rule_id)
+        for rule_id, change in [
+                ('media-hw-decode-app-writers', {system_ext: system_ext_cil + b'(allow system_app '
+                                                 b'diamaneos_hw_video_decode_app_prop (property_service (set)))\n'}),
+                ('media-hw-decode-app-writers', {vendor: good[vendor] + b'(allow mediacodec '
+                                                 b'diamaneos_hw_video_decode_app_prop (property_service (set)))\n'}),
+                ('media-hw-decode-app-readers', {system_ext: system_ext_cil + b'(allow appdomain '
+                                                 b'diamaneos_hw_video_decode_app_prop ' + get + b')\n'}),
+                ('media-hw-decode-app-readers', {system_ext: system_ext_cil + b'(allow untrusted_app property_type '
+                                                 b'(file (read)))\n'}),
+                ('media-hw-decode-app-readers', {system_ext: system_ext_cil.replace(
+                    b'(type diamaneos_hw_video_decode_app_prop)\n', b'')})]:
+            with self.subTest(rule=rule_id, change=sorted(change)):
+                self.assertFalse(check(rule_id, {**good, **change}))
 
     @staticmethod
     def stock_shaped_codec_list():
