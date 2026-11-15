@@ -370,10 +370,16 @@ def real_date(value: str) -> bool:
         return False
 
 
-def build_number(identity: str, config: dict, official: bool = False) -> str:
-    """Official builds: DIAMANEOS_BUILD_NUMBER as a release number, YYYYMMDDNN. Other builds: that override
-    or the configured prefix and the start of the source identity."""
+def build_number(identity: str, config: dict, official: bool = False, release: str | None = None) -> str:
+    """Official builds: DIAMANEOS_BUILD_NUMBER as a release number, YYYYMMDDNN, and the release itself for a
+    build of a release tag. Other builds: that override or the configured prefix and the start of the source
+    identity."""
     override = os.environ.get('DIAMANEOS_BUILD_NUMBER')
+    if official and release:
+        if override and override != release:
+            raise UsageError(f'an official build of release {release} has the build number {release}, not '
+                             f'{override}. Unset DIAMANEOS_BUILD_NUMBER')
+        return release
     if official:
         if not override or not RELEASE_NUMBER.fullmatch(override) or not real_date(override[:8]):
             raise UsageError('an official build needs DIAMANEOS_BUILD_NUMBER as a release number: the release date '
@@ -1011,7 +1017,7 @@ def plan_android(ctx: Context) -> StepPlan:
             ota_test.check_same_tree(base, sync['outputs'])
             number = ota_test.successor_number(base['build_number'])
         else:
-            number = ctx.build_number or build_number(identity, config, ctx.official)
+            number = ctx.build_number or build_number(identity, config, ctx.official, ctx.release)
         inputs = {'environment_sha256': ctx.environment_sha256, 'sync': source_record(sync),
                   'vendor': vendor['outputs'], 'variant': ctx.variant,
                   'build_config': config_subset(config, ANDROID_CONFIG), 'build_number': number,
@@ -1544,12 +1550,8 @@ def steps_to_run(ctx: Context, steps, force) -> list:
 
 
 def check_release(ctx: Context, step: str) -> None:
-    """A release tag build is never official, and a checkout of a release tag moves to the branch or
-    another tag only after "repo init -b" from the user, never in a command that names another."""
-    if ctx.release and ctx.official:
-        raise UsageError('--release builds a published release as your own build, not an official one. '
-                         + ('Leave out --official' if ctx.official_given else
-                            'This workspace builds official images. Use another one (--workspace)'))
+    """A checkout of a release tag moves to the branch or another tag only after "repo init -b" from the
+    user, never in a command that names another."""
     followed = build.followed_release(ctx.workspace.src)
     # The kernel step does not use the checkout. A reproduction names its manifest commit itself.
     if followed and followed != ctx.release and not ctx.pinned and step != 'kernel':
@@ -1668,7 +1670,8 @@ def parser() -> argparse.ArgumentParser:
                         help='with --resolved-manifest and no --build-json: the manifest commit the build recorded')
     result.add_argument('--release', metavar='RELEASE',
                         help='build a published release from its signed tag: the manifest at refs/tags/RELEASE '
-                             'instead of the head of its branch. Give it to every step')
+                             'instead of the head of its branch. Give it to every step. With --official it '
+                             'builds the release\'s official images, numbered RELEASE')
     result.add_argument('--from', dest='from_step', choices=bw.STEPS, help='all: rerun from this step')
     result.add_argument('--environment', help=argparse.SUPPRESS)
     result.add_argument('--factory-zip', help='vendor: use this copy of the device maker\'s factory package instead of downloading it')

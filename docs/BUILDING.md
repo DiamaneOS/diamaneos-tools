@@ -116,6 +116,27 @@ tools/diamaneos/bin/diamaneos build package
 - `build vendor` is quick unless DiamaneOS moved to another stock release or changed the vendor
   file list.
 
+## Rebuilding a release
+
+```sh
+mkdir -p ~/diamaneos-<release> && cd ~/diamaneos-<release>
+repo init -u https://github.com/DiamaneOS/platform_manifest.git -b refs/tags/<release>
+repo sync -j8
+tools/diamaneos/bin/diamaneos build all --release <release> --official
+```
+
+- `<release>` is the release number, such as `2026111400`.
+- The release's tag pins every project, the build tools and the patch series to the commits the
+  release was built from. Later changes on the branches do not reach it.
+- Check the tag's signature first, as the [build guide](https://diamaneos.de/build/#verifying-the-source)
+  shows.
+- Run the tools from `tools/diamaneos` of this checkout and give `--release <release>` to every
+  command.
+- `--official` builds the release's own images, with its release number. Leave it out for a build of
+  your own from the same source.
+- The images are signed with test keys, not with the release keys. The project commits in the image
+  set's `resolved-manifest.xml` are the ones in the release's factory package.
+
 ## More detail
 
 - [Build reference](BUILD.md): host setup, each step, [building by hand](BUILD.md#building-by-hand)

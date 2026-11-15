@@ -473,8 +473,10 @@ such as `--release 2026102300` after `repo init -b refs/tags/2026102300` and `re
     checkout's own manifest.
 - The tools do not check the tag's signature. They run from the same checkout, so the check comes
   first, by hand, as the [build guide](https://diamaneos.de/build/#verifying-the-source) shows.
-- It does not go with `--official` or with `--resolved-manifest`. The build number is that of a
-  build of your own, not the release number.
+- It does not go with `--resolved-manifest`.
+- Without `--official` it is a build of your own, with a build number of its own.
+- With `--official` it builds the release's official images, numbered with the release number.
+  `DIAMANEOS_BUILD_NUMBER` may be unset or name that release. Any other number stops the build.
 
 **Other environments.** `--environment FILE` selects another environment file: a copy of the FP6
 environment with another manifest branch, or with `manifest.revision` set to build one manifest

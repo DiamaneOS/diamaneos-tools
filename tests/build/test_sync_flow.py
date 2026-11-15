@@ -83,9 +83,10 @@ FAKE_REPO = textwrap.dedent('''\
                 os.makedirs(path, exist_ok=True)
                 git('init', '-q', cwd=path)
             git('fetch', '-q', urls[remote.get('fetch') + project.get('name')],
-                '+refs/heads/*:refs/remotes/%s/*' % remote.get('name'), cwd=path)
+                '+refs/heads/*:refs/remotes/%s/*' % remote.get('name'), '+refs/tags/*:refs/tags/*', cwd=path)
             commit = len(revision) == 40 and all(c in '0123456789abcdef' for c in revision)
-            target = revision if commit else 'refs/remotes/%s/%s' % (remote.get('name'), revision)
+            exact = commit or revision.startswith('refs/tags/')
+            target = revision if exact else 'refs/remotes/%s/%s' % (remote.get('name'), revision)
             git('checkout', '-q', '--detach', target, cwd=path)
     elif command == 'manifest':
         root = manifest()
@@ -510,16 +511,51 @@ class SyncFlowTests(unittest.TestCase):
         self.assertIn('sync: to run', self.lines)
         self.assertEqual(second_commit, self.sync(self.context(release='2026102400'))['manifest_commit'])
 
-    def test_a_release_build_is_never_official(self):
+    def release_at_tags(self, name='2026102300'):
+        """A release tag as the project's release script makes it: every project of the diamaneos remote
+        carries the tag on the commit the release used, and a commit above the branch's, which only the
+        manifest's tag points at, sets the remote's revision to the tag. Then the branches move on."""
+        for repository in (self.example, self.root / 'remotes/kernels'):
+            git(repository, 'tag', '-a', '-m', 'release ' + name, name)
+        tagged = git(self.example, 'rev-parse', 'HEAD')
+        included = self.manifest_repository / 'diamaneos.xml'
+        included.write_text(included.read_text().replace('revision="android17"', f'revision="refs/tags/{name}"'))
+        git(self.manifest_repository, 'commit', '-qam', 'release ' + name)
+        git(self.manifest_repository, 'tag', '-a', '-m', 'release ' + name, name)
+        commit = git(self.manifest_repository, 'rev-parse', 'HEAD')
+        git(self.manifest_repository, 'reset', '-q', '--hard', 'HEAD~1')
+        self.move_on()
+        return commit, tagged
+
+    def test_a_release_whose_projects_read_their_tags_gives_the_tagged_source(self):
+        commit, example = self.release_at_tags()
+        self.assertNotEqual(example, git(self.example, 'rev-parse', 'android17'))
+        outputs = self.sync(self.context(release='2026102300', official=True))
+        self.assertEqual(('refs/tags/2026102300', commit), (outputs['manifest_branch'], outputs['manifest_commit']))
+        self.assertEqual(example, git(self.src / 'device/example', 'rev-parse', 'HEAD'))
+        self.assertEqual(self.kernel_commit, outputs['kernel_prebuilts_commit'])
+        self.assertNotIn('deviations', outputs)
+        # The tag's commit is on no branch, so only --release takes it, not a reproduction of the branch.
+        environment = json.loads(self.environment.read_text())
+        with self.assertRaisesRegex(build.BuildError, f'{commit} is not in the history of android17'):
+            build.verify_manifest_repository(environment, self.src, commit)
+
+    def test_an_official_build_of_a_release_has_the_release_number(self):
         self.release()
-        code, errors = self.main('all', '--release', '2026102300', '--official', '--dry-run')
-        self.assertEqual(2, code)
-        self.assertIn('not an official one. Leave out --official', errors)
-        (self.root / 'ws/state').mkdir(parents=True)
+        self.assertEqual((0, ''), self.main('all', '--release', '2026102300', '--official', '--dry-run'))
+        (self.root / 'ws/state').mkdir(parents=True, exist_ok=True)
         (self.root / 'ws/state' / steps.OFFICIAL_MARKER).write_text('official\n')
-        code, errors = self.main('all', '--release', '2026102300', '--dry-run')
-        self.assertEqual(2, code)
-        self.assertIn('not an official one. This workspace builds official images', errors)
+        self.assertEqual((0, ''), self.main('all', '--release', '2026102300', '--dry-run'))
+        config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        for given in ({}, {'DIAMANEOS_BUILD_NUMBER': '2026102300'}):
+            with mock.patch.dict(os.environ, given, clear=True):
+                self.assertEqual('2026102300', steps.build_number('0' * 64, config, True, '2026102300'))
+        with mock.patch.dict(os.environ, {'DIAMANEOS_BUILD_NUMBER': '2026102301'}):
+            with self.assertRaisesRegex(bw.UsageError, 'release 2026102300 has the build number 2026102300'):
+                steps.build_number('0' * 64, config, True, '2026102300')
+        # A build of the release that is not official keeps a number of its own.
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual('test.' + '0' * 12, steps.build_number('0' * 64, config, False, '2026102300'))
 
     def test_a_release_tag_must_be_annotated(self):
         self.release(annotated=False)
