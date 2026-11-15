@@ -98,8 +98,8 @@
       "newer": {
         "branches": "^lineage-([0-9]+\\.[0-9]+)$"
       },
-      "reviewed": "68dca0c523594fb7c34e94782d0f21660530a2dc",
-      "review_note": "2026-10-27: three commits after our pin, a batteryless health service bump, a log line and a configurable per-user store path in the fingerprint HAL. The FP6 builds none of them (only the power HAL comes from here), and our own fingerprint service already uses the stock FP6 path without the trailing slash. Nothing to take."
+      "reviewed": "4f6225db0d3c8cda1f59641fe0d7e53bd5e6449a",
+      "review_note": "2026-10-27: three commits after our pin, a batteryless health service bump, a log line and a configurable per-user store path in the fingerprint HAL. The FP6 builds none of them (only the power HAL comes from here), and our own fingerprint service already uses the stock FP6 path without the trailing slash. Nothing to take. 2026-11-15: one more, the legacy AIDL vibrator stops advertising CAP_ON_CALLBACK. The FP6 uses the Qualcomm vibrator service, not this one. Nothing to take."
     },
     {
       "id": "bluetooth-module",
