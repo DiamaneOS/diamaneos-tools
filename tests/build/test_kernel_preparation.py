@@ -338,10 +338,12 @@ class KmiTests(unittest.TestCase):
         importers = {}
         for symbol, modules in found.items():
             importers.setdefault(modules[0], []).append(symbol)
-        # Only the exports of cfg80211.ko and cqhci.ko, which the device kernel build makes. The common kernel's
-        # fairphone symbol list keeps the exports of the core that vendor modules import.
-        self.assertEqual(['qca_cld3_qca6750.ko', 'sdhci-msm.ko'], sorted(importers))
-        self.assertEqual((41, 4), (len(importers['qca_cld3_qca6750.ko']), len(importers['sdhci-msm.ko'])))
+        # The exports of cfg80211.ko and cqhci.ko, which the device kernel build makes, and the Gunyah platform
+        # hooks gunyah_qcom registers. The common kernel's fairphone symbol list keeps the exports of the core that
+        # vendor modules import.
+        self.assertEqual(['gunyah_qcom.ko', 'qca_cld3_qca6750.ko', 'sdhci-msm.ko'], sorted(importers))
+        self.assertEqual((41, 4, 2), (len(importers['qca_cld3_qca6750.ko']), len(importers['sdhci-msm.ko']),
+                                      len(importers['gunyah_qcom.ko'])))
         self.assertIn('cqhci_init', importers['sdhci-msm.ko'])
         self.assertIn('cfg80211_scan_done', importers['qca_cld3_qca6750.ko'])
         self.assertTrue(all(group['reason'].strip() for group in recipe['kmi_exceptions']))

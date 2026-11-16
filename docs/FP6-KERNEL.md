@@ -235,7 +235,9 @@ The **baseline** tier always applies. It requires, among others:
 - The lockdown LSM from early boot at integrity level, forced SHA-256 module signatures and no user
   namespaces.
 - The Rust binder without the C binder, debugfs not mountable, pstore with ramoops, trimmed exports.
-- No `/dev/mem`, kexec, KGDB, hibernation, TIPC or Gunyah virtual machine functions.
+- Gunyah VM memory lent before the VM starts (`GUNYAH_LEND_UPFRONT`), since the FP6 resource manager has no
+  demand paging. Its VM functions (irqfd, ioeventfd) serve Android's protected VMs.
+- No `/dev/mem`, kexec, KGDB, hibernation or TIPC.
 
 The **production** tier adds dmesg restricted from boot and `CONFIG_UBSAN_TRAP`, so UBSAN stops at
 the fault, and refuses lockdep and the lock debug options. The **debug** tier replaces the baseline

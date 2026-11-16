@@ -99,6 +99,7 @@
       "gpr_dlkm.ko",
       "gpucc-volcano.ko",
       "gsim.ko",
+      "gunyah_qcom.ko",
       "hall_det.ko",
       "haptic.ko",
       "health_monitor.ko",
@@ -364,6 +365,7 @@
       "gpr_dlkm.ko",
       "gpucc-volcano.ko",
       "gsim.ko",
+      "gunyah_qcom.ko",
       "hall_det.ko",
       "haptic.ko",
       "health_monitor.ko",
@@ -644,6 +646,7 @@
       "gh_dbl.ko",
       "gh_msgq.ko",
       "gh_rm_drv.ko",
+      "gunyah_qcom.ko",
       "gh_mem_notifier.ko",
       "qcom_llcc_pmu.ko",
       "nvmem_qfprom.ko",
@@ -741,6 +744,7 @@
       "gh_dbl.ko",
       "gh_msgq.ko",
       "gh_rm_drv.ko",
+      "gunyah_qcom.ko",
       "gh_mem_notifier.ko",
       "qcom_llcc_pmu.ko",
       "nvmem_qfprom.ko",
@@ -1450,6 +1454,16 @@
         "sdhci-msm.ko"
       ],
       "reason": "Exports of cqhci.ko, which the device kernel build makes and no GKI symbol list keeps, since the GKI build has no cqhci. The microSD host driver is the only importer."
+    },
+    {
+      "symbols": [
+        "gunyah_rm_register_platform_ops",
+        "gunyah_rm_unregister_platform_ops"
+      ],
+      "modules": [
+        "gunyah_qcom.ko"
+      ],
+      "reason": "Exports of the Gunyah driver's platform hooks, which no GKI symbol list keeps. gunyah_qcom registers the Qualcomm hooks that move VM memory in TrustZone before each lend, and is the only importer."
     }
   ],
   "required_symbols": [
