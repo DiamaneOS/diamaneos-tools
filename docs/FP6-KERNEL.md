@@ -1,454 +1,340 @@
-# FP6 kernel build and capability contract
+# FP6 kernel
 
-- The native entry points, checks and deliberate settings behind `kernel prepare`, `kernel build`,
-  `kernel compare` and `kernel publish`.
-- The Android build does not build the kernel: it uses the published kernel prebuilts, which the
-  DiamaneOS manifest checks out at `device/fairphone/FP6-kernel`.
-- These commands make and publish that set.
-- Terms are explained in [TERMS.md](TERMS.md).
+How the Fairphone 6 kernel set is built from source, checked and published, and the settings it holds
+to. For people who change the kernel, its modules or its device tree. The commands are
+`kernel prepare`, `kernel build`, `kernel compare` and `kernel publish`.
 
-## Sources and workspace
+The Android build does not compile the kernel. It uses the published kernel prebuilts, which the
+manifest checks out at `device/fairphone/FP6-kernel`. These commands make and publish that set, and
+`build kernel` runs the first two for you ([building the kernel](BUILD.md#building-the-kernel)).
 
-- The kernel is `kernel_common-6.18` (Google's `android17-6.18` common kernel with hardening)
-  plus the FP6 commits, in
-  [`kernel_common-6.18`](https://github.com/DiamaneOS/kernel_common-6.18).
-- The Qualcomm drivers are the vendor tree
-  [`kernel_qcom-6.18`](https://github.com/DiamaneOS/kernel_qcom-6.18). It holds no copy of the core
-  kernel. Its modules build as external modules against the common kernel.
-  - `modules/` holds the packages, each with a module registry (`modules.bzl`).
-  - `configs/` holds the kernel configuration profiles.
-  - `kernel/` holds the device kernel fragments.
-- The device tree and overlay image are built from the vendor tree's `dts/` and held to the tested pair (below).
-- Never substitute Pixel kernel sources or disable strict KMI, forced module signatures or sandbox checks.
-- [`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) pins both repositories and
-  every toolchain part at exact commits. [`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json)
-  pins the tested device tree and overlay image by SHA-256. Their URLs are plain values and may change without a new pin.
+Run the commands from a checkout of these tools, or as `tools/diamaneos/bin/diamaneos` in a source
+checkout. Terms are explained in [TERMS.md](TERMS.md).
 
-`kernel prepare --workspace DIR`:
+## Sources
 
-- Checks out each pinned project in its own directory of `DIR` (`vendor`, `common` and `toolchain/*`),
-  one commit with no history. Toolchain parts are partial, sparse clones of their
-  repositories, fetched over HTTPS with HTTP/1.1 and retries.
-- `DIR` must be empty or a workspace an earlier preparation made. Edited sources are refused and
-  never reset, and so is any untracked input.
+| Repository | Holds |
+| --- | --- |
+| [`kernel_common-6.18`](https://github.com/DiamaneOS/kernel_common-6.18) | The kernel: Google's `android17-6.18` common kernel with hardening, plus the FP6 commits. |
+| [`kernel_qcom-6.18`](https://github.com/DiamaneOS/kernel_qcom-6.18) | The vendor tree: Qualcomm's drivers as external modules, with no copy of the core kernel. `modules/` holds the module packages, each with its registry (`modules.bzl`), `configs/` the configuration profiles, `kernel/` the device kernel fragments and `dts/` the device tree sources. |
+
+[`config/kernel-sources-fp6.json`](../config/kernel-sources-fp6.json) pins both repositories and
+every toolchain part at exact commits. The URLs there are plain values that may change without a new
+pin.
+
+Never substitute Pixel kernel sources or turn off strict KMI, forced module signatures or the
+sandbox checks.
+
+## Prepare
+
+```sh
+bin/diamaneos kernel prepare --workspace "$KERNEL_WORKSPACE"
+```
+
+This checks out each pinned project in its own directory of the workspace (`vendor`, `common` and
+`toolchain/*`), one commit with no history. Toolchain parts are partial, sparse clones. It checks the
+core header copies (below) and writes `preparation.json`.
+
+- The workspace must be empty or one an earlier preparation made. Edited sources and untracked inputs
+  are refused, never reset.
 - `--source NAME=PATH` fetches the pinned commit of one project from a local Git repository instead
-  of its URL. The commit stays the pin, so the checkout is the same either way.
-- Checks the core header copies (below) and writes `preparation.json`.
-
-`kernel build` runs only on a preparation of the pinned commits and checks every checkout again
-before the build.
+  of its URL. The commit stays the pin, so the result is the same.
 
 ## Build
 
-The toolchain is Clang `r596125` and Rust `1.91.1.p3` from the pinned prebuilts, the kernel build
-tools and the host libraries the kernel's own host tools link. The build starts from an empty
+```sh
+bin/diamaneos kernel build --workspace "$KERNEL_WORKSPACE" --jobs 16 --timeout 7200
+```
+
+`kernel build` runs only on a preparation of the pinned commits and checks every checkout again first.
+It uses the Clang and Rust toolchain of the pins (`toolchain` in
+[`config/fp6-kernel-build.json`](../config/fp6-kernel-build.json)) and starts from an empty
 environment, so nothing of the calling shell reaches it.
 
-The kernel release has the GKI form, for example `6.18.38-android17-5-ge92c3f16af73-4k`:
+- `--jobs` bounds the parallelism, and `--timeout` limits each command, not the whole run.
+- Each run gets its own directory in `runs/`, with its logs and `result.json`. `current` moves to a
+  run's `candidate` only after every stage passed. A retry is a new run.
+- A second build in the same workspace is refused, and stopping the command stops every child process.
 
-- `android17` and the KMI generation come from the common tree's `build.config.constants`
-  (`BRANCH` and `KMI_GENERATION`), and the commit is the pinned one. A `localversion` file in each
-  build directory carries them, as Kleaf writes it, and `-4k` is the configuration's
-  `CONFIG_LOCALVERSION`.
-- libvintf reads the kernel's FCM level from the `android17` part, so the build fails when the
-  common tree is not an `android17` branch or the Image reports another release.
+**Kernel release.** The release has the GKI form, for example
+`6.18.38-android17-5-ge92c3f16af73-4k`.
 
-Reproducibility:
+`android17` and the KMI generation come from the common tree's `build.config.constants`, the commit
+is the pinned one and `-4k` is the configuration's local version. libvintf reads the kernel's FCM
+level from the `android17` part, so the build fails on another branch.
 
-- `SOURCE_DATE_EPOCH` and `KBUILD_BUILD_TIMESTAMP` are the pinned common commit's time, and the
-  build user and host are fixed.
-- C file names and Rust paths lose the prefix of every build directory (`-ffile-prefix-map` and
-  `--remap-path-prefix`), so no build directory ends up in the Image or a module.
-- pahole runs with one thread, because its parallel BTF encoding orders types differently on each
-  run and changes the Image and every module with it.
-- `result.json` records the host programs and libraries the build uses outside the pinned toolchain
-  (make, perl, openssl, python3, git, bash, rsync, tar, modinfo, modprobe, nm, readelf, libdw and
-  libelf), each with its path, a SHA-256 and the first line of its version.
-- The vendor tree is extracted from the pinned commit (`git archive`) into the run directory.
-  The generated `Kbuild` files go there, never into the checkout.
+**Reproducibility.** The build time is the pinned common commit's time, and the build user and host
+are fixed.
 
-[`config/fp6-kernel-build.json`](../config/fp6-kernel-build.json) lists the stages. In each run:
+Build directory paths are stripped from the Image and the modules. pahole runs with one thread,
+because its parallel BTF encoding orders types differently on each run. `result.json` records each
+host program the build uses outside the toolchain, with its path, hash and version.
 
-1. The GKI core build (`core/`): `gki_defconfig`, the vendor tree's `configs/diamaneos_defconfig`
-   and the profile's fragment, then `make Image modules`. This makes the Image, the GKI modules
-   and the key the Image trusts for modules (`MODULE_SIG_FORCE`).
-   - The Image exports only the kernel symbols the GKI symbol lists and the reviewed exceptions
-     name, and what the modules of the common tree use (`CONFIG_TRIM_UNUSED_KSYMS`, as GKI
-     builds do). The tools write the symbol list for the run (`kmi-whitelist`).
-   - Every request of a fragment must be in the final `.config` (`fragment-check.json`).
-   - The configuration meets the policy below before anything is compiled
-     (`kernel-config.json`).
-2. The device kernel build (`device/`): the same tree and configuration plus the vendor tree's
-   `kernel/wireless_defconfig` and `kernel/platform_defconfig`, then `make modules`. The 6.18 GKI
-   build makes no cfg80211, mac80211, BAM DMA engine or cqhci. This build makes them, and every
-   vendor module builds against it.
-   - It may differ from the GKI configuration only in the listed symbols (`device-config.json`).
-   - Its exports of the kernel itself must equal the GKI build's.
-3. The vendor packages, in the order of the plan, each as external modules against the device
-   build: the base layer, thermal and DCVS, audio and sensors, modem and data, the display, GPU and
-   touch groups, camera and video, Wi-Fi and Bluetooth, the peripherals and qcacld-3.0.
-   - A package reads the symbol tables of the earlier packages it names, and only those.
-   - The `Kbuild` of a package is made from its DDK registry by
-     `src/diamaneos_tools/kernel_kbuild.py`, with the vendor values from the package `defconfig`
-     on top of the base layer's and the kernel's. A missing configuration file is an error.
-   - A vendor value that differs from the kernel configuration must be one of the reviewed
-     overrides of the plan: drivers the vendor tree builds as modules where the kernel has them
-     off or hidden behind an option that is off.
-     - A symbol that the Kconfig files of the common tree declare and the configuration lacks reads
-       as n.
-     - Each override states the vendor and kernel value the review saw, and a change of either
-       fails the build, as does an override that no longer differs (`vendor-overrides.json`).
-   - The modules built must be exactly the ones the registry names.
-   - qcacld-3.0 builds with the effective configuration in
-     [`config/fp6-kernel-qcacld.config`](../config/fp6-kernel-qcacld.config), which must hold every
-     value of the vendor's `fps_gki_qca6750_defconfig`. It holds no kernel symbol.
-   - The cfg80211 feature probes of the plan read the common sources, and each declares the result
-     it expects. A change fails the build. The header the probes make is saved in the run.
-4. The module set (below), the device tree (below), the checks (below) and the candidate.
+### Stages
 
+`config/fp6-kernel-build.json` lists the stages. The vendor tree is extracted from the pinned commit
+into the run directory, and generated files go there, never into the checkout.
+
+1. **GKI core** (`core/`): `gki_defconfig`, the vendor tree's `configs/diamaneos_defconfig` and the
+   profile's fragment, then `make Image modules`.
+
+   This makes the Image, the GKI modules and the key the Image trusts for modules. The Image exports
+   only the symbols the GKI symbol lists and the reviewed exceptions name
+   (`CONFIG_TRIM_UNUSED_KSYMS`).
+2. **Device kernel** (`device/`): the same configuration plus the vendor tree's
+   `kernel/wireless_defconfig` and `kernel/platform_defconfig`, then `make modules`.
+
+   It makes the cfg80211, mac80211, BAM DMA and cqhci modules the GKI build lacks, and every vendor
+   module builds against it. It may differ from the GKI configuration only in the listed symbols.
+3. **Vendor packages**, in the plan's order, each as external modules against the device kernel. The
+   `Kbuild` of each package is made from its registry by `kernel_kbuild.py`, and the modules built must
+   be exactly the ones the registry names.
+4. **Packaging**, the device tree, the checks and the candidate, as described below.
+
+Within those stages:
+
+- Every request of a configuration fragment must be in the final `.config`, and the configuration must
+  meet the [policy](#configuration-policy) before anything compiles.
+- A vendor value that differs from the kernel configuration must be one of the plan's reviewed
+  overrides, each stating the values the review saw. A change of either value fails the build.
+- qcacld-3.0 builds with [`config/fp6-kernel-qcacld.config`](../config/fp6-kernel-qcacld.config), which
+  must hold every value of the vendor's own defconfig. Its cfg80211 feature probes must give the
+  results the plan expects.
+- The core header copies listed in the vendor tree's `core-headers.json` files must equal the common
+  kernel's byte for byte, because their structures cross the boundary between Image and modules.
 - A struct declared inside a parameter list (`-Wvisibility`) in any build log fails the build.
-- The core header copies listed in the vendor tree's `core-headers.json` files must stay byte for
-  byte equal to the common kernel, because their structures cross the Image and module boundary.
-- `--config-profile production` is the default and the one `diamaneos build kernel` builds. It
-  enforces the whole policy, and only a production run is published.
-- `--config-profile development` builds the same vendor profile and enforces the baseline only.
-- `--config-profile debug` builds with the debug aids on (see Debug profile below).
-- The files of `tool_fragments` in the build plan come after the vendor profile's fragment.
-  - The build fails on a request the configuration does not honour.
-  - It says whether the pinned common kernel does not declare the symbol or an option the symbol
-    depends on is off.
+
+### Profiles
+
+| `--config-profile` | Configuration | Policy checked | Published |
+| --- | --- | --- | --- |
+| `production` (default) | The vendor tree's production profile | Baseline and production tiers | Yes |
+| `development` | The same as production | Baseline only, with the production differences recorded | No |
+| `debug` | The vendor tree's `configs/bringup_defconfig`, with the debug aids on | Baseline with the debug tier | No |
+
+The build fails on any request the configuration does not honour, and says whether the common kernel
+lacks the symbol or a symbol it depends on is off.
 
 ## Module packaging
 
-- [`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json) defines the reviewed
-  module selection, partition placement and load lists, the kernel command line, the device trees
-  that ship and the overlay count.
-- Only `fp6.dtb` ships.
-- A module comes from the vendor or device builds, else from the core build. A name both make is
+[`config/fp6-kernel-packaging.json`](../config/fp6-kernel-packaging.json) defines the module
+selection, the partition of each module, the load lists, the kernel command line, the device trees
+that ship (only `fp6.dtb`) and the overlay count. Each entry has its reason.
+
+- A module comes from the vendor or device build, else from the core build. A name both make is
   refused.
-- Every module is stripped of debug sections and signed with the Image's key. Stripping and signing
-  must keep module metadata and symbol versions.
-- The run deletes its signing keys when it ends, whether it passed or failed, and lists them in
-  `result.json`. The certificates stay, and the packaged Image must still carry the core build's one.
-- The lists must be complete: a load list names only modules of its partition, and a module's
-  dependencies sit in its own partition. vendor_dlkm may depend on system_dlkm.
-- vendor_boot holds the first-stage modules, the recovery list (first stage plus second stage) and
-  the common modules they depend on (`libarc4`, `rfkill`).
-- `required_modules` names a module that a vendor image file needs. The list is empty.
-  - The build fails while the file ships and the module is missing from the partition or from its
-    load list.
-  - It also fails when the file does not ship and the module is placed.
-  - A reference comparison reports such a module the reference lacks as policy.
-- `second_stage_modules` names modules that load from vendor_dlkm and the recovery list, never in
-  the first stage. `dwc3-msm.ko` is one, so user builds start it with USB data off
-  (`modules.options`), and recovery and fastbootd keep USB.
+- Every module is stripped of debug sections and signed with the Image's key. The run deletes its
+  signing keys when it ends, pass or fail.
+- A load list names only modules of its partition, and a module's dependencies sit in its own
+  partition. vendor_dlkm may depend on system_dlkm.
+- vendor_boot holds the first-stage modules, the recovery list and the common modules they depend on.
+- `second_stage_modules` load from vendor_dlkm and the recovery list, never in the first stage. One is
+  `dwc3-msm.ko`, so user builds start it with USB data off, while recovery and fastbootd keep USB.
+- `required_modules` names a module that a vendor image file needs. The build fails while the file
+  ships and the module is missing, or the other way round. The list is empty.
 
-Its `denied_modules` lists, with reasons, what FP6 never ships:
-
-- The CAN, 802.15.4/6LoWPAN, kernel NFC, PPTP/L2TP, GenieZone and kheaders GKI modules.
-- The in-kernel Bluetooth stack, the HDMI bridge and codecs, other chips' WLAN drivers, the
-  WCD938x codec and FM radio.
-- The TrustZone log reader, the legacy QSEECom driver, the HDCP client module, the SPSS loader and
-  bridge and the FocalTech touch driver.
-- The Hexagon DSP remote debugger (`rdbg`).
-- The PCIe host and MHI drivers with QRTR over MHI (the FP6 has no PCIe device), and the USB CCID
-  function.
-- The debug modules of the vendor tree: clock measurement (`debugcc`), the data capture engine,
-  the IOMMU, cpufreq and SPMI debug drivers, the interconnect test, the CPU dump table and the
-  subsystem stats.
-- CoreSight. The 6.18 GKI configuration builds it as modules, where the 6.1 policy turned it off.
-
-The list survives regeneration of the other lists.
+**Denied modules.** `denied_modules` lists what the FP6 never ships, in groups, each with its reason.
+They cover hardware the FP6 lacks (CAN, 802.15.4, PCIe and MHI, HDMI), unused protocols and stacks,
+other chips' drivers, debug and test interfaces, and CoreSight tracing.
 
 - `kernel build` fails when a denied module is in any list (`-` and `_` match).
-- A denied name the build does not make fails, unless the group marks it `absent` (the 6.18 sources
-  do not build it). A name marked absent that the build makes fails, and the mark must go. So a
-  renamed copy cannot slip past the list.
-- A cut needs no remaining importer, enforced by the build's dependency check
-  (`module-interfaces.json`), since libmodprobe loads dependencies a list omits.
-- `result.json` records the absent denied modules (`denied_modules_not_built`).
-- Kept: `qcom_glink_spss` because `glink_probe` imports it, and `wcd937x`, `wcd939x` and `wsa883x`
-  because the audio machine driver imports them.
-- `sg` stays: the TEE reaches the UFS replay-protected memory through `/dev/sg*`.
+- A denied name the build does not make fails, unless its group marks it `absent`. A name marked
+  absent that the build makes fails too, so a renamed copy cannot slip past.
+- A removed module may have no remaining importer, because libmodprobe loads dependencies a list
+  omits.
+- Some modules stay because others import them, such as `qcom_glink_spss` for `glink_probe`. `sg`
+  stays because the TEE reaches the UFS replay-protected memory through `/dev/sg*`.
 
-How the phone loads the modules:
+**Kernel command line.** `BoardConfigKernel.mk` adds the words of `kernel_cmdline`, each with its
+reason, and none may be an argument that `config/fp6-build.json` forbids.
 
-- First-stage init loads `modules.load` (or `modules.load.recovery` in recovery) from the vendor
-  ramdisk and skips modules named in that ramdisk's `modules.blocklist`.
-- The recovery list names debug modules, such as `llcc_perfmon`, that only this blocklist keeps
-  out, so the vendor ramdisk must hold the same blocklist as `vendor_dlkm`.
-- Second-stage init loads `vendor_dlkm` in parallel streams, one `modprobe` per
-  `modules.load.<stream>` list from `device/fairphone/FP6/boot/modules`. When the kernel prebuilts
-  change `modules.load`, change those lists with them.
+The one word is `scsi_mod.scan=sync`: asynchronous scanning would number the UFS logical units
+differently on each boot, and the device names its disks by letter.
 
-Kernel command line. `BoardConfigKernel.mk` adds the words of `kernel_cmdline` to
-`BOARD_KERNEL_CMDLINE`, each with its reason. A word may not be one of the arguments
-`config/fp6-build.json` forbids. The set holds one word:
+**Symbol rules,** checked on every build:
 
-- `scsi_mod.scan=sync`. The 6.18 GKI scans SCSI devices asynchronously, which numbers the UFS
-  logical units in a different order on each boot. The device files, the boot control HAL and the
-  ueventd rules name the disks by letter, so scanning stays synchronous.
+| Rule | Meaning |
+| --- | --- |
+| `module_import_allowlist` | The only modules that may import a symbol. Only `dwc3-msm.ko` may import `register_kretprobe`. |
+| `forbidden_symbols` | Symbols that must not exist in the built kernel's `System.map`. |
+| `required_symbols` | Symbols that must exist, marking changes a rebase could drop. One with a `pending` reason names a change the pinned common kernel does not carry: the production profile counts it as missing, and `kernel publish` refuses such a run. |
+| `kmi_exceptions` | Kernel symbols modules import although no GKI symbol list keeps them, each with its importers. |
 
-Symbol rules in the same file run on every build, each with its reason:
+### How the phone loads modules
 
-- `module_import_allowlist`: the only modules that may import a symbol (`dwc3-msm.ko` alone may
-  import `register_kretprobe`, the reason KPROBES stays on).
-- `forbidden_symbols`: symbols that must not exist in the built kernel's `System.map`.
-- `required_symbols`: symbols that must exist there, marking changes a rebase could drop. A
-  ThinLTO `.llvm.` suffix counts.
-  - A rule with a `pending` reason names a change that the pinned common kernel does not carry.
-  - The development and debug profiles report it in `result.json`. The production profile counts it
-    as missing.
-  - A pending symbol that is present fails the build, so a stale reason cannot stay.
-  - `kernel publish` refuses a run that reports pending symbols.
-- `kmi_exceptions`: kernel symbols modules import although no GKI symbol list keeps them. Each names
-  its importers, and the modules found must be exactly those.
+First-stage init loads `modules.load` (or `modules.load.recovery` in recovery) from the vendor ramdisk
+and skips the modules in that ramdisk's `modules.blocklist`. The recovery list names debug modules
+that only this blocklist keeps out, so the vendor ramdisk must hold the same blocklist as
+`vendor_dlkm`.
+
+Second-stage init loads `vendor_dlkm` in parallel streams, one `modprobe` per
+`modules.load.<stream>` list in `device/fairphone/FP6/boot/modules`. When the kernel prebuilts change
+`modules.load`, change those lists with them.
 
 ## Module checks
 
-- Every module carries the Image's release and the same remaining vermagic.
-- The built-in certificate of the Image is read from `vmlinux`. Every packaged module must carry a
-  signature that verifies against it.
-- Every symbol version (CRC) a module requires and every namespace it imports must match one
-  provider in the packaged set or the Image. A module may not export a symbol another selected
-  module exports, and the dependency graph must have no cycle (`module-interfaces.json`).
-- Strict KMI: every kernel symbol a Qualcomm module or one of the device kernel's four modules
-  imports must be in the GKI symbol lists or in `kmi_exceptions` (`kmi` in `result.json`).
-  - The lists are the ones the common tree's `BUILD.bazel` names (`gki/aarch64/symbols`).
-  - An exception that is no longer needed fails the build.
-- The kernel is trimmed to the same list: the GKI lists and the exceptions are the symbol list of
-  `CONFIG_TRIM_UNUSED_KSYMS`. A kernel symbol a shipped module imports must be among the exports in
-  the Image's symbol table.
-- The GKI modules of the common tree are not held to the lists. The build trims the Image to what
-  they use.
-- These checks establish provider CRC and namespace coverage, dependency order, certificate and
-  signature binding and the symbol rules. None proves module insertion, firmware execution or
-  boot.
+- Every module carries the Image's release and vermagic, and a signature that verifies against the
+  Image's built-in certificate.
+- Every symbol version and namespace a module needs must match one provider in the set or the Image.
+  No two modules export the same symbol, and the dependency graph has no cycle.
+- **Strict KMI.** Every kernel symbol a vendor module or a device kernel module imports must be in the
+  GKI symbol lists or in `kmi_exceptions`. An exception no longer needed fails the build.
+- The Image is trimmed to the same list, so a symbol a shipped module imports must be among the
+  Image's exports.
+
+These checks prove symbol coverage, load order and signatures. None proves that a module loads, that
+firmware runs or that the phone boots.
 
 ## Device tree
 
-`kernel build` builds `fp6.dtb` and the overlay image from the vendor tree's device tree sources and
-holds them to the tested pair (`src/diamaneos_tools/kernel_dt.py`, plan `config/fp6-kernel-dt.json`):
+`kernel build` builds `fp6.dtb` and the overlay image `dtbo.img` from the vendor tree's `dts/`, with
+its `scripts/build-fp6.sh`, the pinned Clang as preprocessor and the common tree's `dtc`.
+[`config/fp6-kernel-dt.json`](../config/fp6-kernel-dt.json) holds the result to the tested pair:
 
-- `dts/` of the pinned vendor commit is extracted into the run, and its `scripts/build-fp6.sh`
-  compiles and merges the tree there.
-  - The preprocessor is the pinned Clang and `dtc` is the common tree's, from the core build.
-  - Qualcomm's `fdtoverlay`, `fdtoverlaymerge`, `fdtget` and `fdtput` (`dts/qcom-dtc`) are built
-    with the pinned Clang.
-- The pinned `mkdtboimg` makes `dtbo.img` from the overlays the script merged, in name order, which must
-  be the number of overlays the packaging recipe names. Qualcomm's boards stay beside the FP6 SKUs, so the
-  entry numbers never move.
-- The plan pins the tested `fp6.dtb` and `dtbo.img` by SHA-256. A change to the device tree sources
-  stops the build until the new pair is tested on a phone and the pins are updated. Both files stay in
-  the run directory for the comparison.
-- No property named in `forbidden_properties` may be in the tree (`qcom,disable-lpm`, which UFS
-  low power made obsolete). The same list is scanned in every overlay for the base's SoC.
-  - `forbidden_property_exemptions` names the one overlay that has it, the Volcano emulator board
-    (index 84, board id 0xf), which no FP6 board matches.
-  - An exemption fails when the overlay no longer has the board id or the property.
-- The kernel build tools' `dtc` must decompile the result.
-- Nodes of drivers that do not ship must be disabled (`disabled_nodes` in the plan, each with its
-  reason, found by compatible): the EUD debugger, the clock debug, the FM radio and the crypto
-  engine. An enabled node without its driver keeps its suppliers from sync_state.
-  - The check covers the tree and every overlay for its SoC, as the bootloader applies them. An
-    overlay without a SoC list applies to all.
-  - It also fails when an overlay enables a listed node that it targets by path, phandle or
-    symbol.
-  - A fragment of such an overlay whose target the tree does not resolve fails, because the check
-    could not see what the fragment enables.
+- It pins the tested `fp6.dtb` and `dtbo.img` by SHA-256. A change to the device tree sources stops
+  the build until the new pair is tested on a phone and the pins are updated.
+- `dtbo.img` holds the overlays in name order, as many as the packaging recipe names. Qualcomm's boards
+  stay next to the FP6 ones, so the entry numbers never move.
+- `forbidden_properties` may not appear in the tree or in any overlay for its SoC. The one exemption is
+  an emulator board overlay that no FP6 board matches.
+- `disabled_nodes` must stay disabled, found by compatible: the EUD debugger, the clock debug driver,
+  the FM radio and the crypto engine. An enabled node without its driver keeps its suppliers from
+  sync_state, which keeps the SoC out of deep sleep.
 
-Why the tree differs from the Fairphone source it came from:
+The disabled-node check covers the tree and every overlay the bootloader can apply to its SoC. It
+also fails when an overlay enables a listed node, or targets a node the tree does not resolve.
 
-- `nvmem-modem-cpucp`:
-  - The 6.18 nvmem core rejects a bit range past its one-byte cell and a zero-width range, and
-    with them the whole PMIC SDAM, so UFS waits for its cell.
-  - The 5.0 modem remoteproc takes its CMA area at memory-region index 1 where 6.1 took index 2.
-  - The 5.0 CPUCP driver looks its regions up by name where 6.1 used the index.
-- `explicit-cells`: parents without `#address-cells` or `#size-cells` get both, with the value the
-  walk up the tree resolves to in the 6.1 tree, so every parse stays the same and 6.18 stops
-  warning.
-- `static-ramoops`: 6.18 no longer supports a dynamically placed ramoops region, so it is fixed at
-  `0x9fe000000` (4 MiB), where 6.1 and every 6.18 boot placed it.
-- `crypto-engine-off`:
-  - 6.18 has no qcedev driver, so the crypto engine node never binds.
-  - Both interconnect providers then wait for it in sync_state and keep their boot votes, and the
-    SoC never reaches AOSD or CXSD.
-  - No domain may open `/dev/qce` on these builds, so the node is disabled.
-- `sdhc-supplies`: the 5.0 `sdhci-msm` takes the card supply and the I/O supply as `vmmc` and
-  `vqmmc`. The 6.1 tree names them `vdd` and `vdd-io`, so the driver finds none and never powers
-  the card. They are the pm7550 l13 and l23 regulators.
-- `sdhc-voltages`: with `vmmc` and `vqmmc` the mmc core takes the highest voltage the supplies
-  offer. l13 is fixed at 2.96 V, what 6.1 gave the card, and l23 stops at 2.96 V.
-- `usb-ipa-path`: the 5.0 interconnect driver keeps the IPA configuration slave on `cnoc_main`,
-  so the USB to IPA path names that provider instead of `cnoc_cfg`.
+**Changes from Fairphone's device tree.** Fairphone's source targets its own kernel, so the vendor
+tree's device tree differs where 6.18 drivers need it:
+
+| Change | Why |
+| --- | --- |
+| `nvmem-modem-cpucp` | The 6.18 nvmem core rejects the stock bit ranges, the modem takes its memory region at another index, and the CPUCP driver looks its regions up by name. |
+| `explicit-cells` | Parents without `#address-cells` or `#size-cells` get the values that were implied, so parsing stays the same without warnings. |
+| `static-ramoops` | 6.18 no longer places ramoops dynamically, so the region is fixed at `0x9fe000000` (4 MiB). |
+| `crypto-engine-off` | 6.18 has no qcedev driver, so the crypto engine node is disabled, and the interconnects reach sync_state. |
+| `sdhc-supplies`, `sdhc-voltages` | The SD card driver takes its supplies as `vmmc` and `vqmmc`, held to 2.96 V. |
+| `usb-ipa-path` | The USB to IPA path names the `cnoc_main` interconnect provider. |
 
 ## Configuration policy
 
-The kernel configuration comes from the vendor tree: `gki_defconfig`, then
-`configs/diamaneos_defconfig` (the DiamaneOS hardening that applies on 6.18, in every profile) and
-the profile's fragment (`configs/production_defconfig`).
+The configuration is `gki_defconfig`, then `configs/diamaneos_defconfig` (the DiamaneOS hardening, in
+every profile) and the profile's fragment. [`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json)
+is checked against the Image configuration right after configuring (report `kernel-config.json`).
 
-[`config/kernel-policy-fp6.json`](../config/kernel-policy-fp6.json) is checked against the effective
-Image configuration right after configuring, by default with the production profile (report
-`kernel-config.json`):
+The **baseline** tier always applies. It requires, among others:
 
-- The `baseline` always applies:
-  - CFI, shadow call stack, hardened usercopy, fortify, stack and heap initialization and KASLR.
-  - Page table check, enforced, and call-clobbered registers zeroed on return.
-  - Heap: random kmalloc caches, slab buckets, slab canaries, freelist hardening and randomisation, no slab
-    merging, and KFENCE at 500 ms with 63 objects.
-  - Kernel PAC and BTI, a strong per-task stack protector and a random kernel stack offset.
-  - List hardening that stops on corruption, page allocator shuffling, a strict IOMMU, sealed system
-    mappings, UBSAN bounds checks and panic on oops.
-  - The lockdown LSM from early boot, and no user namespaces.
-  - Forced module signatures with SHA-256, SELinux with development mode and lockdown at integrity
-    level.
-  - The Rust binder without the C binder, debugfs not mountable and pstore with ramoops.
-  - No `/dev/mem`, kexec, KGDB or hibernation.
-  - Exports trimmed to the symbol lists (`CONFIG_TRIM_UNUSED_KSYMS`).
-  - No TIPC. The open data stack replaced both ends and no TIPC socket exists.
-  - No Gunyah VM functions (irqfd, ioeventfd) and no Qualcomm trusted VM support. Android virtual
-    machines are off, and nothing on the FP6 uses them.
-- The `production` tier refuses lockdep and the lock debug options, and adds dmesg restricted from boot, `CONFIG_UBSAN_TRAP`, so UBSAN stops at
-  the fault and has no report handlers, and the local bounds checks that need the trap.
-- `--config-profile development` checks only the baseline and records the production
-  differences.
-- The debug tier replaces baseline rules the debug aids need and may not name a production rule.
-- A rule value `off` accepts `n` or a symbol the configuration does not mention (hidden by an
-  option that is off). `not-built-in` also accepts `m`.
-- `build kernel-config` runs the same check on any effective `.config`:
+- CFI, shadow call stack, kernel PAC and BTI, strong per-task stack protector, random kernel stack
+  offset and KASLR.
+- Hardened usercopy, fortify, stack and heap initialization, page table check and zeroed call-used
+  registers.
+- A hardened heap: random kmalloc caches, slab buckets and canaries, freelist hardening, no slab
+  merging, and KFENCE.
+- List hardening that stops on corruption, a strict IOMMU, sealed system mappings, UBSAN bounds checks
+  and panic on oops.
+- The lockdown LSM from early boot at integrity level, forced SHA-256 module signatures and no user
+  namespaces.
+- The Rust binder without the C binder, debugfs not mountable, pstore with ramoops, trimmed exports.
+- No `/dev/mem`, kexec, KGDB, hibernation, TIPC or Gunyah virtual machine functions.
+
+The **production** tier adds dmesg restricted from boot and `CONFIG_UBSAN_TRAP`, so UBSAN stops at
+the fault, and refuses lockdep and the lock debug options. The **debug** tier replaces the baseline
+rules the debug aids need and may not name a production rule.
+
+A rule value `off` accepts `n` or a symbol the configuration does not mention. `not-built-in` also
+accepts `m`. Missing required symbols and duplicate assignments fail. To check any `.config`:
 
 ```sh
 bin/diamaneos build kernel-config --config "$KERNEL_CONFIG" \
   --policy config/kernel-policy-fp6.json --profile production
 ```
 
-- Missing required symbols and duplicate assignments fail. The report binds the configuration and
-  the policy by hash.
+[`config/kernel-vendor-policy-fp6.json`](../config/kernel-vendor-policy-fp6.json) is checked against
+the configuration the vendor modules build with (`vendor-role-kernel-config.json`).
 
-[`config/kernel-vendor-policy-fp6.json`](../config/kernel-vendor-policy-fp6.json) is checked
-against the device kernel configuration with the vendor defconfigs on top, which is what the vendor
-modules build with (`vendor-role-kernel-config.json`):
+It requires QRTR as a module without the tunnel, no STM, no CoreSight built in, no QDSS USB function
+or EUD, and Qualcomm's download mode off by default, which alone decides whether a panic dumps RAM.
 
-- QRTR as a module without the tunnel, SELinux development mode and no STM.
-- CoreSight not built in, and no QDSS USB function, FunctionFS IPC logging or EUD.
-- Qualcomm's download mode off by default (`CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT`), which
-  alone decides whether a panic dumps RAM.
+### Deliberate settings
 
-Settings that differ from the 6.1 kernel:
-
-| 6.1 | 6.18 |
+| Setting | Why |
 | --- | --- |
-| `CONFIG_CFI_CLANG` | `CONFIG_CFI` |
-| `CONFIG_RANDSTRUCT_FULL` | `CONFIG_RANDSTRUCT_NONE`: 6.18 builds Rust only without RANDSTRUCT. The Rust binder (`CONFIG_ANDROID_BINDER_IPC_RUST`, no C binder) replaces the most attacked IPC driver with memory-safe code. The structure layout scan is gone with RANDSTRUCT |
-| lockdown at confidentiality level | lockdown at integrity level: Android reads DMA-BUF statistics with a BPF program, which confidentiality breaks |
-| `CONFIG_DEBUG_CREDENTIALS`, `CONFIG_CRYPTO_SHA1_ARM64_CE` | gone from 6.18 |
-| `CONFIG_CORESIGHT` off | the GKI configuration builds it as modules, so the baseline requires `not-built-in` and the deny list keeps `coresight*.ko` out |
-| `CONFIG_QRTR_IMSDCM_OWNERSHIP` | the vendor tree declares it and no source implements the IMS role guard, so it is not checked |
-| `CONFIG_USB_CONFIGFS_F_QDSS`, `CONFIG_USB_F_FS_IPC_LOGGING`, `CONFIG_QCOM_EUD` | the symbols do not exist in the 6.18 sources, the baseline requires `off` |
-| Kleaf KMI trimming and ABI comparison | `CONFIG_TRIM_UNUSED_KSYMS` with the GKI symbol lists and the reviewed exceptions, and the KMI import check above |
-
-- `CONFIG_DEBUG_FS_DISALLOW_MOUNT` is a baseline setting. It makes `debugfs_create_*` fail since
-  Linux 5.12 unless `fs/debugfs/inode.c` carries the DiamaneOS fix. The 6.18 common kernel does
-  not carry it, so a kernel from this configuration can fail to bind vendor drivers that need
-  debugfs.
-- KPROBES stays on. The USB glue (`dwc3-msm`) implements its controller hooks as kretprobes on the
-  built-in dwc3 core and ignores registration failures, so without kprobes they silently vanish.
-- SELinux development mode is on so that an update's first boot can hand the snapshot daemon over
-  before enforcing. User builds never go permissive (init refuses it).
-- Module signatures are forced with the Image's own key. GKI module protection (`MODULE_SIG_PROTECT`)
-  is off, so every module must carry the signature.
-- The 48-bit virtual address space (`CONFIG_ARM64_VA_BITS_48`) is required.
-  - The platform's hardened memory allocator reserves an isolated address region per size class
-    when a process starts. That does not fit the 512 GiB of a 39-bit kernel.
-  - The page-table depth is compiled into every module, so every module is built from the pinned
-    trees with this kernel.
+| `CONFIG_RANDSTRUCT_NONE` | 6.18 builds Rust only without structure randomisation, and the Rust binder replaces the most attacked IPC driver with memory-safe code. |
+| Lockdown at integrity level | Android reads DMA-BUF statistics with a BPF program, which confidentiality level breaks. |
+| CoreSight `not-built-in` | The GKI configuration builds it as modules, so the deny list keeps the modules out. |
+| `CONFIG_DEBUG_FS_DISALLOW_MOUNT` | debugfs cannot be mounted. Kernel drivers keep the debugfs API, through a fix in `kernel_common-6.18`. |
+| KPROBES on | The USB glue (`dwc3-msm`) hooks the built-in dwc3 core with kretprobes and ignores registration failures, so without kprobes its hooks silently vanish. |
+| SELinux development mode | An update's first boot can hand the snapshot daemon over before enforcing. User builds never go permissive, because init refuses it. |
+| Forced module signatures | Every module must carry a signature from the Image's own key. GKI module protection (`MODULE_SIG_PROTECT`) is off. |
+| `CONFIG_ARM64_VA_BITS_48` | The hardened memory allocator reserves an isolated region per size class, which does not fit the 512 GiB of a 39-bit address space. Every module is built for this page-table depth. |
+| `CONFIG_QRTR_IMSDCM_OWNERSHIP` not checked | The vendor tree declares it, but no source implements it. |
+| `CONFIG_TRIM_UNUSED_KSYMS` | Trims the exports to the GKI symbol lists and the reviewed exceptions, with the import check above. |
 
 ## Debug profile
 
-`--config-profile debug` builds a test kernel on the same tree, so a regression found on a
+`--config-profile debug` builds a test kernel from the same tree, so a regression found on a
 production build can be reproduced with the debug aids on.
 
-- The configuration is the same base (`gki_defconfig`, then `configs/diamaneos_defconfig`) with the
-  vendor tree's `configs/bringup_defconfig` as the profile fragment.
-- The debug tier of the policy checks what the fragment turns on:
-  - Tracing, kprobes and uprobes, KFENCE, UBSAN and the lock, stall and hung task detectors that
-    panic.
-  - Mountable debugfs, no lockdown and `CONFIG_PANIC_TIMEOUT=5`.
-- A debug rule replaces the baseline rule for the same symbol and never names a production rule.
-- The vendor_boot command line adds the arguments in the `debug` section of the packaging file:
-  - `loglevel=8` and `log_buf_len=4M`.
-  - `sysctl.kernel.panic_on_rcu_stall=1` and `panic=5`.
-  - The two download mode arguments and `reboot=panic_warm`.
-- The vendor_boot and vendor_dlkm partitions and the load lists keep five of the debug modules the
-  production deny list drops, right after `qrtr-smd.ko`. The clock debug module stays out, because
-  its device tree node stays disabled in every profile.
-- The strict KMI check also accepts four symbols that the atomic sleep checks and UBSAN reports make
-  modules import. They name no importer, and the build fails when no module imports one.
-- The candidate has its own `README.md`, `result.json` records `config_profile` and `debug_build`,
-  and `kernel compare --reference` accepts the bring-up arguments of a debug run.
-- `kernel publish` refuses a debug run, so debug output never reaches the prebuilts.
+The debug aids are tracing, kprobes and uprobes, KFENCE, UBSAN, the lock, stall and hung task
+detectors that panic, mountable debugfs and no lockdown.
 
-## Compare two builds
+- The vendor_boot command line adds the `debug` arguments of the packaging file: a full log level, a
+  4 MiB log buffer, panic on RCU stalls, restart 5 seconds after a panic and Qualcomm's download mode.
+- vendor_boot, vendor_dlkm and the load lists keep five of the debug modules the production deny list
+  drops. The clock debug module stays out, because its device tree node stays disabled.
+- The strict KMI check also accepts the symbols the debug checks make modules import, as long as some
+  module imports each.
+- The candidate gets its own `README.md`, and `result.json` records `config_profile` and `debug_build`.
+
+`kernel publish` refuses a debug run, so debug output never reaches the prebuilts.
+
+## Compare builds
+
+Two builds of one pin, each in its own workspace, must package the same files with the same bytes:
 
 ```sh
-diamaneos kernel compare --run "$WORKSPACE_A/runs/<run>" --against "$WORKSPACE_B/runs/<run>"
+bin/diamaneos kernel compare --run "$WORKSPACE_A/runs/<run>" \
+  --against "$WORKSPACE_B/runs/<run>"
 ```
 
-- Two builds of one pin, each in a workspace of its own, must package the same files with the same
-  bytes.
-- Each build makes its own module signing key, so a module may differ only in its appended
-  signature, and the Image only in its built-in certificate and the build ID that hashes it.
-- Any other difference, a file only one build has or runs of different sources fail the check.
+Each build makes its own module signing key, so a module may differ only in its appended signature,
+and the Image only in its built-in certificate and the build ID that hashes it.
 
-## Compare with a reference set
+To compare with a kernel set built another way, in the layout of the prebuilts repository plus a
+`vendor_cmdline` file and a `config` file:
 
 ```sh
-diamaneos kernel compare --run "$KERNEL_WORKSPACE/runs/<run>" --reference /path/to/set --dtc /path/to/dtc
+bin/diamaneos kernel compare --run "$KERNEL_WORKSPACE/runs/<run>" \
+  --reference /path/to/set --dtc /path/to/dtc
 ```
 
-`--dtc` is required.
+Separate builds differ in module bytes, so this compares what the Android build and the kernel read:
 
-The reference is a directory in the layout of the prebuilts repository.
+- the module names and their loading metadata, the lists and their order
+- the decompiled device trees, and the overlay image byte for byte
+- the command line and the Image configuration
 
-- A `vendor_cmdline` file holds its kernel command line and a `config` file its Image configuration.
-- The modules of two separate builds differ in bytes, so the report compares what the Android build
-  and the kernel read:
-
-- The module names, and per module the fields that decide loading (`depends` as a set, `alias`,
-  `firmware`, `license`, `softdep`, `import_ns` and the parameters).
-- Every module and load list of `BoardConfigKernel.mk`, with the load order.
-- The device trees after decompiling (the sets of names must match), and the overlay image byte for
-  byte. A difference in either fails the comparison.
-- The command line, with the bring-up arguments it carries.
-- The Image configuration, symbol by symbol.
-
-Modules the reference ships and the deny list leaves out are reported as policy, anything else
-fails the comparison.
+Modules the reference ships and the deny list leaves out are reported as policy, and anything else
+fails.
 
 ## Publish a kernel build
 
 ```sh
-diamaneos kernel publish --run "$KERNEL_WORKSPACE/runs/<run>" \
+bin/diamaneos kernel publish --run "$KERNEL_WORKSPACE/runs/<run>" \
   --to /path/to/device_fairphone_FP6-kernels
 ```
 
 `kernel publish` copies a passed run's candidate (`Image`, `dtbo.img`, `dtbs/`, `modules/`,
-`BoardConfigKernel.mk`, `device-kernel.mk` and the `*-modules.blocklist` files) into a clean
-checkout of
+`BoardConfigKernel.mk`, `device-kernel.mk` and the module blocklists) into a clean checkout of
 [`device_fairphone_FP6-kernels`](https://github.com/DiamaneOS/device_fairphone_FP6-kernels),
-replacing the previous set. It refuses to publish when:
+replacing the previous set. It refuses when:
 
-- A file differs from the run's `artifacts.json`, or the candidate holds a file that is not part of
-  a kernel set.
-- A file contains private key material, a home or `/var/lib` path, or this machine's user or host
-  name (add more strings with `--forbid`).
-- The candidate carries a denied module, as a file or in a board makefile list.
-- The run was built from a modified tools checkout or does not record its source commits.
-- The run is not of the production profile, or reports pending required symbols.
+- a file differs from the run's `artifacts.json`, or is not part of a kernel set
+- a file holds private key material, a home or `/var/lib` path, or this machine's user or host name
+  (`--forbid` adds more strings)
+- the candidate carries a denied module
+- the run came from a modified tools checkout or does not record its source commits
+- the run is not of the production profile, or reports pending required symbols
 
-- It rewrites the README's "This build" lines (the two source commits and the Linux version, the
-  tools commit and the policy profile it met, the module, device tree and overlay
-  counts, the build date).
-- It does not commit or push: review the change, then commit and push.
-- The next Android build that syncs the manifest picks up the new commit.
+It updates the "This build" lines of the README and does not commit or push. Review the change, then
+commit and push it. The next Android build that syncs the manifest takes the new commit.
