@@ -1172,6 +1172,35 @@
       ]
     },
     {
+      "id": "protected-vms-off-user",
+      "why": "User builds offer no virtual machines: without the hypervisor switches in the bootconfig, Android's virtualization service reports VMs as unsupported.",
+      "type": "text",
+      "files": [
+        "VENDOR_BOOT/vendor_bootconfig"
+      ],
+      "absent": [
+        "androidboot.hypervisor."
+      ],
+      "variants": [
+        "user"
+      ]
+    },
+    {
+      "id": "protected-vms-userdebug",
+      "why": "Debuggable builds offer protected VMs on Gunyah, and only protected ones: the hypervisor refuses ordinary VMs.",
+      "type": "text",
+      "files": [
+        "VENDOR_BOOT/vendor_bootconfig"
+      ],
+      "lines": [
+        "androidboot.hypervisor.protected_vm.supported=1",
+        "androidboot.hypervisor.vm.supported=0"
+      ],
+      "variants": [
+        "userdebug"
+      ]
+    },
+    {
       "id": "usb-port-control-recovery-default",
       "why": "Recovery and fastbootd load their own modules without the boot default, so USB stays on there.",
       "type": "text",
