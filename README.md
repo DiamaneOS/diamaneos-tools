@@ -47,17 +47,13 @@ fastboot --version
 
 ## Documentation
 
-- [Build DiamaneOS](docs/BUILDING.md)
-- [Build reference](docs/BUILD.md)
-- [Testing and command setup](docs/TESTING.md)
-- [Resource overlay check](docs/OVERLAYS.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Signing roles and offline release boundary](docs/SIGNING.md)
-- [Carrier configuration and modem-backed Wi-Fi calling](docs/CARRIER-INTEGRATION.md)
+[docs/README.md](docs/README.md) lists every document and who it is for. To start:
+
+- [Build DiamaneOS](docs/BUILDING.md), then the [build reference](docs/BUILD.md)
+- [Signing](docs/SIGNING.md) and [testing](docs/TESTING.md)
 - [Contribution and public-data rules](CONTRIBUTING.md)
 - [Fork and upstream registry](config/forks.json): the repositories DiamaneOS forks and the pinned
-  upstream inputs. The DiamaneOS manifest lists every project a build uses.
+  upstream inputs ([sources and upstream tracking](docs/SOURCES.md))
 - [Verified stock factory packages](config/stock-inputs.json)
-- [Terms](docs/TERMS.md)
-- Fairphone 6 (FP6) profile: [firmware](docs/FIRMWARE.md), [kernel build and capability
-  contract](docs/FP6-KERNEL.md)
+- Fairphone 6 (FP6) profile: [vendor files](docs/FP6-VENDOR.md), [firmware](docs/FIRMWARE.md) and
+  [kernel](docs/FP6-KERNEL.md)
