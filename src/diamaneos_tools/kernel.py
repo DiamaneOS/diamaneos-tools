@@ -1,7 +1,7 @@
 """Prepare and build the pinned FP6 kernel, modules and device tree.
 
-The kernel is DiamaneOS/kernel_common-6.18 with the FP6 commits
-(DiamaneOS/kernel_common-6.18), built with the pinned Clang and Rust toolchain.
+The kernel is DiamaneOS/kernel_common-6.18 with the FP6 commits, built with the
+pinned Clang and Rust toolchain.
 The Qualcomm drivers are the vendor tree DiamaneOS/kernel_qcom-6.18, built as
 external modules against it, and fp6.dtb and the overlay image are built from its
 device tree sources. Both repositories and the toolchain are pinned in

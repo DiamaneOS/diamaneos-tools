@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/DiamaneOS/kernel_qcom-6.18",
-  "policy": "Upstream commits of the projects kernel_qcom-6.18 ported with the 6.1 tree, that config/forks.json follows one by one (the sources whose pin names this file). path is the project's folder in the Fairphone source release, not in that repository. commit is the upstream commit the port started from. release is the newest release tag that commit contains (matching the source's newer_tags, or null). fairphone_changes says the port also carries Fairphone's FP6 changes. Parts ported from KERNEL.PLATFORM.5.0 and the kaanapali releases are not here: upstream-watch in private-scripts follows those.",
+  "policy": "Upstream commits of the projects kernel_qcom-6.18 ported with the 6.1 tree, that config/forks.json follows one by one (the sources whose pin names this file). path is the project's folder in the Fairphone source release, not in that repository. commit is the upstream commit the port started from. release is the newest release tag that commit contains (matching the source's newer_tags, or null). fairphone_changes says the port also carries Fairphone's FP6 changes. Parts ported from KERNEL.PLATFORM.5.0 and the kaanapali releases are not here: they are reviewed as the port's own base.",
   "imports": [
     {
       "path": "kernel_platform/msm-kernel",

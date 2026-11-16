@@ -1673,7 +1673,9 @@ def parser() -> argparse.ArgumentParser:
                              'instead of the head of its branch. Give it to every step. With --official it '
                              'builds the release\'s official images, numbered RELEASE')
     result.add_argument('--from', dest='from_step', choices=bw.STEPS, help='all: rerun from this step')
-    result.add_argument('--environment', help=argparse.SUPPRESS)
+    result.add_argument('--environment', metavar='FILE',
+                        help='use this build environment file instead of config/build-environment-fp6.json, '
+                             'for example the one an image set was built with')
     result.add_argument('--factory-zip', help='vendor: use this copy of the device maker\'s factory package instead of downloading it')
     result.add_argument('--ota-successor-of', metavar='IMAGES',
                         help='build the OTA test build N+1 of the image set IMAGES (N) for the update test: the same '
