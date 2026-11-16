@@ -1,82 +1,85 @@
-# Carrier configuration and modem-backed Wi-Fi calling
+# Carrier configuration and Wi-Fi calling
 
-The FP6 build takes stock carrier data and the Qualcomm IWLAN (IMS over Wi-Fi) inputs it needs from
-the same authenticated factory release as the radio stack.
+How the FP6 build takes the stock carrier data and the Qualcomm IWLAN (Wi-Fi calling) parts from the
+factory package, and how to check the result. For people who work on mobile network, IMS or Wi-Fi
+calling behaviour. Terms are explained in [TERMS.md](TERMS.md).
+
+Both come from the same authenticated factory release as the radio stack
+([FP6-VENDOR.md](FP6-VENDOR.md)).
 
 ## Carrier configuration
 
-- `vendor product --aapt2 "$AAPT2"` extracts XML assets and vendor defaults from
-  `CustomerCarrierConfig.apk`, an input only. No module installs it.
-- The maintained CarrierConfig service uses the generated `fp6_stock_carrier_assets` filegroup
-  through its optional `diamaneos_carrierconfig.asset_module` setting (other devices need not).
-- Android keeps carrier identity matching, including specific IDs, parent IDs and MCC/MNC fallback.
+`vendor product --aapt2 "$AAPT2"` extracts the XML assets and vendor defaults from the stock
+`CustomerCarrierConfig.apk`. The APK is an input only, and nothing installs it.
+
+The maintained CarrierConfig service uses the generated `fp6_stock_carrier_assets` filegroup through
+its optional `diamaneos_carrierconfig.asset_module` setting. Android keeps its own carrier matching
+by carrier ID, parent ID and MCC/MNC.
 
 The extractor:
 
-- Keeps asset bytes and filter order.
-- Gives carrier-ID filenames a fixed suffix, with the original member name in provenance. Display
-  labels never reach build shell commands.
-- Skips legacy filenames the stock service does not load.
-- Records one exact-hash repair for the malformed empty stock no-SIM XML.
-- Rejects unsupported syntax, duplicate identities, external XML declarations and excessive sizes.
+- keeps the asset bytes and their filter order
+- gives carrier-ID files a fixed name, with the original name kept in the provenance
+- skips old file names the stock service does not load
+- repairs one known file, the malformed empty no-SIM XML, recorded by its exact hash
+- refuses unsupported syntax, duplicate identities, external XML declarations and oversized files
 
-The APK hash, extraction implementation, aapt2 executable and output hashes bind the result. The
-complete stock APN XML is installed as data, keeping IMS/emergency rows, MVNO filters and priority
-rather than merging overlapping APNs.
+The APK hash, the extractor, the `aapt2` program and the output hashes bind the result. The complete
+stock APN list is installed as data, with its IMS and emergency entries, MVNO filters and priorities,
+rather than merged.
 
-- The stock `vendor.xml` also carries an unfiltered block applied to every carrier.
-- The FP6 device overlay of CarrierConfig's own `res/xml/vendor.xml` is read after it and is the
-  place for explicit corrections.
-- It turns off `world_phone_bool`, a Qualcomm default for CDMA world phones: with it, Settings
-  shows Qualcomm's unfiltered network mode list instead of Android's (which carries GrapheneOS's
-  LTE-only and 5G-only options).
+**Corrections.** The stock `vendor.xml` also carries an unfiltered block that applies to every
+carrier. The FP6 overlay of CarrierConfig's own `res/xml/vendor.xml` is read after it and is the
+place for explicit corrections.
 
-Known gap: the stock data gives a few carriers Wi-Fi calling mode 10, a Qualcomm "IMS preferred"
-value Android does not define. Android passes it to the IMS service unchanged, and Settings labels
-it "Off" on the SIM page while Wi-Fi calling is on.
+It turns off `world_phone_bool`, a Qualcomm default for CDMA world phones that would make Settings
+show Qualcomm's network mode list instead of Android's, which carries GrapheneOS's LTE-only and
+5G-only options.
+
+**Known gap.** The stock data gives a few carriers Wi-Fi calling mode 10, a Qualcomm "IMS preferred"
+value Android does not define. Android passes it to the IMS service unchanged, and Settings then shows
+"Off" on the SIM page while Wi-Fi calling is on.
 
 ## IWLAN and certificate apps
 
-The Qualcomm IWLAN app calls QCRIL's `IIWlan` service through `libWlanServiceJni.so`. Its
-certificate helper supplies CA material to the modem via `libjnihelper.so`, `libcacertclient.so` and
-the CACert HIDL interface.
+The Qualcomm IWLAN app (`IWlanService.apk`) calls QCRIL's `IIWlan` service through
+`libWlanServiceJni.so`. Its certificate helper gives CA certificates to the modem through
+`libjnihelper.so`, `libcacertclient.so` and the CACert HIDL interface. `wlantunneld`
+(`hardware/diamaneos/datad`) carries the modem's tunnel on the application processor's side.
 
-- Both keep the stock signer and share their own application UID. Privileged placement stops
-  ordinary packages from joining it.
-- They request only normal permissions, with no privileged grants.
-- Device SELinux confines the shared process to the specific radio Binder service and
-  certificate/QRTR path.
-- It is a trusted modem-facing component. The shared UID does not isolate the two apps.
-- They have explicit hidden-API access for their SystemProperties and HwBinder calls, with
-  permission enforcement intact, are installed only for the system user and are protected from
-  accidental disabling.
-- Review this exception with the app hashes on each update.
-- CNE is not selected.
-- Only one IWLAN implementation may be selected. The AOSP IWLAN service is not part of this
-  configuration.
-- `wlantunneld` (`hardware/diamaneos/datad`) carries the modem's tunnel on the AP side.
+The two apps are a trusted, modem-facing component:
 
-- Carrier provisioning and user Wi-Fi calling preferences stay authoritative.
-- Carrier entitlement services need their own dependency and endpoint review. Never substitute
-  forced-provisioned flags for authentication.
-- The DiamaneOS source fork replaces Android's inherited entitlement module, keeping carrier HTTPS
-  activation and polling without Google push.
-- It stays inactive without carrier configuration, is not needed just to enable IMS/IWLAN, and no
-  inspected FP6 factory profile enables its TS.43 activation flow.
+- They keep the stock signer and share their own application UID, which does not isolate them from
+  each other. Privileged placement keeps ordinary packages from joining that UID.
+- They request only normal permissions, with no privileged grants. They have hidden-API access for
+  their SystemProperties and HwBinder calls, with permission checks intact.
+- Device SELinux confines the shared process to its radio Binder service and its certificate and QRTR
+  paths.
+- They are installed only for the system user and protected from being disabled by accident.
+
+Review this exception with the app hashes on each stock update. Only one IWLAN implementation may be
+selected, and AOSP's IWLAN service is not part of this configuration. CNE and AML (emergency location
+messages) are not part of it either.
+
+**Provisioning.** Carrier provisioning and the user's Wi-Fi calling choices stay authoritative.
+Never replace authentication with forced provisioning flags. DiamaneOS's fork of Android's
+entitlement module keeps carrier HTTPS activation and polling without Google push.
+
+It stays inactive without carrier configuration, is not needed just to turn IMS or IWLAN on, and no
+inspected FP6 carrier profile turns on its TS.43 activation.
 
 ## Checks
 
-- Host checks cover extraction, input closure and module placement, not packaged assets, VINTF,
-  the shared UID, signature and permission mapping, JNI linking or the enforcing policy.
-- AML (emergency location messages) is not part of this configuration.
+The host checks cover extraction, input closure and module placement. They do not cover the packaged
+assets, VINTF, the shared UID, signatures and permissions, JNI linking or the enforcing policy.
 
-After the build, compare the actual `CarrierConfig.apk` with the authenticated vendor generation,
-using its existing provenance:
+After a build, compare the built `CarrierConfig.apk` with the vendor generation, from a checkout of
+these tools:
 
 ```sh
 PYTHONPATH=src python3 -m diamaneos_tools.carrier_data \
   --apk "$CARRIER_CONFIG_APK" --provenance "$VENDOR_PRODUCT/provenance.json"
 ```
 
-This rejects missing, extra or changed device assets. It does not verify the APK signer, Android
-permissions or native carrier behaviour.
+This refuses missing, extra or changed device assets. It does not check the APK's signer, Android
+permissions or how the modem behaves with a carrier.
