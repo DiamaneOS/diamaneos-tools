@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "policy": "Every upstream DiamaneOS builds from. forks: repositories DiamaneOS forks and patches. sources: pinned upstream inputs that are not forked. docs/BUILD.md (Upstream tracking) explains the fields, the checks and how an update is adopted.",
+  "policy": "Every upstream DiamaneOS builds from. forks: repositories DiamaneOS forks and patches. sources: pinned upstream inputs that are not forked. docs/SOURCES.md (Upstream tracking) explains the fields, the checks and how an update is adopted.",
   "release": {"file": "config/build-environment-fp6.json", "pointer": "/upstream/release_tag"},
   "forks": [
     {
