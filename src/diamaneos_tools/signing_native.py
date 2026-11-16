@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import sys
 import stat
+import struct
 import tempfile
 import zipfile
 
@@ -546,6 +547,16 @@ def avb_descriptors(info, *, allow_empty_payload=False):
     return result
 
 
+def pvmfw_carries_key(image: bytes, key: bytes) -> bool:
+    """pvmfw checks a protected VM's boot image against the AVB public key built into the pvmfw binary. The key
+    must be found in the binary itself, not in the image's AVB footer (avb_footer.h)."""
+    body = image
+    if len(image) >= 64 and image[-64:-60] == b'AVBf':
+        original, = struct.unpack('>Q', image[-52:-44])
+        body = image[:original]
+    return bool(key) and key in body
+
+
 def verify_images(tools, keys, images, expected_partitions, expected_chains):
     pending, visited, covered = ['vbmeta'], set(), set()
     public_blob = tools.scratch / 'chain-key.bin'
@@ -573,4 +584,10 @@ def verify_images(tools, keys, images, expected_partitions, expected_chains):
         require(tools.avb_rollback_index(path) > 0, 'AVB rollback index of ' + name + ' is 0')
     require(covered | visited == set(expected_partitions) and observed_chains == expected_chains,
             'AVB does not cover every declared partition and chain')
+    if 'pvmfw' in expected_partitions:
+        # A pvmfw that kept another key (the public test key) would accept a VM image anyone can sign.
+        pvmfw = safe_file(images, 'pvmfw.img')
+        require(pvmfw.stat().st_size <= 64 * 1024 * 1024
+                and pvmfw_carries_key(pvmfw.read_bytes(), public_blob.read_bytes()),
+                'pvmfw does not carry the release AVB key')
     return sorted(covered | visited)
