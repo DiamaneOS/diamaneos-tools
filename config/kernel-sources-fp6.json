@@ -8,7 +8,7 @@
   "common": {
     "path": "common",
     "url": "https://github.com/DiamaneOS/kernel_common-6.18",
-    "revision": "931a632eea8a507f783b55bf95576997aac5038d"
+    "revision": "fe8b18868be197121750f0c2177bf0c0b9b5c2f5"
   },
   "toolchain": [
     {
