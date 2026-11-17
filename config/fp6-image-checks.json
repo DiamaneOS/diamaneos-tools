@@ -1172,22 +1172,8 @@
       ]
     },
     {
-      "id": "protected-vms-off-user",
-      "why": "User builds offer no virtual machines: without the hypervisor switches in the bootconfig, Android's virtualization service reports VMs as unsupported.",
-      "type": "text",
-      "files": [
-        "VENDOR_BOOT/vendor_bootconfig"
-      ],
-      "absent": [
-        "androidboot.hypervisor."
-      ],
-      "variants": [
-        "user"
-      ]
-    },
-    {
-      "id": "protected-vms-userdebug",
-      "why": "Debuggable builds offer protected VMs on Gunyah, and only protected ones: the hypervisor refuses ordinary VMs.",
+      "id": "protected-vms",
+      "why": "Every build offers protected VMs on Gunyah, and only protected ones: the hypervisor refuses ordinary VMs.",
       "type": "text",
       "files": [
         "VENDOR_BOOT/vendor_bootconfig"
@@ -1195,9 +1181,15 @@
       "lines": [
         "androidboot.hypervisor.protected_vm.supported=1",
         "androidboot.hypervisor.vm.supported=0"
-      ],
-      "variants": [
-        "userdebug"
+      ]
+    },
+    {
+      "id": "protected-vms-framework",
+      "why": "Every build ships Android's virtualization framework and declares it. Release signing gives its payload and pvmfw's built-in key the release AVB key, and the signer refuses a pvmfw without it.",
+      "type": "files_present",
+      "paths": [
+        "SYSTEM/apex/com.android.virt.apex",
+        "VENDOR/etc/permissions/features_com.android.virt.xml"
       ]
     },
     {
