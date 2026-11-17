@@ -16,6 +16,7 @@ from diamaneos_tools import image_verify, signing_archive as za, signing_inputs 
 from diamaneos_tools import build_workspace as bw
 from diamaneos_tools import signing_native as native, signing_verify as api
 from .fixtures import TemporaryInputs, write_zip
+from .test_pvmfw_key import avb_key, image as pvmfw_image
 
 
 class SigningInputsTests(TemporaryInputs, unittest.TestCase):
@@ -646,6 +647,36 @@ class NativeOrchestrationTests(unittest.TestCase):
         real = native.NativeTools.__new__(native.NativeTools); real.run = Mock(return_value=info.replace('Flags: 0', 'Flags: 2'))
         real.policy = inputs.load_json(inputs.DEFAULT_CONFIG)
         with self.assertRaises(inputs.SigningError): real.avb(Path('/image'), Path('/external/key'))
+
+    def test_pvmfw_must_carry_exactly_the_release_key(self):
+        info = ('Algorithm: SHA256_RSA4096\nFlags: 0\nDescriptors:\n  Hash descriptor:\n    Partition Name: boot\n'
+                '  Hash descriptor:\n    Partition Name: pvmfw\n')
+        release, test_key = avb_key(seed=11), avb_key(seed=12)
+        cases = (('release key', b'code' + release, True),
+                 ('build test key', b'code' + test_key, False),
+                 ('release and test key', b'code' + release + b'config' + test_key, False),
+                 ('release key twice', b'code' + release + release, False),
+                 ('release key only in the footer', b'code', False))
+        for name, binary, accepted in cases:
+            with self.subTest(case=name), tempfile.TemporaryDirectory() as root:
+                root = Path(root); images = root / 'images'; images.mkdir()
+                footer_key = release if name == 'release key only in the footer' else b''
+                (images / 'pvmfw.img').write_bytes(pvmfw_image(binary, footer_key=footer_key))
+                tools = Mock(); tools.run.return_value = info; tools.scratch = root
+                tools.avb_rollback_index.return_value = 1
+                (root / 'chain-key.bin').write_bytes(release)
+                keys = Mock(); keys.avb.return_value = Path('/external/avb.pub.pem')
+                expected = ['boot', 'pvmfw', 'vbmeta']
+                with patch.object(native, 'safe_file', side_effect=lambda r, n: Path(r) / n):
+                    if accepted:
+                        self.assertEqual(expected, native.verify_images(tools, keys, images, expected, {}))
+                    else:
+                        with self.assertRaisesRegex(inputs.SigningError, 'exactly the release AVB key'):
+                            native.verify_images(tools, keys, images, expected, {})
+                # Without pvmfw among the partitions the image is not looked at.
+                with patch.object(native, 'safe_file', side_effect=lambda r, n: Path(r) / n):
+                    tools.run.return_value = info.split('  Hash descriptor:\n    Partition Name: pvmfw')[0]
+                    self.assertEqual(['boot', 'vbmeta'], native.verify_images(tools, keys, images, ['boot', 'vbmeta'], {}))
 
     def test_avb_refuses_a_header_field_the_release_string_repeats(self):
         # An unsigned image whose release string carries its own algorithm line.

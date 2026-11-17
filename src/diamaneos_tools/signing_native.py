@@ -14,6 +14,7 @@ import tempfile
 import zipfile
 
 from . import signing_archive as za, signing_release
+from .avb_test_keys import TEST_KEY_MODULI
 from .signing_inputs import (CERT_ROLES, NAME, SHA256, SigningError, command,
                              fields, load_json, require, safe_file, sha256_file)
 from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule, presigned_apex_rule, public_inventory_fields
@@ -547,14 +548,81 @@ def avb_descriptors(info, *, allow_empty_payload=False):
     return result
 
 
+def avb_public_keys(data: bytes) -> list:
+    """Every AVB RSA public key in data: the AvbRSAPublicKeyHeader of avb_crypto.h (key bits, n0inv), the modulus n
+    and R^2 mod n, all big-endian. A match needs a consistent n0inv and R^2, so stray bytes are not taken for a key."""
+    found = []
+    for bits in (2048, 4096, 8192):
+        size = bits // 8
+        marker = struct.pack('>I', bits)
+        start = data.find(marker)
+        while start != -1:
+            end = start + 8 + 2 * size
+            if end <= len(data):
+                n0inv, = struct.unpack('>I', data[start + 4:start + 8])
+                n = int.from_bytes(data[start + 8:start + 8 + size], 'big')
+                if (n & 1 and n.bit_length() == bits and (n0inv * n) & 0xffffffff == 0xffffffff
+                        and int.from_bytes(data[start + 8 + size:end], 'big') == pow(2, 2 * bits, n)):
+                    found.append(data[start:end])
+            start = data.find(marker, start + 1)
+    return found
+
+
+def avb_footer_split(image: bytes):
+    """(binary, data before the vbmeta) of an image with an AVB footer (avb_footer.h: magic, version 1, original
+    image size, vbmeta offset and size), the whole image twice without a footer, or None for a footer that does not
+    add up: an empty binary, a binary past the vbmeta, a vbmeta past the footer, or anything but zeros between the
+    vbmeta and the footer."""
+    if len(image) < 64 or image[-64:-60] != b'AVBf':
+        return image, image
+    major, _minor, original, vbmeta_offset, vbmeta_size = struct.unpack('>IIQQQ', image[-60:-28])
+    if major != 1 or not 0 < original <= vbmeta_offset or not 0 < vbmeta_size \
+            or vbmeta_offset + vbmeta_size > len(image) - 64 \
+            or image[vbmeta_offset + vbmeta_size:len(image) - 64].strip(b'\0'):
+        return None
+    return image[:original], image[:vbmeta_offset]
+
+
+def test_key_patterns(modulus: bytes):
+    """(raw, hex, base64) patterns that show a key's modulus. Raw: big- and little-endian, and 4- and 8-byte words in
+    reversed order or with their bytes reversed. Hex: the lowercase hex of each raw form. Base64: big- and
+    little-endian at each of the three alignments. Other encodings are not looked for."""
+    raw = [modulus, modulus[::-1]]
+    for size in (4, 8):
+        words = [modulus[i:i + size] for i in range(0, len(modulus), size)]
+        raw += [b''.join(reversed(words)), b''.join(w[::-1] for w in words)]
+    b64 = []
+    for value in raw[:2]:
+        for skip in range(3):
+            chunk = value[skip:]
+            b64.append(base64.b64encode(chunk[:len(chunk) // 3 * 3]))
+    return raw, [r.hex().encode() for r in raw], b64
+
+
+def holds_test_key(data: bytes) -> bool:
+    """Whether data shows the modulus of a public AVB test key as one of the test_key_patterns. Hex is matched case
+    insensitively after 0x and \\x prefixes and every other non-hex byte (spaces, commas, colons, line breaks) are
+    removed, base64 after whitespace is removed."""
+    base64_text = re.sub(rb'\s+', b'', data)
+    hex_text = re.sub(rb'[^0-9a-f]', b'', data.lower().replace(b'0x', b'').replace(b'\\x', b''))
+    for modulus in TEST_KEY_MODULI.values():
+        raw, hexes, b64 = test_key_patterns(modulus)
+        if any(p in data for p in raw) or any(p in hex_text for p in hexes) or any(p in base64_text for p in b64):
+            return True
+    return False
+
+
 def pvmfw_carries_key(image: bytes, key: bytes) -> bool:
-    """pvmfw checks a protected VM's boot image against the AVB public key built into the pvmfw binary. The key
-    must be found in the binary itself, not in the image's AVB footer (avb_footer.h)."""
-    body = image
-    if len(image) >= 64 and image[-64:-60] == b'AVBf':
-        original, = struct.unpack('>Q', image[-52:-44])
-        body = image[:original]
-    return bool(key) and key in body
+    """pvmfw checks a protected VM's boot image against the AVB public key built into the pvmfw binary. That
+    binary must hold the release key and no other key: signing replaces only the first copy of the build's key
+    (sign_target_files_apks.py), and a second key, such as the public test key, would accept a VM image anyone can
+    sign. The AVB key blobs count in the binary only, not in the footer's vbmeta. A public test key shown as one of
+    the test_key_patterns anywhere before the vbmeta refuses the image, and so does a footer that does not add up."""
+    split = avb_footer_split(image)
+    if split is None:
+        return False
+    body, before_vbmeta = split
+    return bool(key) and avb_public_keys(body) == [key] and not holds_test_key(before_vbmeta)
 
 
 def verify_images(tools, keys, images, expected_partitions, expected_chains):
@@ -589,5 +657,5 @@ def verify_images(tools, keys, images, expected_partitions, expected_chains):
         pvmfw = safe_file(images, 'pvmfw.img')
         require(pvmfw.stat().st_size <= 64 * 1024 * 1024
                 and pvmfw_carries_key(pvmfw.read_bytes(), public_blob.read_bytes()),
-                'pvmfw does not carry the release AVB key')
+                'pvmfw does not carry exactly the release AVB key')
     return sorted(covered | visited)
