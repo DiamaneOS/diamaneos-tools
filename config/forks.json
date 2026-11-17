@@ -243,7 +243,7 @@
       "branch": "main",
       "scope": "server",
       "upstream_revision": "6225f65321ea039665d0d3b362c641b997b27387",
-      "reviewed": "34c67906a031bd74b600e227c804bd6c374a51d1",
+      "reviewed": "58386e2c9fa71789fd7a45f05045bcb9ff1126d3",
       "upstream": {
         "url": "https://github.com/GrapheneOS/infrastructure",
         "ref": "main",
