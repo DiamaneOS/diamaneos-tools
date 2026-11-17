@@ -678,6 +678,56 @@ class NativeOrchestrationTests(unittest.TestCase):
                     tools.run.return_value = info.split('  Hash descriptor:\n    Partition Name: pvmfw')[0]
                     self.assertEqual(['boot', 'vbmeta'], native.verify_images(tools, keys, images, ['boot', 'vbmeta'], {}))
 
+    def test_virt_apex_guest_images_must_carry_the_release_key(self):
+        release, test_key = avb_key(seed=21), avb_key(seed=22)
+        good = {'etc/fs/microdroid_kernel': pvmfw_image(b'kernel', footer_key=release),
+                'etc/fs/microdroid_vbmeta.img': b'AVB0' + bytes(252) + release,
+                'etc/fs/fsvm_kernel': pvmfw_image(b'fs kernel', footer_key=release),
+                'etc/fs/decoder_vm_kernel': pvmfw_image(b'decoder kernel', footer_key=release),
+                'etc/microdroid_initrd_normal.img': b'initrd', 'etc/decoder_vm_initrd.img': b'initrd'}
+        cases = (('signed with the release key', good, 4, None),
+                 ('decoder kernel on the test key', dict(good, **{'etc/fs/decoder_vm_kernel':
+                  pvmfw_image(b'decoder kernel', footer_key=test_key)}), None, 'decoder_vm_kernel'),
+                 ('vbmeta on the test key', dict(good, **{'etc/fs/microdroid_vbmeta.img':
+                  b'AVB0' + bytes(252) + test_key}), None, 'microdroid_vbmeta'),
+                 ('unsigned guest kernel', dict(good, **{'etc/fs/fsvm_kernel': b'fs kernel'}), None,
+                  'unsigned guest kernel: etc/fs/fsvm_kernel'))
+        for name, files, count, error in cases:
+            with self.subTest(case=name), tempfile.TemporaryDirectory() as root:
+                root = Path(root)
+                target = root / 'target.zip'
+                with zipfile.ZipFile(target, 'w') as z:
+                    z.writestr('SYSTEM/apex/com.android.virt.apex', b'apex')
+                    z.writestr('SYSTEM/apex/com.android.other.apex', b'apex')
+                scratch = root / 'scratch'; scratch.mkdir()
+                def run(tool, argv, files=files):
+                    if tool == 'deapexer' and 'extract' in argv:
+                        content = Path(argv[-1])
+                        for relative, data in files.items():
+                            (content / relative).parent.mkdir(parents=True, exist_ok=True)
+                            (content / relative).write_bytes(data)
+                    elif tool == 'avbtool':
+                        Path(argv[argv.index('--output') + 1]).write_bytes(release)
+                    return ''
+                tools = Mock(); tools.scratch = scratch; tools.run.side_effect = run
+                tools.path.side_effect = lambda name: Path('/otatools') / name
+                keys = Mock(); keys.avb.return_value = Path('/external/avb.pub.pem')
+                if error is None:
+                    self.assertEqual(count, api.verify_virt_guests(target, tools, keys))
+                else:
+                    with self.assertRaisesRegex(inputs.SigningError, error):
+                        api.verify_virt_guests(target, tools, keys)
+                # Only the virtualization APEX is opened.
+                extracted = [c.args for c in tools.run.call_args_list if c.args[0] == 'deapexer']
+                self.assertEqual(1, len(extracted))
+        with tempfile.TemporaryDirectory() as root:
+            target = Path(root) / 'target.zip'
+            with zipfile.ZipFile(target, 'w') as z:
+                z.writestr('SYSTEM/apex/com.android.other.apex', b'apex')
+            tools = Mock(); tools.scratch = Path(root)
+            self.assertEqual(0, api.verify_virt_guests(target, tools, Mock()))
+            tools.run.assert_not_called()
+
     def test_avb_refuses_a_header_field_the_release_string_repeats(self):
         # An unsigned image whose release string carries its own algorithm line.
         real = native.NativeTools.__new__(native.NativeTools)

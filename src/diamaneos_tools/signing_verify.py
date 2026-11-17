@@ -19,6 +19,7 @@ from .signing_inputs import (DEFAULT_CONFIG, MODES, SigningError, canonical_sha2
 from .signing_inputs import MAX_JSON, snapshot_file, recheck_stamps
 from .signing_inputs import public_inventory_fields, presigned_apex_rule
 from .signing_native import (NativeTools, PublicKeys, apk_certificate_digests, package_members,
+                             guest_image_carries_key, virt_apex_guest_images,
                              raw_image, verify_images, factory_authority, host_ssh_signature)
 
 
@@ -157,11 +158,28 @@ def verify_packages(target_files, plan, tools, keys):
     require(observed == set(plan['packages']), 'Final target-files lacks planned packages')
     require(counts['payload'] == sum(r['kind'] == 'apex' for r in plan['packages'].values()),
             'Final package verification lacks an APEX payload')
+    verify_virt_guests(target_files, tools, keys)
     if plan.get('mode') == 'release':
         with za.archive(target_files) as handle:
             signing_release.refuse(signing_release.archive_problems(handle))
     return counts
 
+
+
+def verify_virt_guests(target_files, tools, keys):
+    """Every guest image in the virtualization APEX carries exactly the release AVB key, never a test key. Signing
+    gives that APEX the release key as its payload key, and sign_virt_apex.py signs the guest images again with it.
+    Returns how many images it checked."""
+    release, checked = None, 0
+    for logical, path in virt_apex_guest_images(target_files, tools):
+        if release is None:
+            output = tools.scratch / 'virt-guest-avb.bin'
+            tools.run('avbtool', ['extract_public_key', '--key', keys.avb(), '--output', output])
+            release = output.read_bytes()
+        require(guest_image_carries_key(path.read_bytes(), release),
+                'Virtualization APEX guest image does not carry exactly the release AVB key: ' + logical)
+        checked += 1
+    return checked
 
 def publication_images(path, target_files, plan, tools, keys):
     """Use the images to be published, including the logical images in super."""

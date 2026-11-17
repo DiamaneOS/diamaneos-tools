@@ -568,18 +568,29 @@ def avb_public_keys(data: bytes) -> list:
     return found
 
 
-def avb_footer_split(image: bytes):
-    """(binary, data before the vbmeta) of an image with an AVB footer (avb_footer.h: magic, version 1, original
-    image size, vbmeta offset and size), the whole image twice without a footer, or None for a footer that does not
-    add up: an empty binary, a binary past the vbmeta, a vbmeta past the footer, or anything but zeros between the
-    vbmeta and the footer."""
+def avb_footer(image: bytes):
+    """(original image size, vbmeta offset, vbmeta size) of an image's AVB footer (avb_footer.h: magic, version 1,
+    the three sizes), () without a footer, or None for a footer that does not add up: an empty binary, a binary past
+    the vbmeta, a vbmeta past the footer, or anything but zeros between the vbmeta and the footer."""
     if len(image) < 64 or image[-64:-60] != b'AVBf':
-        return image, image
+        return ()
     major, _minor, original, vbmeta_offset, vbmeta_size = struct.unpack('>IIQQQ', image[-60:-28])
     if major != 1 or not 0 < original <= vbmeta_offset or not 0 < vbmeta_size \
             or vbmeta_offset + vbmeta_size > len(image) - 64 \
             or image[vbmeta_offset + vbmeta_size:len(image) - 64].strip(b'\0'):
         return None
+    return original, vbmeta_offset, vbmeta_size
+
+
+def avb_footer_split(image: bytes):
+    """(binary, data before the vbmeta) of an image with an AVB footer, the whole image twice without a footer, or
+    None for a footer that does not add up (avb_footer)."""
+    footer = avb_footer(image)
+    if footer is None:
+        return None
+    if not footer:
+        return image, image
+    original, vbmeta_offset, _size = footer
     return image[:original], image[:vbmeta_offset]
 
 
@@ -624,6 +635,61 @@ def pvmfw_carries_key(image: bytes, key: bytes) -> bool:
     body, before_vbmeta = split
     return bool(key) and avb_public_keys(body) == [key] and not holds_test_key(before_vbmeta)
 
+
+
+def guest_image_carries_key(image: bytes, key: bytes) -> bool:
+    """A guest image of the virtualization APEX (a kernel or firmware with an AVB footer, or a vbmeta image) is
+    signed with the release key only: its vbmeta holds at least one AVB key blob, every AVB key blob in the file is
+    the release key, and no public AVB test key shows as one of the test_key_patterns. pvmfw boots a protected VM
+    only from images signed with the key it embeds, so this is the key every guest image needs."""
+    if image[:4] == b'AVB0':
+        vbmeta = image
+    else:
+        footer = avb_footer(image)
+        if not footer:
+            return False
+        _original, offset, size = footer
+        vbmeta = image[offset:offset + size]
+    return (bool(key) and bool(avb_public_keys(vbmeta)) and all(k == key for k in avb_public_keys(image))
+            and not holds_test_key(image))
+
+
+VIRT_APEX = re.compile(r'(?:^|/)com\.(?:[^/.]+\.)?android\.virt\.c?apex$')
+
+
+def virt_apex_guest_images(target_files, tools):
+    """Yield (name, path) for every AVB image in the virtualization APEX's payload: Microdroid's kernels and
+    images, the service VM, and the guest kernels DiamaneOS adds (the decode service's and the SD card VM's). A file
+    named like a kernel without an AVB footer is refused: pvmfw could not boot it, and a missed signature must not
+    pass unseen."""
+    with za.archive(target_files) as handle:
+        for name in sorted(handle.namelist()):
+            if not VIRT_APEX.search(name):
+                continue
+            with tempfile.TemporaryDirectory(dir=tools.scratch) as directory:
+                root = Path(directory)
+                path = za.extract(handle, name, root / Path(name).name)
+                if name.endswith('.capex'):
+                    uncompressed = root / 'original.apex'
+                    tools.run('deapexer', ['decompress', '--input', path, '--output', uncompressed])
+                    path = uncompressed
+                content = root / 'content'
+                tools.run('deapexer', ['--debugfs_path', tools.path('debugfs_static'),
+                                      '--fsckerofs_path', tools.path('fsck.erofs'), 'extract', path, content])
+                for item in sorted(content.rglob('*')):
+                    if item.is_symlink() or not item.is_file():
+                        continue
+                    require(item.resolve().is_relative_to(content.resolve()), 'APEX contains an unsafe file path')
+                    with item.open('rb') as stream:
+                        head = stream.read(4)
+                        size = stream.seek(0, os.SEEK_END)
+                        stream.seek(max(0, size - 64))
+                        tail = stream.read(4)
+                    relative = str(item.relative_to(content))
+                    if head == b'AVB0' or (size >= 64 and tail == b'AVBf'):
+                        yield name + '!/' + relative, item
+                    else:
+                        require('kernel' not in item.name, 'Virtualization APEX has an unsigned guest kernel: ' + relative)
 
 def verify_images(tools, keys, images, expected_partitions, expected_chains):
     pending, visited, covered = ['vbmeta'], set(), set()

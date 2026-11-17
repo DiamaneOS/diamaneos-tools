@@ -5,7 +5,7 @@ import struct
 import unittest
 
 from diamaneos_tools.avb_test_keys import TEST_KEY_MODULI
-from diamaneos_tools.signing_native import avb_public_keys, pvmfw_carries_key
+from diamaneos_tools.signing_native import avb_public_keys, guest_image_carries_key, pvmfw_carries_key
 
 
 def avb_key(bits=4096, seed=1):
@@ -122,6 +122,30 @@ class PvmfwKeyTests(unittest.TestCase):
         self.assertFalse(pvmfw_carries_key(image(b'code' + KEY, trailer=b'x'), KEY))
         self.assertFalse(pvmfw_carries_key(image(b'code' + KEY, trailer=bytes(100) + STOCK), KEY))
         self.assertTrue(pvmfw_carries_key(image(b'code' + KEY, trailer=bytes(100)), KEY))
+
+
+
+class GuestImageKeyTests(unittest.TestCase):
+    def test_kernel_signed_with_the_release_key_passes(self):
+        self.assertTrue(guest_image_carries_key(image(b'kernel code', footer_key=KEY), KEY))
+
+    def test_kernel_signed_with_another_key_fails(self):
+        self.assertFalse(guest_image_carries_key(image(b'kernel code', footer_key=TEST_KEY), KEY))
+
+    def test_kernel_with_a_test_key_modulus_inside_fails(self):
+        self.assertFalse(guest_image_carries_key(image(b'kernel' + STOCK[::-1] + b'code', footer_key=KEY), KEY))
+        self.assertFalse(guest_image_carries_key(image(b'kernel code', footer_key=KEY + STOCK), KEY))
+
+    def test_kernel_without_a_key_or_footer_fails(self):
+        self.assertFalse(guest_image_carries_key(image(b'kernel code'), KEY))
+        self.assertFalse(guest_image_carries_key(b'kernel code' + KEY, KEY))
+        self.assertFalse(guest_image_carries_key(image(b'kernel code', footer_key=KEY, trailer=b'x'), KEY))
+        self.assertFalse(guest_image_carries_key(image(b'kernel code', footer_key=KEY), b''))
+
+    def test_vbmeta_image_needs_the_release_key_only(self):
+        self.assertTrue(guest_image_carries_key(b'AVB0' + bytes(252) + KEY + b'chain' + KEY, KEY))
+        self.assertFalse(guest_image_carries_key(b'AVB0' + bytes(252) + KEY + b'chain' + TEST_KEY, KEY))
+        self.assertFalse(guest_image_carries_key(b'AVB0' + bytes(252), KEY))
 
 
 if __name__ == '__main__':
