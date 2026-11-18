@@ -3,12 +3,12 @@
   "vendor": {
     "path": "vendor",
     "url": "https://github.com/DiamaneOS/kernel_qcom-6.18",
-    "revision": "5065631a6d9bd0b8d6c6b06ea8551bc852e29c6c"
+    "revision": "4bdf0508433414edf1f6cc7a51061ace4e3e35ec"
   },
   "common": {
     "path": "common",
     "url": "https://github.com/DiamaneOS/kernel_common-6.18",
-    "revision": "5e105f3c85280d3e1c4d1eb445965dcedc063fd7"
+    "revision": "6985eff717c76dab8cd825c3668aba7cd56092f7"
   },
   "toolchain": [
     {
