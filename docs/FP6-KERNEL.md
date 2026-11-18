@@ -148,8 +148,19 @@ other chips' drivers, debug and test interfaces, and CoreSight tracing.
 **Kernel command line.** `BoardConfigKernel.mk` adds the words of `kernel_cmdline`, each with its
 reason, and none may be an argument that `config/fp6-build.json` forbids.
 
-The one word is `scsi_mod.scan=sync`: asynchronous scanning would number the UFS logical units
-differently on each boot, and the device names its disks by letter.
+`scsi_mod.scan=sync`: asynchronous scanning would number the UFS logical units differently on each
+boot, and the device names its disks by letter.
+
+`reserve_mem=432M:2M:gunyah_vm_pool`: memory for protected VMs, set aside before the page
+allocator starts. The Gunyah driver lends it to protected VMs only, in 2 MiB blocks, so a VM's
+memory comes in few pieces however scattered the rest is.
+
+432 MiB holds the decode service VM (288 MiB) and one typical SD card VM. Any other VM gets
+ordinary memory.
+
+The bootconfig carries Android keys only, so the pool is a kernel argument. It is in every build
+and lands with protected VMs in user builds. The device's SELinux policy decides which VM managers
+may take it.
 
 **Symbol rules,** checked on every build:
 
