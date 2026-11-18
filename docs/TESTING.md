@@ -92,3 +92,39 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests/patches
 
 After a build, `carrier_data` compares the built `CarrierConfig.apk` with the vendor generation
 ([CARRIER-INTEGRATION.md](CARRIER-INTEGRATION.md#checks)).
+
+## Fuzz targets
+
+`tests/fuzz` holds Atheris fuzz targets for the parsers of signing, publication and image inputs.
+Each checks properties, not only crashes, and records the first input of each kind of finding. The
+test suite above does not use them.
+
+`tests/fuzz/regress.tar.gz` is a small merged corpus of every target. Replay it on the builder
+whenever a signing, publication or image parser changes.
+
+The targets need Linux on x86_64 with Python 3.13, the only wheel `requirements-fuzz.txt` allows. On
+Debian 13 without `python3-venv` or root, as on the builder, set up a work folder once:
+
+```sh
+cd "$WORK"
+apt-get download python3-pip-whl
+dpkg-deb -x python3-pip-whl_*.deb root
+python3 -m venv --without-pip venv
+pip=$(echo root/usr/share/python-wheels/pip-*.whl)
+venv/bin/python "$pip/pip" install --require-hashes \
+    -r "$TOOLS/requirements-fuzz.txt"
+```
+
+Then replay from the checkout:
+
+```sh
+FUZZ_PYTHON="$WORK/venv/bin/python" nice -n 19 tests/fuzz/run.sh replay "$WORK/replay"
+```
+
+- The replay runs every input once. It fails when a target stops or records a kind of finding that
+  `tests/fuzz/known-findings.txt` does not list.
+- `run.sh TARGET SECONDS DIR` fuzzes one target, named by its file without `fuzz_`. The corpus,
+  findings, log and throwaway test keys stay in DIR.
+- `run.sh merge DIR` writes `DIR/regress.tar.gz` from the archive and the corpora in `DIR/<target>`,
+  minimised. It takes only the public test keys.
+- The ssh and attestation targets need `ssh-keygen` and `openssl` in `/usr/bin`.

@@ -1,0 +1,2 @@
+# Kinds of finding that do not fail run.sh replay, one per line, without the source line.
+# Empty: any finding fails the replay.
