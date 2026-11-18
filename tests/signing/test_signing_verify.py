@@ -595,15 +595,26 @@ class ArchiveTests(unittest.TestCase):
 
 class NativeOrchestrationTests(unittest.TestCase):
     def test_unnamed_payload_descriptor_never_becomes_an_ordinary_partition_or_chain(self):
-        empty = 'Hashtree descriptor:\n  Partition Name:    \n  Hash Algorithm: sha256\n'
+        empty = 'Descriptors:\nHashtree descriptor:\n  Partition Name:    \n  Hash Algorithm: sha256\n'
         self.assertEqual([('', None)], native.avb_descriptors(empty, allow_empty_payload=True))
         with self.assertRaises(inputs.SigningError): native.avb_descriptors(empty)
         for value in ('../outside', 'bad/name', 'bad name', '\\outside'):
-            invalid = 'Hashtree descriptor:\n Partition Name: ' + value + '\n'
+            invalid = 'Descriptors:\nHashtree descriptor:\n Partition Name: ' + value + '\n'
             with self.assertRaises(inputs.SigningError): native.avb_descriptors(invalid, allow_empty_payload=True)
-        chain = 'Chain Partition descriptor:\n Partition Name:   \n Rollback Index Location: 1\n'
+        chain = 'Descriptors:\nChain Partition descriptor:\n Partition Name:   \n Rollback Index Location: 1\n'
         with self.assertRaises(inputs.SigningError): native.avb_descriptors(chain, allow_empty_payload=True)
-        with self.assertRaises(inputs.SigningError): native.avb_descriptors(empty + empty, allow_empty_payload=True)
+        twice = empty + empty.removeprefix('Descriptors:\n')
+        with self.assertRaises(inputs.SigningError): native.avb_descriptors(twice, allow_empty_payload=True)
+
+    def test_avb_descriptors_come_only_from_the_descriptor_list(self):
+        # avbtool prints the release string as it is, so it can hold lines that look like a descriptor.
+        header = ("Algorithm:                SHA256_RSA4096\n"
+                  "Release String:           '\nHash descriptor:\nPartition Name: system\n'\n")
+        listed = 'Descriptors:\n    Hash descriptor:\n      Partition Name:        boot\n'
+        self.assertEqual([('boot', None)], native.avb_descriptors(header + listed))
+        for info in (header, header + listed + listed, header.replace('\nHash', '\nDescriptors:\nHash') + listed):
+            with self.subTest(info=info), self.assertRaises(inputs.SigningError):
+                native.avb_descriptors(info)
 
     def test_installed_packages_must_match_verified_archive_and_cannot_be_extra(self):
         with tempfile.TemporaryDirectory() as directory:

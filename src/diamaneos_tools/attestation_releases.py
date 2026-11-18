@@ -16,7 +16,7 @@ import textwrap
 from . import safe_json, signing_archive as za, signing_release
 from .signing_inputs import (DEFAULT_CONFIG, ROOT, SigningError, command, fields, load_json, require,
                              safe_file, snapshot_file, validate_config)
-from .signing_native import avb_descriptors, factory_authority, host_ssh_signature
+from .signing_native import avb_descriptors, descriptor_text, factory_authority, host_ssh_signature
 
 FORMAT = 'diamaneos-attestation-releases'
 PAYLOAD_FORMAT = 'diamaneos-attestation-releases-payload'
@@ -51,15 +51,8 @@ def device_config(product):
 
 # ------------------------------------------------------------ release values
 
-def descriptor_text(info):
-    """The descriptor list of an avbtool description. A release string cannot add one."""
-    parts = re.split(r'(?m)^Descriptors:$', info)
-    require(len(parts) == 2, 'AVB description has no single descriptor list')
-    return parts[1]
-
-
 def chained(info):
-    return [name for name, location in avb_descriptors(descriptor_text(info)) if location is not None]
+    return [name for name, location in avb_descriptors(info) if location is not None]
 
 
 def property_values(infos, names):

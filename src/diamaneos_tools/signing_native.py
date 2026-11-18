@@ -541,9 +541,18 @@ def package_members(target_files, tools):
                     yield 'apk', name + '!/' + str(apk.relative_to(content)), apk
 
 
+def descriptor_text(info):
+    """The descriptor list of an avbtool description. A release string cannot add one."""
+    parts = re.split(r'(?m)^Descriptors:$', info)
+    require(len(parts) == 2, 'AVB description has no single descriptor list')
+    return parts[1]
+
+
 def avb_descriptors(info, *, allow_empty_payload=False):
+    """The partition descriptors of an avbtool description. avbtool prints the image's release string as it is,
+    in the header above the descriptor list, so only that list counts."""
     result = []
-    for block in re.split(r'(?m)^\s*(?:Hash|Hashtree|Chain Partition) descriptor:\s*$', info)[1:]:
+    for block in re.split(r'(?m)^\s*(?:Hash|Hashtree|Chain Partition) descriptor:\s*$', descriptor_text(info))[1:]:
         name = re.search(r'(?m)^[ \t]*Partition Name:[ \t]*([A-Za-z0-9_.-]*)[ \t]*$', block)
         require(name and (name[1] or allow_empty_payload), 'AVB descriptor has an unsupported partition name')
         location = re.search(r'(?m)^\s*Rollback Index Location:\s+(\d+)\s*$', block)
