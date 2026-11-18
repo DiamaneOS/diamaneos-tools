@@ -56,7 +56,8 @@ def _guard(value):
             for key, child in item.items():
                 if not isinstance(key, str):
                     raise JsonError("JSON object keys must be strings")
-                if re.sub(r"[-_]", "", key).lower() in FORBIDDEN_KEYS:
+                # Every character but a letter separates, as in signing_inputs.load_json.
+                if re.sub(r"[^a-z]", "", key.lower()) in FORBIDDEN_KEYS:
                     raise JsonError("private field is not allowed")
                 stack.append((key, depth + 1))
                 stack.append((child, depth + 1))

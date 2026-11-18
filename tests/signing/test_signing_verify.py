@@ -13,7 +13,7 @@ from unittest.mock import patch, Mock
 import zipfile
 
 from diamaneos_tools import image_verify, signing_archive as za, signing_inputs as inputs
-from diamaneos_tools import build_workspace as bw
+from diamaneos_tools import build_workspace as bw, safe_json
 from diamaneos_tools import signing_native as native, signing_verify as api
 from .fixtures import TemporaryInputs, write_zip
 from .test_pvmfw_key import avb_key, image as pvmfw_image
@@ -180,6 +180,12 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
             with self.assertRaises(inputs.SigningError): inputs.load_json(path)
         path.write_bytes(b'x' * 100)
         with self.assertRaises(inputs.SigningError): inputs.load_json(path, 20)
+
+    def test_strict_json_refuses_a_forbidden_name_with_any_separator(self):
+        for key in ('passwo`rd', 'pass.word', 'Private Key', 'seed1', 'i.m.e.i'):
+            with self.subTest(key), self.assertRaises(safe_json.JsonError):
+                safe_json.loads(json.dumps({key: 1}).encode())
+        self.assertEqual({'password_policy': 1}, safe_json.loads(b'{"password_policy":1}'))
 
     def test_malformed_document_roots_have_bounded_refusals(self):
         self.fixture()
