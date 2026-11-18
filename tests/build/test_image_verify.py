@@ -132,6 +132,20 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('missing', detail)
 
+    def test_filesystem_vm_and_the_kernel_scan_move_together(self):
+        rule = {'daemon': 'SYSTEM_EXT/bin/fsvmd', 'cmdline': 'VENDOR_BOOT/vendor_cmdline', 'opt_out': 'external_part_scan=1'}
+        check = subject.rule_fs_in_vm_coupling
+        self.assertTrue(check(rule, self.harness({'SYSTEM_EXT/bin/fsvmd': b'x',
+                                                  'VENDOR_BOOT/vendor_cmdline': b'loop.max_part=0'}))[0])
+        self.assertTrue(check(rule, self.harness({'VENDOR_BOOT/vendor_cmdline': b'loop.max_part=0 external_part_scan=1'}))[0])
+        ok, detail = check(rule, self.harness({'SYSTEM_EXT/bin/fsvmd': b'x',
+                                               'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'}))
+        self.assertFalse(ok)
+        self.assertIn('still reads card tables', detail)
+        ok, detail = check(rule, self.harness({'SYSTEM/build.prop': b''}))
+        self.assertFalse(ok)
+        self.assertIn('would not work', detail)
+
     def test_file_presence_absence_and_symlinks(self):
         v = self.harness({'VENDOR/bin/a': b'x', 'SYSTEM_EXT/priv-app/Old/Old.apk': b'x'},
                          symlinks={'VENDOR/etc/link.xml': 'target.xml'})
