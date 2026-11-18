@@ -153,6 +153,40 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('would not work', detail)
 
+    def test_the_filesystem_vm_kernel_follows_the_phone_kernel(self):
+        import gzip as gz
+        self.assertEqual('6.18.39-g6e6288100615',
+                         subject.kernel_banner(b'\0Linux version 6.18.39-g6e6288100615 (b@c) #1 SMP PREEMPT\0'))
+        self.assertEqual('6.18.39-x', subject.kernel_banner(gz.compress(b'Linux version 6.18.39-x (b@c)')))
+        self.assertEqual('6.18.39', subject.kernel_version('6.18.39-android17-0-g1'))
+        with self.assertRaises(ValueError):
+            subject.kernel_banner(b'no banner')
+        with self.assertRaises(ValueError):
+            subject.kernel_banner(b'Linux version 6.18.38 (a) Linux version 6.18.39 (b)')
+        rule = {'daemon': 'SYSTEM_EXT/bin/fsvmd', 'cmdline': 'VENDOR_BOOT/vendor_cmdline', 'opt_out': 'external_part_scan=1',
+                'guest_kernel': {'apex': ['SYSTEM/apex/com.android.virt.apex'], 'file': 'etc/fs/fsvm_kernel',
+                                 'host': 'BOOT/kernel'}}
+        files = {'SYSTEM_EXT/bin/fsvmd': b'x', 'VENDOR_BOOT/vendor_cmdline': b'loop.max_part=0',
+                 'BOOT/kernel': b'Linux version 6.18.39-g42022e1 (b@c)'}
+        check = subject.rule_fs_in_vm_coupling
+
+        def guest(banner):
+            return mock.patch.object(subject, 'apex_file', return_value=('com.android.virt.apex', banner))
+        with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
+            ok, detail = check(rule, self.harness(files))
+        self.assertTrue(ok, detail)
+        self.assertIn('6.18.39-g6e6288100615', detail)
+        with guest(b'Linux version 6.18.36-g0123456 (b@c)'):
+            ok, detail = check(rule, self.harness(files))
+        self.assertFalse(ok)
+        self.assertIn('rebuild the filesystem VM kernel', detail)
+        with guest(b'no banner'):
+            self.assertFalse(check(rule, self.harness(files))[0])
+        with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
+            self.assertFalse(check(rule, self.harness(dict(files, **{'BOOT/kernel': b''})))[0])
+        # Without the daemon there is no VM kernel to compare.
+        self.assertTrue(check(rule, self.harness({'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'}))[0])
+
     def test_file_presence_absence_and_symlinks(self):
         v = self.harness({'VENDOR/bin/a': b'x', 'SYSTEM_EXT/priv-app/Old/Old.apk': b'x'},
                          symlinks={'VENDOR/etc/link.xml': 'target.xml'})

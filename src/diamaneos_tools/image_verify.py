@@ -1533,6 +1533,30 @@ def initrd_holds(data: bytes, needle: bytes) -> bool:
     return needle in data
 
 
+KERNEL_BANNER = re.compile(rb'Linux version ([0-9][!-~]{0,127}) \(')
+
+
+def kernel_banner(data: bytes) -> str:
+    """The release a kernel Image reports in its Linux version banner (gzip compressed or not)."""
+    if data[:2] == b'\x1f\x8b':
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            data = stream.read(MAX_MEMBER_BYTES + 1)
+        if len(data) > MAX_MEMBER_BYTES:
+            raise ValueError('kernel too large')
+    found = set(KERNEL_BANNER.findall(data))
+    if len(found) != 1:
+        raise ValueError('no single Linux version banner')
+    return found.pop().decode('ascii')
+
+
+def kernel_version(release: str) -> str:
+    """6.18.39 of 6.18.39-g6e6288100615."""
+    match = re.match(r'[0-9]+\.[0-9]+\.[0-9]+', release)
+    if not match:
+        raise ValueError(f'unrecognised kernel release {release}')
+    return match[0]
+
+
 def apex_file(v, names: list[str], inside: str) -> tuple[str, bytes]:
     """One regular file of the first of `names` (an .apex or .capex in the image), from its ext4 payload."""
     present = [name for name in names if v.tf.exists(name)]
@@ -1559,8 +1583,22 @@ def rule_fs_in_vm_coupling(rule, v):
     """The filesystem VM for SD cards and USB drives (its daemon in the image) and the kernel's partition scan of
     those disks move together. With the daemon the kernel must not read their tables (no opt-out on its command
     line), without it the kernel must (the opt-out is there), or partitioned cards would not work. With the daemon,
-    the VM's initramfs must not hold the self test only the host harness's initramfs has."""
+    the VM's initramfs must not hold the self test only the host harness's initramfs has, and the VM's kernel must
+    be the phone kernel's release: it is built from kernel_common apart, and fixes reach it only by a rebuild."""
     has_daemon = v.tf.exists(rule['daemon'])
+    guest = ''
+    if has_daemon and 'guest_kernel' in rule:
+        want = rule['guest_kernel']
+        try:
+            apex, content = apex_file(v, want['apex'], want['file'])
+            guest = kernel_banner(content)
+            host = kernel_banner(v.tf.read(want['host']))
+            same = kernel_version(guest) == kernel_version(host)
+        except (ValueError, FileNotFoundError, KeyError) as error:
+            return False, f'filesystem VM kernel: {error}'
+        if not same:
+            return False, (f'{want["file"]} in {apex} is {guest}, the phone kernel {host}: rebuild the filesystem '
+                           f'VM kernel from the kernel_common pin')
     if has_daemon and 'initrd' in rule:
         want = rule['initrd']
         try:
@@ -1579,7 +1617,9 @@ def rule_fs_in_vm_coupling(rule, v):
         return False, f'{rule["daemon"]} is in the image and the kernel still reads card tables ({rule["opt_out"]})'
     if not has_daemon and not opt_out:
         return False, f'no {rule["daemon"]} and no {rule["opt_out"]}: partitioned cards would not work'
-    return True, 'filesystem VM' if has_daemon else 'kernel partition scan'
+    if not has_daemon:
+        return True, 'kernel partition scan'
+    return True, f'filesystem VM, its kernel {guest}' if guest else 'filesystem VM'
 
 
 def rule_no_diagnostic_sanitizer(rule, v):

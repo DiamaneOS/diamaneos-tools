@@ -6620,7 +6620,7 @@
     },
     {
       "id": "fs-in-vm-kernel-scan",
-      "why": "The kernel reads no partition table of an SD card or USB disk (CONFIG_BLK_NO_EXTERNAL_PART_SCAN). A build with the filesystem VM (fsvmd) has it read there and must not turn the kernel's scan back on. A build without it needs external_part_scan=1 (device BoardConfig.mk), or partitioned cards would not work.",
+      "why": "The kernel reads no partition table of an SD card or USB disk (CONFIG_BLK_NO_EXTERNAL_PART_SCAN). A build with the filesystem VM (fsvmd) has it read there and must not turn the kernel's scan back on. A build without it needs external_part_scan=1 (device BoardConfig.mk), or partitioned cards would not work. The filesystem VM's kernel parses card and OBB bytes and is built from kernel_common apart (Virtualization guest/diamaneos/kernel): it must be the phone kernel's release, so a kernel_common move rebuilds it.",
       "type": "fs_in_vm_coupling",
       "daemon": "SYSTEM_EXT/bin/fsvmd",
       "cmdline": "VENDOR_BOOT/vendor_cmdline",
@@ -6629,6 +6629,11 @@
         "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
         "file": "etc/fsvm_initrd.img",
         "forbidden": "fsvm.selftest"
+      },
+      "guest_kernel": {
+        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
+        "file": "etc/fs/fsvm_kernel",
+        "host": "BOOT/kernel"
       }
     }
   ]
