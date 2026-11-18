@@ -292,6 +292,11 @@ class NativeTools:
                     and provenance['product'] in metadata.get('pre-device', '').split('|'),
                     'OTA metadata does not match the verified build')
             properties = za.properties(za.read_text(handle, 'payload_properties.txt'))
+            # A release never downgrades or wipes. The phone does either when the package asks, so neither is signed.
+            # The same keys as the update tests' package_problems().
+            require(all(metadata.get(key, 'no') in ('no', '') for key in ('ota-downgrade', 'ota-wipe', 'spl-downgrade'))
+                    and all(properties.get(key, '0') in ('0', '') for key in ('POWERWASH', 'SPL_DOWNGRADE')),
+                    'OTA asks for a downgrade or a data wipe')
             require({'FILE_HASH', 'FILE_SIZE', 'METADATA_HASH', 'METADATA_SIZE'} <= set(properties),
                     'OTA lacks payload integrity properties')
             require(properties['FILE_SIZE'].isdecimal() and properties['METADATA_SIZE'].isdecimal(),

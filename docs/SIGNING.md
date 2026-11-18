@@ -290,7 +290,8 @@ path. The [publication schema](../schemas/signing-publication.schema.json) defin
 - AVB on every partition and chain. Disabled verification, changed algorithms and a rollback index of
   0 are refused.
 - The OTA signatures with the platform checker. Applying each payload must reproduce the signed
-  partitions, using the verified source for incrementals.
+  partitions, using the verified source for incrementals. An OTA that asks for a downgrade or a data
+  wipe (`ota-downgrade`, `ota-wipe`, `spl-downgrade`, `POWERWASH`, `SPL_DOWNGRADE`) is refused.
 - The factory and release signatures, in their own namespaces, against the external authority.
 
 An applied image must equal the original bytes, plus only the zero padding to update_engine's

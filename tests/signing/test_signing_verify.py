@@ -624,6 +624,31 @@ class NativeOrchestrationTests(unittest.TestCase):
             tools.run.assert_called_once_with('check_ota_package_signature', [Path('/external/release.x509.pem'), path])
             with self.assertRaises(inputs.SigningError): tools.ota(path, Path('/external/cert'), dict(provenance, build_number='other'))
 
+    def test_ota_asking_for_a_downgrade_or_a_wipe_is_refused(self):
+        provenance = {'build_number': 'build', 'build_datetime': 123, 'product': 'FP6'}
+        hashes = ('FILE_HASH=' + base64.b64encode(hashlib.sha256(b'payload').digest()).decode() + '\nFILE_SIZE=7\n'
+                  'METADATA_HASH=' + base64.b64encode(hashlib.sha256(b'p').digest()).decode() + '\nMETADATA_SIZE=1\n')
+        metadata = 'ota-type=AB\npost-build-incremental=build\npost-timestamp=123\npre-device=FP6\n'
+        cases = [('', 'ota-downgrade=no\nota-wipe=no\n', True), ('POWERWASH=0\n', '', True),
+                 ('', 'ota-downgrade=yes\n', False), ('', 'ota-wipe=yes\n', False), ('', 'spl-downgrade=yes\n', False),
+                 ('POWERWASH=1\n', '', False), ('SPL_DOWNGRADE=1\n', '', False)]
+        with tempfile.TemporaryDirectory() as root:
+            for index, (extra_properties, extra_metadata, accepted) in enumerate(cases):
+                with self.subTest(properties=extra_properties, metadata=extra_metadata):
+                    path = Path(root) / f'ota-{index}.zip'
+                    with zipfile.ZipFile(path, 'w') as z:
+                        z.writestr('payload.bin', b'payload')
+                        z.writestr('payload_properties.txt', hashes + extra_properties)
+                        z.writestr('META-INF/com/android/metadata', metadata + extra_metadata)
+                    tools = native.NativeTools.__new__(native.NativeTools); tools.run = Mock()
+                    if accepted:
+                        tools.ota(path, Path('/external/release.x509.pem'), provenance)
+                        tools.run.assert_called_once()
+                    else:
+                        with self.assertRaisesRegex(inputs.SigningError, 'downgrade or a data wipe'):
+                            tools.ota(path, Path('/external/release.x509.pem'), provenance)
+                        tools.run.assert_not_called()
+
     def test_verifier_process_environment_excludes_injection_and_agent_variables(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root); (p / 'prebuilts/jdk/jdk25/linux-x86/bin').mkdir(parents=True)
