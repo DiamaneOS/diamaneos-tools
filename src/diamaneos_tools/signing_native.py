@@ -20,6 +20,8 @@ from .signing_inputs import (CERT_ROLES, NAME, SHA256, SigningError, command,
 from .signing_inputs import DEFAULT_CONFIG, validate_config, presigned_rule, presigned_apex_rule, public_inventory_fields
 from .signing_inputs import git_read, NATIVE_TIMEOUT, DELTA_APPLY_TIMEOUT
 
+# Android's rule for a package name: parts that start with a letter, joined by dots.
+PACKAGE = re.compile(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*')
 
 # Header/footer decoding and key offsets belong to the recorded platform parser.
 # Crypto and descriptor verification still run through authenticated native avbtool.
@@ -221,8 +223,9 @@ class NativeTools:
 
     def package_id(self, path):
         output = self.run('aapt2', ['dump', 'badging', path])
-        names = re.findall(r"(?m)^package: name='([A-Za-z0-9_.]+)' ", output)
-        require(len(names) == 1, 'Native APK package identity is missing or ambiguous')
+        names = re.findall(r"(?m)^package: name='([^'\n]*)' ", output)
+        require(len(names) == 1 and PACKAGE.fullmatch(names[0]),
+                'Native APK package identity is missing, ambiguous or not a package name')
         return names[0]
 
     def avb(self, path, expected, *, chains=(), payload=False, binary=False):

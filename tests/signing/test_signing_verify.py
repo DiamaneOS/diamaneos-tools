@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import stat
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch, Mock
 import zipfile
@@ -605,6 +606,16 @@ class NativeOrchestrationTests(unittest.TestCase):
         with self.assertRaises(inputs.SigningError): native.avb_descriptors(chain, allow_empty_payload=True)
         twice = empty + empty.removeprefix('Descriptors:\n')
         with self.assertRaises(inputs.SigningError): native.avb_descriptors(twice, allow_empty_payload=True)
+
+    def test_package_id_is_one_android_package_name(self):
+        def package_id(name):
+            tools = SimpleNamespace(run=lambda *_: f"package: name='{name}' versionCode='1'\nsdkVersion:'31'\n")
+            return native.NativeTools.package_id(tools, 'fixture.apk')
+        for name in ('de.diamaneos.auditor', 'android', 'com.android.cts_1.x2'):
+            self.assertEqual(name, package_id(name))
+        for name in ('.dediamaneos.auditor', 'de..diamaneos', 'de.diamaneos.', '1de.diamaneos', 'de.1x', '_x', ''):
+            with self.subTest(name), self.assertRaises(inputs.SigningError):
+                package_id(name)
 
     def test_avb_descriptors_come_only_from_the_descriptor_list(self):
         # avbtool prints the release string as it is, so it can hold lines that look like a descriptor.
