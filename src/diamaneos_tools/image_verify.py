@@ -1522,6 +1522,23 @@ def native_files(v, name: str, data: bytes, directory: Path):
                 yield from native_files(v, f'{name}!{inside}', ext4_file(v, payload, '/' + inside, directory)[1], directory)
 
 
+def rule_fs_in_vm_coupling(rule, v):
+    """The filesystem VM for SD cards and USB drives (its daemon in the image) and the kernel's partition scan of
+    those disks move together. With the daemon the kernel must not read their tables (no opt-out on its command
+    line), without it the kernel must (the opt-out is there), or partitioned cards would not work."""
+    has_daemon = v.tf.exists(rule['daemon'])
+    try:
+        words = text_of(v.tf.read(rule['cmdline'])).split()
+    except FileNotFoundError:
+        words = []
+    opt_out = rule['opt_out'] in words
+    if has_daemon and opt_out:
+        return False, f'{rule["daemon"]} is in the image and the kernel still reads card tables ({rule["opt_out"]})'
+    if not has_daemon and not opt_out:
+        return False, f'no {rule["daemon"]} and no {rule["opt_out"]}: partitioned cards would not work'
+    return True, 'filesystem VM' if has_daemon else 'kernel partition scan'
+
+
 def rule_no_diagnostic_sanitizer(rule, v):
     """No installed native binary holds the diagnostic sanitizer signatures, other than the runtimes the rule names."""
     problems, count = [], 0
@@ -1578,7 +1595,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'dex_url_hosts': rule_dex_url_hosts,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
          'no_diagnostic_sanitizer': rule_no_diagnostic_sanitizer,
-         'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions}
+         'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions,
+         'fs_in_vm_coupling': rule_fs_in_vm_coupling}
 
 
 def validate_rules(document: dict) -> list:
