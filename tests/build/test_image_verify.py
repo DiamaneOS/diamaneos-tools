@@ -2727,6 +2727,20 @@ class ParserTests(unittest.TestCase):
                 finally:
                     signal.alarm(0)
 
+    def test_unbalanced_device_tree_and_vendor_boot_page_size_0_fail_the_check(self):
+        # An end-node token with no open node, then the end token.
+        body = struct.pack('>II', 2, 9)
+        blob = struct.pack('>IIIIIIIIII', 0xD00DFEED, 40 + len(body), 40, 40 + len(body), 40, 17, 16, 0, 0,
+                           len(body)) + body
+        for parser in (subject.parse_dtb, subject.device_trees):
+            with self.subTest(parser.__name__), self.assertRaises(ValueError):
+                parser(blob)
+        image = bytearray(4096)
+        image[:8] = b'VNDRBOOT'
+        struct.pack_into('<I', image, 24, 100)
+        with self.assertRaises(ValueError):
+            subject.vendor_boot_parts(bytes(image))
+
     def test_tool_scratch_and_tmpdir_stay_in_the_workspace(self):
         with tempfile.TemporaryDirectory() as temp:
             work = Path(temp) / 'ws/work/tmp'

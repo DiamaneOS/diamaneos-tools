@@ -212,6 +212,8 @@ def vendor_boot_parts(data: bytes) -> tuple[str, bytes]:
     if data[:8] != b'VNDRBOOT':
         raise ValueError('not a vendor boot image')
     page, ramdisk = struct.unpack_from('<I', data, 12)[0], struct.unpack_from('<I', data, 24)[0]
+    if not page:
+        raise ValueError('vendor boot image has no page size')
     header, size = struct.unpack_from('<II', data, 2096)
     start = (-(-header // page) + -(-ramdisk // page)) * page
     return text_of(data[28:2076]).replace('\0', ' '), data[start:start + size]
@@ -252,6 +254,8 @@ def parse_dtb(data: bytes) -> dict:
             if len(stack) > 1:
                 nodes[path_of(stack[:-1])]['children'].update({name, name.split('@')[0]})
         elif token == 2:  # FDT_END_NODE
+            if not stack:
+                raise ValueError('malformed device tree structure')
             stack.pop()
         elif token == 3:  # FDT_PROP
             length, name_offset = struct.unpack_from('>II', data, offset)
