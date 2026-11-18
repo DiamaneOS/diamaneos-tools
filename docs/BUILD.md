@@ -343,7 +343,7 @@ reset` before the next `repo sync`, which stops at a patched file that changed u
 
 It makes the vendor files again only when its recipes, code or settings changed, and for an official
 build also when the source changed. An official build needs the pinned `repo` tool, the `repo_tool`
-release tag of the build environment (`repo init --repo-rev=v2.73`).
+release tag of the build environment (`repo init --repo-rev=v2.74`).
 
 **`m droid target-files-package otatools-package`** builds the images, the target-files archive and
 `otatools.zip`, which holds the host tools that packaging and the checks use.
