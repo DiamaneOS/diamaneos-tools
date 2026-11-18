@@ -396,7 +396,7 @@ def parser():
     output.add_argument('--signer', type=Path, required=True)
     output.add_argument('--ota', type=Path, help='also print the full OTA of the signed target-files, written here')
     verify = commands.add_parser('verify', help='independently verify all publication signatures')
-    for name in ('plan', 'publication', 'artifact-root'):
+    for name in ('plan', 'publication', 'artifact-root', 'target-files'):
         verify.add_argument('--' + name, type=Path, required=True)
     factory = commands.add_parser('factory', help='assemble the full factory ZIP from signed target-files')
     for name in ('plan', 'build-record', 'verification-report', 'verification-signature', 'target-files',
@@ -461,6 +461,7 @@ def execute_factory(args, policy):
                     'Factory public authority differs from the signing plan')
             require(sha256_file(tools.java_home / 'bin/java') == plan['provenance']['java_sha256'],
                     'Factory JDK differs from the signing plan')
+            plans.require_derived_roles(plan, args.target_files, policy, args.source_root, tools, keys)
             verify_packages(args.signed_target_files, plan, tools, keys)
             signing_mac.verify_mac_permissions(args.signed_target_files, plan['mac_permissions'])
             factory_zip.assemble(images, factory, args.signed_target_files, args.resolved_manifest,
@@ -493,6 +494,7 @@ def execute(args):
         require(plan['mode'] == selected_mode(args), 'Signing mode differs from the plan')
         commands = [plans.signing_command(plan, signer=args.signer, key_dir=args.key_dir,
                     source=args.target_files, destination=args.signed_target_files, source_root=args.source_root)]
+        plans.require_listed_roles(plan, args.target_files, policy, args.source_root)
         if args.ota:
             commands.append(plans.ota_command(plan, generator=args.signer.with_name('ota_from_target_files'),
                             key_dir=args.key_dir, signed=args.signed_target_files, destination=args.ota))
@@ -507,7 +509,7 @@ def execute(args):
                   args.target_files, args.resolved_manifest]
         paths += args.previous_result + args.previous_signature
     else:
-        paths += [args.plan, args.publication]
+        paths += [args.plan, args.publication, args.target_files]
     before = input_hashes(paths)
     mode = selected_mode(args)
     if args.command == 'prepare':
@@ -547,6 +549,8 @@ def execute(args):
         recheck_hashes(before)
         recheck_stamps(args.metadata_stamps)
         require(sha256_file(args.otatools) == plan['provenance']['otatools_sha256'], 'Otatools archive changed')
+        require(sha256_file(args.target_files) == plan['provenance']['target_files_sha256'],
+                'Target-files differs from the build the plan was made from')
         source_files(args.source_root, plan['provenance']['projects'])
     provenance = provenance if args.command == 'prepare' else plan['provenance']
     with native_inputs(args.otatools, args.source_root, args.keys, args.scratch, mode,
@@ -560,6 +564,7 @@ def execute(args):
                 print('Signing source change: ' + changed['project'] + ': ' +
                       (changed['previous'] or 'first run') + ' -> ' + (changed['current'] or 'removed'))
         else:
+            plans.require_derived_roles(plan, args.target_files, policy, args.source_root, tools, keys)
             result = verify_publication(plan, publication, args.artifact_root, policy, tools, keys,
                                         release_inputs=args.release_inputs)
     recheck_hashes(before)

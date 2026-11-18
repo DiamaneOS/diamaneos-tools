@@ -444,8 +444,10 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
     def verify_bootstrap_inputs(self):
         _arguments, identity, _signature = self.bootstrap_inputs()
         publication_root = self.root / 'publication'; publication_root.mkdir()
+        target_files = self.root / 'target-files.zip'; target_files.write_bytes(b'unsigned target-files')
         plan = {'schema_version': 2, 'mode': 'qualification', 'policy_sha256': inputs.canonical_sha256(self.policy),
-                'provenance': {'otatools_sha256': inputs.sha256_file(self.root / 'otatools.zip'), 'projects': {}},
+                'provenance': {'otatools_sha256': inputs.sha256_file(self.root / 'otatools.zip'), 'projects': {},
+                               'target_files_sha256': inputs.sha256_file(target_files)},
                 'packages': {}, 'roles': {}, 'metadata': {}, 'mac_permissions': {}}
         plan['plan_sha256'] = inputs.canonical_sha256(plan)
         (self.root / 'plan-input.json').write_text(json.dumps(plan))
@@ -458,7 +460,8 @@ class SigningInputsTests(TemporaryInputs, unittest.TestCase):
                        'release_record': 'record.json', 'release_signature': 'record.sig'}
         (self.root / 'publication.json').write_text(json.dumps(publication))
         arguments = ['verify', '--qualification', '--plan', str(self.root / 'plan-input.json'), '--publication', str(self.root / 'publication.json'),
-            '--artifact-root', str(publication_root), '--source-root', str(self.source), '--otatools', str(self.root / 'otatools.zip'),
+            '--artifact-root', str(publication_root), '--target-files', str(target_files),
+            '--source-root', str(self.source), '--otatools', str(self.root / 'otatools.zip'),
             '--keys', str(self.root / 'authority/inventory.json'), '--scratch', str(self.root / 'scratch'),
             '--output', str(self.root / 'result.json')]
         return arguments, identity, record, signature

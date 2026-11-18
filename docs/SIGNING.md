@@ -5,7 +5,8 @@ images and checked again before publication. For anyone who signs their own buil
 DiamaneOS's offline release signing. Terms are explained in [TERMS.md](TERMS.md).
 
 The build host stops at unsigned target-files and `otatools.zip`. Signing runs elsewhere, with keys
-that never reach the build host.
+that never reach the build host. Copy the inputs to the signing machine's own disk first, and run
+nothing else there while it signs.
 
 Native platform tools (`apksigner`, `avbtool`, the OTA checker) verify every signature against
 public keys you supply separately. A signed artifact never chooses the key it is checked against.
@@ -18,6 +19,10 @@ public keys you supply separately. A signed artifact never chooses the key it is
 4. `images check` runs the image checks on the signed set.
 5. `signing verify` checks every published signature again, independently.
 6. `attestation-releases` adds the release's attestation values to the signed release list.
+
+The plan records which key signs each package. `command`, `factory` and `verify` derive those keys
+again from the unsigned target-files, the signing policy and the release script, and refuse a plan
+that differs.
 
 ## Signing modes
 
@@ -254,6 +259,7 @@ tools. Keep the inventory, plan, result and scratch outside the publication dire
 ```sh
 tools/diamaneos/bin/diamaneos signing verify --plan "$PLAN" \
   --publication "$PUBLICATION_JSON" --artifact-root "$PUBLICATION" \
+  --target-files "$IMAGES/target-files.zip" \
   --otatools "$IMAGES/otatools.zip" --source-root "$SOURCE" \
   --keys "$TRUST/inventory.json" --scratch "$SCRATCH" --output "$RESULT"
 ```

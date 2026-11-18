@@ -3,7 +3,8 @@ import copy
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+import zipfile
 
 from diamaneos_tools import signing_inputs as inputs, signing_native as native, signing_qualification as api
 
@@ -25,6 +26,64 @@ class SigningPlanTests(unittest.TestCase):
         self.assertEqual('PRESIGNED', roles['Kept.apk']['container'])
         self.assertEqual('avb', roles['com.example.apex']['payload'])
         with self.assertRaises(inputs.SigningError): api.member_role(roles, 'apk', 'SYSTEM/app/Unknown.apk')
+
+    def derived_plan(self, keys):
+        roles, absent, by_member = api.derived_roles(Path('/target-files.zip'), self.policy, Path('/source'), None)
+        packages = {logical: {'kind': role['kind'], 'container': role['container'], 'payload': role['payload'],
+                              'certificate_sha256': keys.fingerprint(role['container'], logical)}
+                    for logical, role in by_member.items()}
+        return {'roles': roles, 'absent_metadata_packages': absent, 'packages': packages}
+
+    def test_factory_and_verify_derive_the_plan_roles_again(self):
+        members = [('apk', 'SYSTEM/app/Default/Default.apk', None), ('apk', 'SYSTEM/app/Platform/Platform.apk', None),
+                   ('apex', 'SYSTEM/apex/com.example.apex', None), ('payload', 'SYSTEM/apex/com.example.apex', None)]
+        keys = Mock(); keys.fingerprint.side_effect = lambda role, logical: role + ':' + logical
+        with patch.object(api, 'package_members', return_value=members), \
+             patch.object(api.za, 'metadata', return_value=self.metadata), \
+             patch.object(api, 'release_overrides', return_value={}):
+            plan = self.derived_plan(keys)
+            self.assertEqual(['Kept.apk'], plan['absent_metadata_packages'])
+            api.require_derived_roles(plan, Path('/target-files.zip'), self.policy, Path('/source'), None, keys)
+
+            def changed(edit):
+                value = copy.deepcopy(plan); edit(value); return value
+            for name, edit in (
+                    ('a role', lambda p: p['roles']['Default.apk'].update(container='platform')),
+                    ('a package', lambda p: p['packages']['SYSTEM/app/Default/Default.apk'].update(
+                        container='platform', certificate_sha256='platform:SYSTEM/app/Default/Default.apk')),
+                    ('both', lambda p: (p['roles']['Default.apk'].update(container='platform'),
+                                        p['packages']['SYSTEM/app/Default/Default.apk'].update(
+                                            container='platform', certificate_sha256='platform:SYSTEM/app/Default/Default.apk'))),
+                    ('a certificate', lambda p: p['packages']['SYSTEM/app/Default/Default.apk'].update(certificate_sha256='x')),
+                    ('a dropped package', lambda p: (p['roles'].pop('Platform.apk'),
+                                                     p['packages'].pop('SYSTEM/app/Platform/Platform.apk'))),
+                    ('a package called absent', lambda p: (p['roles'].pop('Platform.apk'),
+                                                           p['packages'].pop('SYSTEM/app/Platform/Platform.apk'),
+                                                           p['absent_metadata_packages'].append('Platform.apk')))):
+                with self.subTest(name), self.assertRaisesRegex(inputs.SigningError, 'roles differ'):
+                    api.require_derived_roles(changed(edit), Path('/target-files.zip'), self.policy, Path('/source'), None, keys)
+
+    def test_command_checks_every_listed_role_and_every_top_level_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); (root / 'script').mkdir()
+            (root / 'script/generate-release.sh').write_text('--extra_apks Platform.apk="$KEY_DIR/platform"')
+            target = root / 'target-files.zip'
+            with zipfile.ZipFile(target, 'w') as archive:
+                archive.writestr('META/apkcerts.txt',
+                                 'name="Default.apk" certificate="keys/testkey.x509.pem" private_key="keys/testkey.pk8"\n'
+                                 'name="Platform.apk" certificate="keys/platform.x509.pem" private_key="keys/platform.pk8"\n')
+                archive.writestr('META/apexkeys.txt', '')
+                archive.writestr('SYSTEM/app/Default/Default.apk', b'apk')
+                archive.writestr('SYSTEM/app/Platform/Platform.apk', b'apk')
+            roles = api.role_map(api.za.metadata(target), self.policy, api.release_overrides(root))
+            plan = {'roles': roles}
+            api.require_listed_roles(plan, target, self.policy, root)
+            changed = copy.deepcopy(plan); changed['roles']['Default.apk']['container'] = 'platform'
+            with self.assertRaisesRegex(inputs.SigningError, 'roles differ'):
+                api.require_listed_roles(changed, target, self.policy, root)
+            dropped = copy.deepcopy(plan); dropped['roles'].pop('Platform.apk')
+            with self.assertRaisesRegex(inputs.SigningError, 'leaves out a package'):
+                api.require_listed_roles(dropped, target, self.policy, root)
 
     def test_absent_metadata_is_derived_and_does_not_need_signing_roles(self):
         self.metadata['apk']['NotInstalled.apk'] = {'certificate': 'keys/unmapped-test-certificate.x509.pem'}

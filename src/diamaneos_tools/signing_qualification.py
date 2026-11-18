@@ -87,6 +87,57 @@ def member_role(mapping, kind, logical):
     return record
 
 
+def member_name(metadata, policy, kind, logical):
+    """The metadata name of a packaged member, as prepare names it: an approved presigned APK by its rule."""
+    name = Path(logical).name
+    approved = presigned_rule(policy, logical) if kind == 'apk' and name not in metadata['apk'] else None
+    return za.package_name(approved['metadata_name'] if approved is not None else name), approved is not None
+
+
+def derived_roles(target_files, policy, source, tools):
+    """The roles, absent metadata packages and per-member roles prepare derives from target-files, the policy and
+    the release script. The plan only records them, so command, factory and verify derive them again."""
+    metadata = za.metadata(target_files)
+    overrides = release_overrides(source)
+    roles, present, members = {}, set(), {}
+    for kind, logical, _ in package_members(target_files, tools):
+        if kind == 'payload':
+            continue
+        name, approved = member_name(metadata, policy, kind, logical)
+        if name not in roles:
+            roles.update(role_map(metadata, policy, overrides, {name}))
+        present.add(name)
+        if logical not in members:
+            members[logical] = roles.get(name) if approved else member_role(roles, kind, logical)
+    return roles, sorted((set(metadata['apk']) | set(metadata['apex'])) - present), members
+
+
+def require_derived_roles(plan, target_files, policy, source, tools, keys):
+    """Refuse a plan whose roles, packages or certificates are not the ones target-files and the policy give."""
+    roles, absent, members = derived_roles(target_files, policy, source, tools)
+    require(plan['roles'] == roles and plan['absent_metadata_packages'] == absent
+            and set(plan['packages']) == set(members),
+            'Signing plan roles differ from target-files, the policy and the release script')
+    for logical, role in members.items():
+        package = plan['packages'][logical]
+        require((package['kind'], package['container'], package['payload']) == (role['kind'], role['container'], role['payload'])
+                and package['certificate_sha256'] == keys.fingerprint(role['container'], logical),
+                'Signing plan roles differ from target-files, the policy and the release script')
+
+
+def require_listed_roles(plan, target_files, policy, source):
+    """Without native tools: every role the plan lists is the one the policy gives, and every package at the top of
+    target-files is listed. Packages inside APEX images need the native tools, which factory and verify have."""
+    metadata = za.metadata(target_files)
+    require(role_map(metadata, policy, release_overrides(source), set(plan['roles'])) == plan['roles'],
+            'Signing plan roles differ from target-files, the policy and the release script')
+    with za.archive(target_files) as handle:
+        names = [name for name in handle.namelist() if name.endswith(('.apk', '.apex', '.capex'))]
+    for logical in names:
+        name, _ = member_name(metadata, policy, 'apk' if logical.endswith('.apk') else 'apex', logical)
+        require(name in plan['roles'], 'Signing plan leaves out a package of target-files: ' + name)
+
+
 def prepare(record_path, report_path, target_files, manifest, policy, keys, tools, otatools, previous=None, *, mode):
     provenance = verified_build(record_path, report_path, target_files, manifest, mode=mode,
                                 source_root=tools.source, otatools=otatools)
@@ -106,14 +157,10 @@ def prepare(record_path, report_path, target_files, manifest, policy, keys, tool
     roles = {}
     packages, present = {}, set()
     for kind, logical, path in package_members(target_files, tools):
-        name = Path(logical).name
-        approved = presigned_rule(policy, logical) if kind == 'apk' and name not in metadata['apk'] else None
-        if approved is not None:
-            name = approved['metadata_name']
-        name = za.package_name(name)
+        name, approved = member_name(metadata, policy, kind, logical)
         if kind != 'payload' and name not in roles:
             roles.update(role_map(metadata, policy, overrides, {name}))
-        role = roles.get(name) if approved is not None else member_role(roles, kind, logical)
+        role = roles.get(name) if approved else member_role(roles, kind, logical)
         require(role is not None, 'Packaged signing role is missing')
         if kind == 'payload':
             if role['payload'] == 'PRESIGNED':

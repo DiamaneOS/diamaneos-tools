@@ -530,8 +530,10 @@ class FactoryBootstrapTests(FactoryInputs, unittest.TestCase):
                 patch.object(api, 'verified_build', return_value=self.plan['provenance']), \
                 patch.object(api, 'source_files', return_value=self.plan['provenance']['source_files']), \
                 patch.object(api, 'verify_packages'), patch.object(api.signing_mac, 'verify_mac_permissions'), \
+                patch.object(api.plans, 'require_derived_roles') as roles, \
                 patch.object(factory, 'assemble', side_effect=staged) as assembled, patch('sys.stderr', new=io.StringIO()):
             self.assertEqual(2, api.main(arguments))
+        roles.assert_called_once()
         assembled.assert_called_once()
         self.assertEqual([], list((self.root / 'publish').iterdir()))
 
