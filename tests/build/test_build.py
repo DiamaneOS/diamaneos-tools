@@ -89,6 +89,19 @@ class BuildEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, "moving or non-commit"):
             build.parse_project_map(xml)
 
+    def test_unnormalised_repeated_or_split_manifest_fields_are_rejected(self):
+        def manifest(*projects):
+            rows = "".join(f"<project {project} revision='{'a' * 40}'/>" for project in projects)
+            return (b"<manifest><remote name='aosp' fetch='https://example.invalid'/>"
+                    b"<default remote='aosp'/>" + rows.encode() + b"</manifest>")
+        rows, _ = build.parse_project_map(manifest("name='one' path='a/b'", "name='two'"))
+        self.assertEqual(["a/b", "two"], [row[0] for row in rows])
+        for projects in (["name='one' path='a/'"], ["name='one' path='./a'"], ["name='one' path='a//b'"],
+                         ["name='one' path='a'", "name='two' path='a/.'"], ["name='o&#9;ne' path='a'"],
+                         ["name='one' path='a&#10;b'"], ["name='one' remote='ao&#13;sp'"]):
+            with self.subTest(projects=projects), self.assertRaises(build.BuildError):
+                build.parse_project_map(manifest(*projects))
+
     def test_declared_source_local_output_is_accepted(self):
         declared = copy.deepcopy(self.config)
         declared["workspace"]["source_subdirectory"] = "source"

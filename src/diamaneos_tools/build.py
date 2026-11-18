@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import platform
 import re
 import shutil
@@ -454,7 +454,11 @@ def parse_project_map(xml_bytes: bytes) -> tuple[list[tuple[str, str, str, str]]
             raise BuildError("resolved manifest project is incomplete")
         if SHA1_RE.fullmatch(revision) is None:
             raise BuildError("resolved manifest contains a moving or non-commit revision")
-        if path.startswith("/") or ".." in Path(path).parts or path in paths:
+        # The project map separates fields with tabs and rows with line breaks.
+        if any(character in value for value in (name, path, remote) for character in "\t\n\r"):
+            raise BuildError("resolved manifest project has a tab or line break")
+        if (path.startswith("/") or ".." in Path(path).parts or str(PurePosixPath(path)) != path
+                or path in paths):
             raise BuildError("resolved manifest contains an unsafe or duplicate path")
         paths.add(path)
         rows.append((path, name, remote, revision))
