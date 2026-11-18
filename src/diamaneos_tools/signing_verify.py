@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+import lzma
 from pathlib import Path
 import shlex
 import shutil
@@ -10,6 +11,7 @@ import stat
 import sys
 import tarfile
 import tempfile
+import zlib
 
 from . import build, signing_archive as za, signing_qualification as plans, signing_layout as layout, signing_mac
 from . import attestation_releases, signing_factory as factory_zip, signing_keys, signing_release
@@ -267,16 +269,20 @@ def verify_installed_packages(images, target_files, plan, tools):
 
 def verify_factory_contents(factory, image_archive):
     expected = sha256_file(image_archive)
-    with tarfile.open(factory, 'r:*') as handle:
-        members = handle.getmembers()
-        require(len(members) <= za.MAX_MEMBERS and sum(m.size for m in members) <= za.MAX_EXPANDED,
-                'Factory archive exceeds its bounds')
-        names = [m.name for m in members]
-        require(set(names) == layout.factory_members(image_archive)
-                and len(set(names)) == len(names) and all(m.isfile() for m in members),
-                'Factory archive contains unlisted or missing members')
-        with handle.extractfile(members[0]) as stream:
-            require(sha256_stream(stream) == expected, 'Factory archive contains different images')
+    try:
+        with tarfile.open(factory, 'r:*') as handle:
+            members = handle.getmembers()
+            require(len(members) <= za.MAX_MEMBERS and sum(m.size for m in members) <= za.MAX_EXPANDED,
+                    'Factory archive exceeds its bounds')
+            names = [m.name for m in members]
+            require(set(names) == layout.factory_members(image_archive)
+                    and len(set(names)) == len(names) and all(m.isfile() for m in members),
+                    'Factory archive contains unlisted or missing members')
+            with handle.extractfile(members[0]) as stream:
+                require(sha256_stream(stream) == expected, 'Factory archive contains different images')
+    except (OSError, EOFError, tarfile.TarError, zlib.error, lzma.LZMAError):
+        # A damaged gzip, bzip2 or xz stream, as the ZIP archives refuse it.
+        raise SigningError('Unreadable or incomplete factory archive') from None
 
 
 def verify_publication(plan, publication, artifact_root, policy, tools, keys, *, release_inputs=None):

@@ -1,5 +1,6 @@
 """Publication layout and byte consistency fixtures, no native signature proof."""
 import hashlib
+import io
 from pathlib import Path
 import stat
 import tarfile
@@ -326,6 +327,24 @@ class FactoryContentsTests(TemporaryInputs, unittest.TestCase):
         for kind in (tarfile.SYMTYPE, tarfile.LNKTYPE, tarfile.DIRTYPE, tarfile.FIFOTYPE):
             with self.subTest(kind=kind):
                 self.refuse([(self.images.name, b'', kind)])
+
+    def test_damaged_compressed_factory_refuses(self):
+        images = self.root / 'large-images.zip'
+        images.write_bytes(bytes(range(256)) * 64)
+        for mode in ('gz', 'bz2', 'xz'):
+            out = io.BytesIO()
+            with tarfile.open(fileobj=out, mode='w:' + mode) as handle:
+                member = tarfile.TarInfo(images.name)
+                member.size = images.stat().st_size
+                handle.addfile(member, io.BytesIO(images.read_bytes()))
+            data = out.getvalue()
+            # Cut in the middle, or the stream's last bytes zeroed (gzip checks them only at its end).
+            cases = [data[:len(data) // 2]] + ([data[:-8] + bytes(8)] if mode != 'gz' else [])
+            for damaged in cases:
+                with self.subTest(mode=mode, size=len(damaged)):
+                    self.factory.write_bytes(damaged)
+                    with self.assertRaisesRegex(inputs.SigningError, 'factory archive'):
+                        api.verify_factory_contents(self.factory, images)
 
     def test_factory_must_embed_the_exact_verified_bytes(self):
         for data in (b'', self.data[:-1], self.data + b'changed'):
