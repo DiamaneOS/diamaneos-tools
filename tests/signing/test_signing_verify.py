@@ -588,7 +588,8 @@ class ArchiveTests(unittest.TestCase):
                 with za.archive(buffer, allow_links=False): pass
 
     def test_metadata_rejects_duplicates_conflicts_and_unsafe_names(self):
-        for text in ('name="a.apk" name="b.apk"', 'name="../x.apk"', 'name="x.apk"\nname="x.apk"'):
+        for text in ('name="a.apk" name="b.apk"', 'name="../x.apk"', 'name="x.apk"\nname="x.apk"', 'name="x.apk',
+                     'name=x.apk\\'):
             with self.assertRaises(inputs.SigningError): za.attributes(text)
         with self.assertRaises(inputs.SigningError): za.properties('x=1\nx=2')
         self.assertEqual({'x': '1'}, za.properties('x=1\nx=1'))

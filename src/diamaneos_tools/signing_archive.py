@@ -33,7 +33,7 @@ def archive(path, *, allow_links=True):
                 require(allow_links or not stat.S_ISLNK(info.external_attr >> 16), 'Archive symlinks are prohibited')
                 names.add(info.filename)
             yield handle
-    except (OSError, zipfile.BadZipFile, RuntimeError, KeyError, EOFError, zlib.error, lzma.LZMAError):
+    except (OSError, zipfile.BadZipFile, RuntimeError, KeyError, EOFError, zlib.error, lzma.LZMAError, UnicodeError):
         raise SigningError('Unreadable or incomplete ZIP archive') from None
 
 
@@ -64,7 +64,10 @@ def attributes(text):
     for line in text.splitlines():
         if not line.strip() or line.lstrip().startswith('#'):
             continue
-        tokens = shlex.split(line)
+        try:
+            tokens = shlex.split(line)
+        except ValueError:
+            raise SigningError('Malformed package metadata') from None
         require(all('=' in token for token in tokens), 'Malformed package metadata')
         pairs = [token.split('=', 1) for token in tokens]
         record = dict(pairs)

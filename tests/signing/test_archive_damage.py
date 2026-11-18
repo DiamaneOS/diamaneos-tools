@@ -52,5 +52,28 @@ class DamagedArchiveTests(unittest.TestCase):
                         za.digest_member(handle, 'bin/avbtool')
 
 
+class UndecodableNameTests(unittest.TestCase):
+    """A member name that is not UTF-8 under the UTF-8 name flag is the archive's refusal."""
+
+    def test_name_that_is_not_utf8_is_refused(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, 'w') as handle:
+            info = zipfile.ZipInfo('bin/é')
+            info.external_attr = (stat.S_IFREG | 0o755) << 16
+            handle.writestr(info, b'#!/bin/sh\n')
+        # The name bytes stop being UTF-8 in the local header only, then in the central directory too.
+        for count in (1, 2):
+            with self.subTest(count=count):
+                directory = Path(tempfile.mkdtemp())
+                self.addCleanup(shutil.rmtree, directory)
+                path = directory / 'otatools.zip'
+                path.write_bytes(out.getvalue().replace('é'.encode(), b'\xc3\x28', count))
+                with self.assertRaises(SigningError):
+                    with za.archive(path) as handle:
+                        za.digest_member(handle, handle.namelist()[0])
+                with self.assertRaises(SigningError):
+                    za.unpack_tools(path, directory / 'tools')
+
+
 if __name__ == '__main__':
     unittest.main()
