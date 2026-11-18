@@ -3,10 +3,12 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
+import lzma
 import shlex
 import shutil
 import stat
 import zipfile
+import zlib
 
 from .signing_inputs import NAME, SigningError, require, sha256_stream
 
@@ -31,7 +33,7 @@ def archive(path, *, allow_links=True):
                 require(allow_links or not stat.S_ISLNK(info.external_attr >> 16), 'Archive symlinks are prohibited')
                 names.add(info.filename)
             yield handle
-    except (OSError, zipfile.BadZipFile, RuntimeError, KeyError):
+    except (OSError, zipfile.BadZipFile, RuntimeError, KeyError, EOFError, zlib.error, lzma.LZMAError):
         raise SigningError('Unreadable or incomplete ZIP archive') from None
 
 
