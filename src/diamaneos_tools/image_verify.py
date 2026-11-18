@@ -271,6 +271,8 @@ def device_trees(data: bytes) -> list[dict]:
     """Every tree of a device tree image: blobs one after another, or an overlay table (dtbo)."""
     if data[:4] == b'\xd7\xb7\xab\x1e':
         entry_size, count, first = struct.unpack_from('>III', data, 12)
+        if entry_size < 8 or first + count * entry_size > len(data):
+            raise ValueError('device tree table exceeds its image')
         spans = [struct.unpack_from('>II', data, first + index * entry_size) for index in range(count)]
         return [parse_dtb(data[offset:offset + size]) for size, offset in spans]
     trees, offset = [], 0
@@ -1867,6 +1869,8 @@ def super_metadata(data: bytes) -> tuple[list, dict]:
 
     def entries(index):
         offset, count, size = descriptors[3 * index:3 * index + 3]
+        if count and (not size or tables + offset + count * size > len(data)):
+            raise ValueError('super metadata table exceeds its image')
         return [data[tables + offset + i * size:tables + offset + (i + 1) * size] for i in range(count)]
     names = [entry[:36].rstrip(b'\0').decode() for entry in entries(0)]
     devices = {entry[24:60].rstrip(b'\0').decode(): struct.unpack_from('<Q', entry, 16)[0] for entry in entries(3)}

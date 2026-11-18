@@ -2706,6 +2706,27 @@ class ParserTests(unittest.TestCase):
             with self.subTest(name), self.assertRaises((ValueError, struct.error)):
                 subject.sparse_to_raw(image, limit=2 * block)
 
+    def test_device_tree_and_super_tables_stay_inside_the_image(self):
+        import signal
+
+        def timeout(*_):
+            raise TimeoutError('parser still running')
+        dtbo = b'\xd7\xb7\xab\x1e' + bytes(8) + struct.pack('>III', 0, 0xffffffff, 32) + bytes(24)
+        metadata = bytearray(subject.LP_GEOMETRY_SIZE + 512)
+        struct.pack_into('<I', metadata, 0, subject.LP_GEOMETRY_MAGIC)
+        struct.pack_into('<I', metadata, subject.LP_GEOMETRY_SIZE, subject.LP_HEADER_MAGIC)
+        struct.pack_into('<12I', metadata, subject.LP_GEOMETRY_SIZE + 80, 0, 0xffffffff, 0, *bytes(9))
+        previous = signal.signal(signal.SIGALRM, timeout)
+        self.addCleanup(signal.signal, signal.SIGALRM, previous)
+        for parser, image in ((subject.device_trees, dtbo), (subject.super_metadata, bytes(metadata))):
+            with self.subTest(parser.__name__):
+                signal.alarm(5)
+                try:
+                    with self.assertRaises(ValueError):
+                        parser(image)
+                finally:
+                    signal.alarm(0)
+
     def test_tool_scratch_and_tmpdir_stay_in_the_workspace(self):
         with tempfile.TemporaryDirectory() as temp:
             work = Path(temp) / 'ws/work/tmp'
