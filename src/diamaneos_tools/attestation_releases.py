@@ -175,10 +175,7 @@ def validate_payload(payload):
             and type(payload['sequence']) is int and 0 < payload['sequence'] < 2 ** 63
             and isinstance(payload['issued'], str) and isinstance(payload['devices'], list),
             'Invalid release list payload')
-    try:
-        datetime.datetime.strptime(payload['issued'], '%Y-%m-%dT%H:%M:%SZ')
-    except ValueError:
-        raise SigningError('Invalid release list issue time') from None
+    issue_time(payload)
     ids = []
     for device in payload['devices']:
         fields(device, {'id', 'verifiedBootKey', 'releases'})
@@ -192,6 +189,13 @@ def validate_payload(payload):
             hashes.add(release['verifiedBootHash'])
         ids.append(device['id'])
     require(len(ids) == len(set(ids)), 'Release list repeats a device')
+
+
+def issue_time(payload):
+    try:
+        return datetime.datetime.strptime(payload['issued'], '%Y-%m-%dT%H:%M:%SZ')
+    except ValueError:
+        raise SigningError('Invalid release list issue time') from None
 
 
 def merged(previous, record, withdraw, issued):
@@ -215,6 +219,8 @@ def merged(previous, record, withdraw, issued):
     payload = {'format': PAYLOAD_FORMAT, 'version': 1, 'sequence': (previous or {}).get('sequence', 0) + 1,
                'issued': issued, 'devices': [devices[k] for k in sorted(devices) if devices[k]['releases']]}
     validate_payload(payload)
+    require(previous is None or issue_time(payload) >= issue_time(previous),
+            'The previous release list has a later issue time than now')
     return payload
 
 
@@ -239,8 +245,9 @@ def envelope_bytes(payload, public_key, signature):
     return (json.dumps(value, indent=2) + '\n').encode()
 
 
-def verified_payload(data, public_key, *, after=0):
-    """Payload of a list that public_key signed, with a sequence above after."""
+def verified_payload(data, public_key, *, previous=None):
+    """Payload of a list that public_key signed. Given the previous list's payload, it has a higher sequence
+    and is not issued earlier."""
     envelope = safe_json.loads(data)
     fields(envelope, {'format', 'version', 'payload', 'signatures'})
     require(envelope['format'] == FORMAT and type(envelope['version']) is int and envelope['version'] == 1
@@ -258,7 +265,9 @@ def verified_payload(data, public_key, *, after=0):
     verify_signature(payload, matching[0], public_key)
     value = safe_json.loads(payload)
     validate_payload(value)
-    require(value['sequence'] > after, 'Release list sequence does not increase')
+    if previous is not None:
+        require(value['sequence'] > previous['sequence'], 'Release list sequence does not increase')
+        require(issue_time(value) >= issue_time(previous), 'Release list is issued before the previous list')
     return value
 
 
@@ -367,7 +376,7 @@ def prepare(args):
     payload = encode_payload(merged(previous, record, args.withdraw, issued))
     if signer:
         data = envelope_bytes(payload, trusted, signer.sign(payload))
-        verified_payload(data, trusted, after=previous['sequence'] if previous else 0)
+        verified_payload(data, trusted, previous=previous)
         write_new(args.output, data)
         print('Release list signed with the test key: ' + str(args.output))
         return 0
@@ -392,7 +401,7 @@ def attach(args):
     trusted = trusted_key(args)
     previous = verified_payload(read_bounded(args.previous), trusted) if args.previous else None
     data = envelope_bytes(read_bounded(args.payload), trusted, read_bounded(args.signature, 1024))
-    verified_payload(data, trusted, after=previous['sequence'] if previous else 0)
+    verified_payload(data, trusted, previous=previous)
     write_new(args.output, data)
     print('Release list verified and written: ' + str(args.output))
     return 0
@@ -400,8 +409,8 @@ def attach(args):
 
 def verify(args):
     trusted = trusted_key(args)
-    after = verified_payload(read_bounded(args.previous), trusted)['sequence'] if args.previous else 0
-    payload = verified_payload(read_bounded(args.list), trusted, after=after)
+    previous = verified_payload(read_bounded(args.previous), trusted) if args.previous else None
+    payload = verified_payload(read_bounded(args.list), trusted, previous=previous)
     count = sum(len(device['releases']) for device in payload['devices'])
     print(f"Release list: PASS, sequence {payload['sequence']}, {count} releases")
     return 0

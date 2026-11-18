@@ -332,6 +332,8 @@ hex.
 - `prepare` verifies the previous list, keeps its releases, adds the new one and raises the sequence
   by one. `--withdraw` removes a listed build. A listed build or boot hash, or another boot key for a
   listed device, is refused.
+- With `--previous`, `prepare`, `attach` and `verify` refuse a list that does not raise the sequence
+  or is issued before the previous list.
 - A production list takes only a release signing result, signed in the `diamaneos-signing-result`
   namespace by the pinned release factory key, and its signer must be the pinned release-list key.
 - `--signer detached` writes the payload for the offline signer. `attach` adds the returned

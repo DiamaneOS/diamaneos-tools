@@ -140,6 +140,25 @@ class ReleaseListTests(TemporaryInputs, unittest.TestCase):
             self.assertEqual(2, self.sign(self.root / 'refused.json', '--entry', self.entry, previous=third)[0])
         self.assertFalse((self.root / 'refused.json').exists())
 
+    def test_a_later_list_is_never_issued_earlier(self):
+        signer = ar.TestSigner(self.keys['signer'])
+        record = json.loads(self.entry.read_text())
+        lists = {}
+        for name, sequence, issued in (('first', 1, '2026-11-02T00:00:00Z'), ('same', 2, '2026-11-02T00:00:00Z'),
+                                       ('earlier', 2, '2026-11-01T23:59:59Z')):
+            payload = ar.encode_payload(dict(ar.merged(None, record, [], issued), sequence=sequence))
+            lists[name] = self.root / (name + '.json')
+            lists[name].write_bytes(ar.envelope_bytes(payload, signer.public, signer.sign(payload)))
+        self.assertEqual(0, self.verify(lists['same'], previous=lists['first']))
+        self.assertEqual(2, self.verify(lists['earlier'], previous=lists['first']))
+        previous = ar.verified_payload(lists['first'].read_bytes(), signer.public)
+        with self.assertRaisesRegex(SigningError, 'issued before'):
+            ar.verified_payload(lists['earlier'].read_bytes(), signer.public, previous=previous)
+        # prepare refuses a clock behind the previous list before anything is signed.
+        record['release'] = release('2026110100', 'CD' * 32)
+        with self.assertRaisesRegex(SigningError, 'later issue time'):
+            ar.merged(previous, record, [], '2026-11-01T00:00:00Z')
+
     def test_test_signer_needs_the_test_flag_and_refuses_production_results(self):
         result = self.root / 'result.json'
         record = json.loads(self.entry.read_text())
