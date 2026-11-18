@@ -1472,6 +1472,10 @@
       "reason": "/proc/cmdline shows parameter names only, keeping module option values. Without it bug reports copy the Wi-Fi MAC address the bootloader passes on the command line."
     },
     {
+      "symbol": "gunyah_vm_pool_init",
+      "reason": "The memory pool for protected VMs: the Gunyah driver hands out the memory reserve_mem sets aside at boot through /dev/gunyah_vm_pool and lends it to protected VMs only, so their memory comes in few pieces and the resource manager does not refuse them once memory is scattered."
+    },
+    {
       "symbol": "selinux_enforcing_lock",
       "reason": "SELinux development mode is on so that an update's first boot can hand the snapshot daemon over before enforcing. Once enforcing is on, this lock refuses to turn it off and makes the enforcing mode read-only."
     }
@@ -1480,6 +1484,10 @@
     {
       "argument": "scsi_mod.scan=sync",
       "reason": "The 6.18 GKI scans SCSI devices asynchronously, which numbers the UFS logical units in a different order on each boot. The device files, the boot control HAL and the vendor ueventd rules name the disks by letter (sda to sdf are LUN 0 to 5), so scanning must stay synchronous."
+    },
+    {
+      "argument": "reserve_mem=432M:2M:gunyah_vm_pool",
+      "reason": "432 MiB set aside at boot for protected VM memory: the decode service VM (288 MiB) and one typical SD card VM (up to 144 MiB). The page allocator never gets it, the Gunyah driver lends it to protected VMs only, and SELinux gives it to those two VM managers alone. A larger VM, or one more, gets ordinary memory."
     }
   ],
   "debug": {
