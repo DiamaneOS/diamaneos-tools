@@ -1,10 +1,12 @@
 import io
+import os
 from pathlib import Path
 import shutil
 import stat
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
@@ -73,6 +75,29 @@ class UndecodableNameTests(unittest.TestCase):
                         za.digest_member(handle, handle.namelist()[0])
                 with self.assertRaises(SigningError):
                     za.unpack_tools(path, directory / 'tools')
+
+
+class UnpackTests(unittest.TestCase):
+    """unpack_tools writes private files and leaves nothing behind when it refuses."""
+
+    def test_files_are_private_while_written_and_a_refusal_leaves_nothing(self):
+        directory = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, directory)
+        path = directory / 'otatools.zip'
+        with zipfile.ZipFile(path, 'w') as handle:
+            handle.writestr('bin/avbtool', b'fixture tool')
+            # Refused only after the first file is written: its name is a file, not a directory.
+            handle.writestr('bin/avbtool/other', b'fixture member under a file')
+        modes, copy = [], shutil.copyfileobj
+
+        def recording(source, target, *arguments):
+            modes.append(os.fstat(target.fileno()).st_mode & 0o777)
+            return copy(source, target, *arguments)
+        with mock.patch.object(za.shutil, 'copyfileobj', side_effect=recording):
+            with self.assertRaises(SigningError):
+                za.unpack_tools(path, directory / 'tools')
+        self.assertEqual([0o600], modes)
+        self.assertFalse((directory / 'tools').exists())
 
 
 if __name__ == '__main__':

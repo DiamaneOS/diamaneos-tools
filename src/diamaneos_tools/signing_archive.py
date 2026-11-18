@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 import lzma
+import os
 import shlex
 import shutil
 import stat
@@ -46,10 +47,11 @@ def read_text(handle, name):
         raise SigningError('Metadata is not UTF-8') from None
 
 
-def extract(handle, name, destination):
+def extract(handle, name, destination, *, mode=0o666):
     require(not stat.S_ISLNK(handle.getinfo(name).external_attr >> 16), 'Selected payload is symlinked')
     destination = Path(destination)
-    with handle.open(name) as source, destination.open('xb') as target:
+    opener = lambda path, flags: os.open(path, flags, mode)
+    with handle.open(name) as source, open(destination, 'xb', opener=opener) as target:
         shutil.copyfileobj(source, target, 1024 * 1024)
     return destination
 
@@ -123,14 +125,20 @@ def package_metadata_shape(value):
 
 
 def unpack_tools(path, destination):
+    """Unpack into destination, a new private directory. A refused archive leaves nothing there."""
     destination.mkdir(mode=0o700)
-    with archive(path, allow_links=False) as handle:
-        for info in handle.infolist():
-            target = destination / info.filename
-            if info.is_dir():
-                target.mkdir(parents=True, exist_ok=True)
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            extract(handle, info.filename, target)
-            target.chmod(0o700 if info.external_attr >> 16 & 0o111 else 0o600)
+    try:
+        with archive(path, allow_links=False) as handle:
+            for info in handle.infolist():
+                target = destination / info.filename
+                if info.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                # Private while it is written. The mode below only adds the execute bit.
+                extract(handle, info.filename, target, mode=0o600)
+                target.chmod(0o700 if info.external_attr >> 16 & 0o111 else 0o600)
+    except BaseException:
+        shutil.rmtree(destination, ignore_errors=True)
+        raise
     return destination
