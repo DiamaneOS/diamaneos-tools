@@ -75,6 +75,27 @@ class FirmwareReleaseTableTests(unittest.TestCase):
         with self.assertRaisesRegex(VendorError, 'identical'):
             self.table()
 
+    def test_malformed_inventory_is_refused(self):
+        build = 'FP6.QREL.16.115.0'
+
+        def every(change):
+            return lambda releases: [change(release['images']['firmware']) for release in releases.values()]
+        cases = {
+            'release not an object': lambda releases: releases.__setitem__(build, 1),
+            'no images': lambda releases: releases[build].pop('images'),
+            'firmware not an object': lambda releases: releases[build]['images'].__setitem__('firmware', 1),
+            'firmware a list': lambda releases: releases[build]['images'].__setitem__('firmware', ['tz.mbn']),
+            'image entry not an object': every(lambda firmware: firmware.__setitem__('tz.mbn', 'tz')),
+            'identical image without SHA-256': every(lambda firmware: firmware['vm-bootsys.img'].pop('sha256')),
+            'identical image size not a number': every(lambda firmware: firmware['vm-bootsys.img'].__setitem__('bytes', [])),
+        }
+        for name, change in cases.items():
+            with self.subTest(name):
+                inventory = copy.deepcopy(self.inventory)
+                change(inventory['releases'])
+                with self.assertRaises(VendorError):
+                    firmware_release.table(inventory, self.config)
+
     def test_exclusions_need_a_reason_and_an_inventory_image(self):
         for change in ({'reason': ''}, {'reason': '  '}, {}, {'reason': 'x', 'identical': 'yes'}, {'reason': 'x', 'identical': 1},
                        {'reason': 'x', 'checked': False}):

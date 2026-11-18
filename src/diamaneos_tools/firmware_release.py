@@ -62,7 +62,13 @@ def table(inventory, config):
     releases = inventory.get('releases')
     if not isinstance(releases, dict) or not 0 < len(releases) <= MAX_RELEASES:
         raise VendorError('the firmware inventory has no or too many releases')
-    images = {build: release['images']['firmware'] for build, release in releases.items()}
+    images = {}
+    for build, release in releases.items():
+        firmware = release.get('images') if isinstance(release, dict) else None
+        firmware = firmware.get('firmware') if isinstance(firmware, dict) else None
+        if not isinstance(firmware, dict) or not all(isinstance(entry, dict) for entry in firmware.values()):
+            raise VendorError('a firmware release has no table of firmware images')
+        images[build] = firmware
     names = {frozenset(firmware) for firmware in images.values()}
     if len(names) != 1:
         raise VendorError('the releases in the firmware inventory have different firmware images')
@@ -71,8 +77,12 @@ def table(inventory, config):
         raise VendorError('an unchecked firmware image is not in the inventory')
     for name, exclusion in excluded.items():
         # Left out because it tells no release apart. A change would make it.
-        if exclusion.get('identical') and len({(f[name]['bytes'], f[name]['sha256']) for f in images.values()}) != 1:
-            raise VendorError('an unchecked firmware image said to be identical differs between releases')
+        pairs = [(f[name].get('bytes'), f[name].get('sha256')) for f in images.values()]
+        size, digest = pairs[0]
+        if exclusion.get('identical') and (any(pair != pairs[0] for pair in pairs) or type(size) is not int
+                                           or not isinstance(digest, str) or not SHA256.fullmatch(digest)):
+            raise VendorError('an unchecked firmware image said to be identical has no valid size or SHA-256, '
+                              'or differs between releases')
     checked = sorted(names - set(excluded))
     if not 0 < len(checked) <= MAX_PARTITIONS:
         raise VendorError('no or too many firmware images to check')
