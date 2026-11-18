@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime
 import fnmatch
+import gzip
 import hashlib
 import io
 import json
@@ -1522,11 +1523,53 @@ def native_files(v, name: str, data: bytes, directory: Path):
                 yield from native_files(v, f'{name}!{inside}', ext4_file(v, payload, '/' + inside, directory)[1], directory)
 
 
+def initrd_holds(data: bytes, needle: bytes) -> bool:
+    """Whether an initramfs (a cpio archive, gzip compressed or not) holds `needle` anywhere."""
+    if data[:2] == b'\x1f\x8b':
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            data = stream.read(MAX_MEMBER_BYTES + 1)
+        if len(data) > MAX_MEMBER_BYTES:
+            raise ValueError('initramfs too large')
+    return needle in data
+
+
+def apex_file(v, names: list[str], inside: str) -> tuple[str, bytes]:
+    """One regular file of the first of `names` (an .apex or .capex in the image), from its ext4 payload."""
+    present = [name for name in names if v.tf.exists(name)]
+    if not present:
+        raise ValueError('none of ' + ', '.join(names))
+    name = present[0]
+    with v.tools.scratch() as temporary:
+        directory = Path(temporary)
+        with zipfile.ZipFile(v.tf.extract(name, directory)) as archive:
+            if name.endswith('.capex'):
+                inner = directory / 'original_apex'
+                inner.write_bytes(archive.read('original_apex'))
+                with zipfile.ZipFile(inner) as apex:
+                    payload = apex_payload(apex, name, directory)
+            else:
+                payload = apex_payload(archive, name, directory)
+        info, content = ext4_file(v, payload, '/' + inside, directory)
+    if 'Type: regular' not in info:
+        raise ValueError(f'no {inside} in {name}')
+    return name, content
+
+
 def rule_fs_in_vm_coupling(rule, v):
     """The filesystem VM for SD cards and USB drives (its daemon in the image) and the kernel's partition scan of
     those disks move together. With the daemon the kernel must not read their tables (no opt-out on its command
-    line), without it the kernel must (the opt-out is there), or partitioned cards would not work."""
+    line), without it the kernel must (the opt-out is there), or partitioned cards would not work. With the daemon,
+    the VM's initramfs must not hold the self test only the host harness's initramfs has."""
     has_daemon = v.tf.exists(rule['daemon'])
+    if has_daemon and 'initrd' in rule:
+        want = rule['initrd']
+        try:
+            apex, content = apex_file(v, want['apex'], want['file'])
+        except ValueError as error:
+            return False, str(error)
+        if initrd_holds(content, want['forbidden'].encode()):
+            return False, f'{want["file"]} in {apex} holds {want["forbidden"]}: the self test ships'
+
     try:
         words = text_of(v.tf.read(rule['cmdline'])).split()
     except FileNotFoundError:

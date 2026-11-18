@@ -6624,7 +6624,12 @@
       "type": "fs_in_vm_coupling",
       "daemon": "SYSTEM_EXT/bin/fsvmd",
       "cmdline": "VENDOR_BOOT/vendor_cmdline",
-      "opt_out": "external_part_scan=1"
+      "opt_out": "external_part_scan=1",
+      "initrd": {
+        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
+        "file": "etc/fsvm_initrd.img",
+        "forbidden": "fsvm.selftest"
+      }
     }
   ]
 }

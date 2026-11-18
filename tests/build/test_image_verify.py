@@ -132,6 +132,13 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('missing', detail)
 
+    def test_the_shipped_initramfs_has_no_self_test(self):
+        import gzip as gz
+        self.assertTrue(subject.initrd_holds(b'070701...fsvm.selftest=...', b'fsvm.selftest'))
+        self.assertTrue(subject.initrd_holds(gz.compress(b'x fsvm.selftest y'), b'fsvm.selftest'))
+        self.assertFalse(subject.initrd_holds(gz.compress(b'070701 init fsck_msdos'), b'fsvm.selftest'))
+        self.assertFalse(subject.initrd_holds(b'070701 init', b'fsvm.selftest'))
+
     def test_filesystem_vm_and_the_kernel_scan_move_together(self):
         rule = {'daemon': 'SYSTEM_EXT/bin/fsvmd', 'cmdline': 'VENDOR_BOOT/vendor_cmdline', 'opt_out': 'external_part_scan=1'}
         check = subject.rule_fs_in_vm_coupling
