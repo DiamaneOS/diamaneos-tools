@@ -83,7 +83,7 @@ tools/diamaneos/bin/diamaneos patches pins --source SRC PROJECT FILE.patch   # S
 ## Upstream tracking
 
 [`config/forks.json`](../config/forks.json) lists every upstream that builds and server deployments
-use, in two groups.
+use, in two groups, and the DiamaneOS repositories that have no upstream.
 
 **`forks`** are the repositories DiamaneOS forks and changes: the forks the manifest selects, the app
 forks and their prebuilt projects, the common kernel and the server forks.
@@ -98,13 +98,20 @@ forks and their prebuilt projects, the common kernel and the server forks.
 - Server entries have `scope: "server"`, branch `main` and an `upstream_revision` that records the
   adopted upstream commit. The Android manifest does not select them.
 
-To add a fork, add its entry here and select the fork in the manifest.
+To add a fork, add its entry here and select the fork in the manifest. A fork can be watched before
+the manifest selects it.
 
 **`sources`** are pinned inputs that are not forked: the GrapheneOS release, the `repo` tool, the
 device maker's source manifest, the stock factory package, platform projects taken unmodified, and
 the upstream projects the kernel was ported from.
 
-Each names the file and field that hold its pin, so the registry never repeats a revision.
+Each names the file and field that hold its pin, so the registry never repeats a revision. An
+unmodified mirror on the DiamaneOS organisation, such as `hardware_google_pixel`, is a source pinned
+through its manifest path (`xml_project_path`).
+
+**`own_projects`** are the DiamaneOS repositories with no upstream: device, vendor and kernel
+repositories, own apps and services, the patch series, the manifest, these tools, the installer and
+the website. Each has a one-line `reason`.
 
 **Newer releases.** `newer` patterns name the branches or tags that would replace a followed
 reference, such as the device maker's next public-build branch or Qualcomm's next release tag.
@@ -170,3 +177,31 @@ upstream release is the base, and the fork's commits are replayed on it, on a ne
 
 Adopting an update is a reviewed, signed change: rebase or port, run the tests (for the kernel, the
 kernel build with its checks), build, then push the fork branch or update the pinned revision.
+
+### The coverage check
+
+```sh
+bin/diamaneos forks coverage --manifest diamaneos.xml                  # offline
+bin/diamaneos forks coverage --manifest diamaneos.xml --org DiamaneOS  # also the organisation
+```
+
+`coverage` reads a `repo` manifest with its includes, removals and extensions. Every project on the
+`diamaneos` remote (`--remote` names another) must be one of:
+
+- a fork whose `slug` is the project's name, at the fork's `path` when it has one
+- a source pinned to the project's path through `xml_project_path`
+- an own project of that name
+
+`--org` also lists the organisation's repositories through `gh`, signed in to an account that sees
+all of them. Every fork and own project must be there, and every GitHub fork there that is not
+archived must be a watched fork.
+
+The output is JSON. `covered` names the entry for each project. The problems are in `uncovered`,
+`path_differs`, `not_on_org` and `unwatched_org_forks`. It exits with 1 when there is a problem and
+with 2 on an error.
+
+- Without `--org`, it needs no network, so tests and offline checks can run it.
+- Forks the manifest does not select are found only by `--org`, and only when GitHub marks them as
+  forks. A fork made by pushing an upstream into a new repository needs its entry added by hand.
+- Run it with `--org` on the manifest's `diamaneos.xml` before each rebase dry run, and when a
+  repository is added to the organisation.

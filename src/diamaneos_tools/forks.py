@@ -13,6 +13,11 @@ update: rebase the fork's patches onto a newer upstream reference into a new
 local candidate branch. With --rerere, recorded conflict resolutions are loaded
 first, used for repeated conflicts, and saved back with any new ones. The fork branch is never moved and nothing is pushed.
 Adopt a candidate only after it builds and passes review.
+coverage: read a repo manifest and report every project on the DiamaneOS remote
+that is neither a watched fork, a source pinned to it by manifest path, nor an
+own project. With --org, also report watched forks and own projects missing
+from the GitHub organisation, and organisation forks the registry does not
+watch.
 """
 import argparse
 import datetime
@@ -59,6 +64,11 @@ def newer_pattern(value, where):
 
 
 def load_registry(path=CONFIG):
+    return load_all(path)[:2]
+
+
+def load_all(path=CONFIG):
+    """Forks, sources and own projects of the registry."""
     data = json.loads(Path(path).read_text())
     if data.get('schema_version') not in (1, 2) or not isinstance(data.get('forks'), list):
         raise ForkError('invalid fork configuration')
@@ -67,7 +77,23 @@ def load_registry(path=CONFIG):
     sources = load_sources(data.get('sources', []))
     if {f['id'] for f in forks} & {s['id'] for s in sources}:
         raise ForkError('fork and source ids overlap')
-    return forks, sources
+    return forks, sources, load_own_projects(data.get('own_projects', []), forks)
+
+
+def load_own_projects(own, forks):
+    """DiamaneOS repositories with no upstream: a name and a one-line reason each."""
+    if not isinstance(own, list):
+        raise ForkError('invalid own projects')
+    seen = set()
+    slugs = {fork['slug'] for fork in forks}
+    for project in own:
+        if (not isinstance(project, dict) or not NAME.match(project.get('name', '')) or project['name'] in seen
+                or not isinstance(project.get('reason'), str) or not project['reason'].strip()):
+            raise ForkError(f"invalid own project: {project.get('name') if isinstance(project, dict) else project}")
+        if project['name'] in slugs:
+            raise ForkError(f"own project is also a fork: {project['name']}")
+        seen.add(project['name'])
+    return own
 
 
 def resolve_release(data, path):
@@ -532,6 +558,105 @@ def check(root, forks, sources, lister=remote_refs):
     return results
 
 
+def read_manifest(path):
+    """Projects of a repo manifest after its includes, removals and extensions, with their remotes."""
+    import xml.etree.ElementTree as ET
+    top = Path(path)
+    projects, state = [], {'default': None}
+
+    def read(file, depth):
+        if depth > 10:
+            raise ForkError(f'manifest includes nest too deep: {file}')
+        try:
+            root = ET.parse(file).getroot()
+        except (OSError, ET.ParseError) as error:
+            raise ForkError(f'cannot read manifest {file}: {error}') from None
+        for node in root:
+            if node.tag == 'include':
+                # repo resolves includes against the manifest directory.
+                read(top.parent / node.get('name', ''), depth + 1)
+            elif node.tag == 'default' and node.get('remote'):
+                state['default'] = node.get('remote')
+            elif node.tag == 'project':
+                projects.append({'name': node.get('name'), 'path': node.get('path') or node.get('name'),
+                                 'remote': node.get('remote')})
+            elif node.tag == 'remove-project':
+                projects[:] = [p for p in projects if not (
+                    node.get('name') and p['name'] == node.get('name') and node.get('path') in (None, p['path'])
+                    or not node.get('name') and node.get('path') == p['path'])]
+            elif node.tag == 'extend-project':
+                for project in projects:
+                    if project['name'] == node.get('name') and node.get('path') in (None, project['path']):
+                        project['remote'] = node.get('remote') or project['remote']
+                        project['path'] = node.get('dest-path') or project['path']
+
+    read(top, 0)
+    for project in projects:
+        project['remote'] = project['remote'] or state['default']
+    return projects
+
+
+def org_repositories(org):
+    """Name, fork flag and archived flag of every repository of a GitHub organisation, through gh."""
+    if not NAME.match(org):
+        raise ForkError('invalid organisation name')
+    try:
+        result = subprocess.run(['gh', 'api', '--paginate', f'orgs/{org}/repos?per_page=100&type=all',
+                                 '--jq', '.[] | [.name, .fork, .archived] | @tsv'],
+                                capture_output=True, text=True, timeout=300)
+    except FileNotFoundError:
+        raise ForkError('the organisation check needs gh') from None
+    if result.returncode != 0:
+        raise ForkError(f'cannot list the repositories of {org}: {result.stderr.strip()[-300:]}')
+    repositories = []
+    for line in result.stdout.splitlines():
+        name, fork, archived = line.split('\t')
+        repositories.append({'name': name, 'fork': fork == 'true', 'archived': archived == 'true'})
+    if not repositories:
+        raise ForkError(f'no repositories listed for {org}')
+    return repositories
+
+
+def coverage(manifest, forks, sources, own, remote='diamaneos', org_repos=None):
+    """Which registry entry covers each manifest project on the remote, and what nothing covers.
+
+    A project is covered by the fork whose slug is its name, by a source pinned to its manifest path,
+    or by an own project of that name. org_repos, when given, are the organisation's repositories:
+    every fork and own project must be one of them, and every live GitHub fork there must be watched.
+    """
+    slugs = {fork['slug']: fork for fork in forks}
+    pinned = {source['pin']['xml_project_path']: source['id'] for source in sources
+              if 'xml_project_path' in source['pin']}
+    owned = {project['name'] for project in own}
+    result = {'manifest': str(manifest), 'remote': remote, 'covered': [], 'uncovered': [], 'path_differs': []}
+    for project in read_manifest(manifest):
+        if project['remote'] != remote:
+            continue
+        name, path = project['name'], project['path']
+        if name in slugs:
+            fork = slugs[name]
+            result['covered'].append({'name': name, 'path': path, 'by': 'fork', 'id': fork['id']})
+            if fork.get('path') and fork['path'] != path:
+                result['path_differs'].append({'name': name, 'manifest': path, 'registry': fork['path']})
+        elif path in pinned:
+            result['covered'].append({'name': name, 'path': path, 'by': 'source', 'id': pinned[path]})
+        elif name in owned:
+            result['covered'].append({'name': name, 'path': path, 'by': 'own'})
+        else:
+            result['uncovered'].append({'name': name, 'path': path})
+    if not result['covered'] and not result['uncovered']:
+        raise ForkError(f'no project of the manifest is on the remote {remote}')
+    if org_repos is not None:
+        names = {repository['name'] for repository in org_repos}
+        result['not_on_org'] = sorted(n for n in [*slugs, *owned] if n not in names)
+        result['unwatched_org_forks'] = sorted(r['name'] for r in org_repos if r['fork'] and not r['archived']
+                                               and r['name'] not in slugs and r['name'] not in owned)
+    return result
+
+
+COVERAGE_PROBLEMS = ('uncovered', 'path_differs', 'not_on_org', 'unwatched_org_forks')
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--config', type=Path, default=CONFIG)
@@ -546,9 +671,13 @@ def main(argv=None):
     prepare.add_argument('--ref', help='upstream branch, tag or full commit hash to move to')
     prepare.add_argument('--rerere', type=Path, metavar='DIR',
                          help='recorded conflict resolutions, DIR/<fork slug>: loaded first, saved back after')
+    covering = commands.add_parser('coverage', help='find manifest projects and organisation forks the registry misses')
+    covering.add_argument('--manifest', type=Path, required=True, help='repo manifest, such as diamaneos.xml')
+    covering.add_argument('--remote', default='diamaneos', help='manifest remote of the DiamaneOS repositories')
+    covering.add_argument('--org', help='also compare with this GitHub organisation (needs gh and the network)')
     args = parser.parse_args(argv)
     try:
-        registry, sources = load_registry(args.config)
+        registry, sources, own = load_all(args.config)
         forks = {fork['id']: fork for fork in registry}
         if args.command == 'check':
             results = check(args.root, registry, sources)
@@ -560,6 +689,14 @@ def main(argv=None):
                 return 2
             return 1 if any(r['state'] in ('update-available', 'newer-release', 'followed-branch-missing',
                                             'followed-tag-missing') for r in results) else 0
+        if args.command == 'coverage':
+            org = org_repositories(args.org) if args.org else None
+            result = coverage(args.manifest, registry, sources, own, args.remote, org)
+            print(json.dumps(result, indent=2))
+            problems = [(key, item) for key in COVERAGE_PROBLEMS for item in result.get(key, [])]
+            for key, item in problems:
+                print(f"{key}: {item['name'] if isinstance(item, dict) else item}", file=sys.stderr)
+            return 1 if problems else 0
         if args.command == 'status':
             unknown = set(args.ids) - set(forks)
             if unknown:

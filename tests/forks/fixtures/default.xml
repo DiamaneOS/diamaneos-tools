@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- An upstream manifest with one include at its end, like the DiamaneOS default.xml. -->
+<manifest>
+  <remote name="upstream" fetch="https://example.invalid/upstream/" />
+  <default remote="upstream" revision="refs/tags/1" />
+  <project name="platform_frameworks_base" path="frameworks/base" />
+  <project name="platform/external/thing" path="external/thing" />
+  <project name="platform_old_app" path="packages/apps/Old" />
+  <include name="diamaneos.xml" />
+</manifest>

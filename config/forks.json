@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "policy": "Every upstream DiamaneOS builds from. forks: repositories DiamaneOS forks and patches. sources: pinned upstream inputs that are not forked. docs/SOURCES.md (Upstream tracking) explains the fields, the checks and how an update is adopted.",
+  "policy": "Every upstream DiamaneOS builds from. forks: repositories DiamaneOS forks and patches. sources: pinned upstream inputs that are not forked. own_projects: DiamaneOS repositories with no upstream. docs/SOURCES.md (Upstream tracking) explains the fields, the checks and how an update is adopted.",
   "release": {"file": "config/build-environment-fp6.json", "pointer": "/upstream/release_tag"},
   "forks": [
     {
@@ -297,6 +297,21 @@
         "kind": "branch"
       }
     }
+  ],
+  "own_projects": [
+    {"name": "device_fairphone_FP6", "reason": "Fairphone 6 device configuration and hardware integration."},
+    {"name": "device_fairphone_FP6-kernels", "reason": "Kernel prebuilts built from kernel_common-6.18 and kernel_qcom-6.18."},
+    {"name": "kernel_qcom-6.18", "reason": "Kernel port. Its upstream projects are the kernel sources pinned in config/kernel-upstream-fp6.json."},
+    {"name": "vendor_diamaneos", "reason": "Shared product configuration and identity."},
+    {"name": "hardware_diamaneos_ims", "reason": "IMS data connectivity components."},
+    {"name": "hardware_diamaneos_datad", "reason": "The open data daemon and the nicm libraries."},
+    {"name": "platform_packages_apps_DiamaneOSEuicc", "reason": "eSIM manager (LPA)."},
+    {"name": "platform_packages_apps_Sanitizer", "reason": "Opens untrusted files through protected VMs."},
+    {"name": "platform_patches", "reason": "Patch series applied on top of the sources. Each patch names the upstream it waits for."},
+    {"name": "platform_manifest", "reason": "The repo manifest. Its GrapheneOS base is the grapheneos-platform source."},
+    {"name": "diamaneos-tools", "reason": "These tools."},
+    {"name": "installer", "reason": "Installation and recovery tooling."},
+    {"name": "diamaneos.de", "reason": "Source of the website."}
   ],
   "sources": [
     {"id": "grapheneos-platform", "description": "GrapheneOS platform release the Android build is based on (authenticated tag).", "reviewed": "2026110800", "url": "https://github.com/GrapheneOS/platform_manifest.git",

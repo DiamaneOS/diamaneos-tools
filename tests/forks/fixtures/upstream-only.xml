@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- No project on the DiamaneOS remote. -->
+<manifest>
+  <remote name="upstream" fetch="https://example.invalid/upstream/" />
+  <default remote="upstream" revision="refs/tags/1" />
+  <project name="platform_frameworks_base" path="frameworks/base" />
+</manifest>

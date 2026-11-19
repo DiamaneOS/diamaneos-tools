@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Covered: a fork, a mirror pinned by a source, own projects and other remotes. -->
+<manifest>
+  <remote name="diamaneos" fetch="https://example.invalid/DiamaneOS/" revision="android17" />
+  <remote name="vendor" fetch="https://example.invalid/vendor/" />
+  <remove-project name="platform_frameworks_base" />
+  <remove-project path="packages/apps/Old" />
+  <project name="platform_frameworks_base" path="frameworks/base" remote="diamaneos" />
+  <project name="hardware_example_mirror" path="hardware/example/mirror" remote="diamaneos" revision="0123456789abcdef0123456789abcdef01234567" />
+  <project name="device_example" path="device/example/phone" remote="diamaneos" />
+  <project name="example-tools" path="tools/example" remote="diamaneos" revision="main" />
+  <project name="platform/vendor/hal" path="vendor/example/hal" remote="vendor" />
+</manifest>

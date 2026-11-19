@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- An upstream project moved onto the DiamaneOS remote by extend-project. -->
+<manifest>
+  <remote name="upstream" fetch="https://example.invalid/upstream/" />
+  <remote name="diamaneos" fetch="https://example.invalid/DiamaneOS/" revision="android17" />
+  <default remote="upstream" revision="refs/tags/1" />
+  <project name="platform_packages_modules_New" path="packages/modules/New" />
+  <extend-project name="platform_packages_modules_New" remote="diamaneos" />
+</manifest>
