@@ -26,10 +26,12 @@ import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+import zlib
 
 from . import build_workspace as bw
 from . import code_calls
 from . import firmware
+from . import kernel_config
 from .build_workspace import Action, CheckFailed
 
 ROOT = bw.ROOT
@@ -591,11 +593,18 @@ def rule_sepolicy_sources(rule, v):
     Reads the platform, mapping and vendor CIL files the rule names (globs
     allowed, versioned compatibility files *.compat.cil skipped) and expands
     attributes on both sides, so platform rules on attributes such as sysfs_type
-    count too.
+    count too. With exact, every listed domain must have the permission, and
+    every listed file or glob must be in the target files: a missing policy
+    input would otherwise read as a smaller policy.
     """
     names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
     if not names:
         return False, 'no files match ' + ', '.join(rule['files'])
+    if rule.get('exact'):
+        absent = [pattern for pattern in rule['files']
+                  if not [n for n in v.tf.glob(pattern) if not n.endswith('.compat.cil') and v.tf.exists(n)]]
+        if absent:
+            return False, 'policy input missing: ' + ', '.join(absent)
     text = '\n'.join(text_of(v.tf.read(name)) for name in names)
     attributes = cil_attribute_sets(text)
     types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
@@ -609,7 +618,9 @@ def rule_sepolicy_sources(rule, v):
         if rule['target'] in cil_expand(target, attributes, types, memo):
             sources |= cil_expand(src, attributes, types, memo)
     others = sorted(sources - set(rule['allowed']))
-    return not others, ('also ' + ', '.join(others)) if others else 'only ' + ', '.join(sorted(sources))
+    missing = sorted(set(rule['allowed']) - sources) if rule.get('exact') else []
+    problems = (['also ' + ', '.join(others)] if others else []) + (['not ' + ', '.join(missing)] if missing else [])
+    return not problems, '; '.join(problems) or ('exactly ' if rule.get('exact') else 'only ') + ', '.join(sorted(sources))
 
 
 def rule_sepolicy_denied(rule, v):
@@ -1599,17 +1610,59 @@ def initrd_holds(data: bytes, needle: bytes) -> bool:
 KERNEL_BANNER = re.compile(rb'Linux version ([0-9][!-~]{0,127}) \(')
 
 
+def kernel_image(data: bytes) -> bytes:
+    """A supported arm64 Image after optional bounded gzip decompression."""
+    if data[:2] == b'\x1f\x8b':
+        try:
+            with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+                data = stream.read(MAX_MEMBER_BYTES + 1)
+        except (OSError, EOFError, zlib.error) as error:
+            raise ValueError(f'kernel gzip: {error}') from error
+    if len(data) > MAX_MEMBER_BYTES:
+        raise ValueError('kernel too large')
+    if len(data) < 64 or data[56:60] != b'ARM\x64':
+        raise ValueError('unsupported kernel encoding: expected arm64 Image header')
+    return data
+
+
 def kernel_banner(data: bytes) -> str:
     """The release a kernel Image reports in its Linux version banner (gzip compressed or not)."""
-    if data[:2] == b'\x1f\x8b':
-        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
-            data = stream.read(MAX_MEMBER_BYTES + 1)
-        if len(data) > MAX_MEMBER_BYTES:
-            raise ValueError('kernel too large')
-    found = set(KERNEL_BANNER.findall(data))
+    found = set(KERNEL_BANNER.findall(kernel_image(data)))
     if len(found) != 1:
         raise ValueError('no single Linux version banner')
     return found.pop().decode('ascii')
+
+
+def embedded_kernel_config(data: bytes) -> dict[str, str]:
+    """Read Linux's single gzip IKCONFIG payload from an uncompressed kernel."""
+    if data.count(b'IKCFG_ST') != 1 or data.count(b'IKCFG_ED') != 1:
+        raise ValueError('no single embedded IKCONFIG')
+    start, end = data.index(b'IKCFG_ST') + 8, data.index(b'IKCFG_ED')
+    if end <= start or data[start:start + 3] != b'\x1f\x8b\x08':
+        raise ValueError('malformed embedded IKCONFIG framing')
+    try:
+        with gzip.GzipFile(fileobj=io.BytesIO(data[start:end])) as stream:
+            config = stream.read(kernel_config.MAX_CONFIG_BYTES + 1)
+        return kernel_config.parse_config(config)
+    except (ValueError, OSError, EOFError, zlib.error) as error:
+        raise ValueError(f'embedded IKCONFIG: {error}') from error
+
+
+def shipped_kernel(v, rule) -> bytes:
+    """The final FP6 boot image kernel, with exact staged-payload binding."""
+    image, staged = rule['kernel_image'], rule['kernel']
+    data = v.tf.read(image)
+    if (len(data) < 4096 or data[:8] != b'ANDROID!'
+            or struct.unpack_from('<I', data, 40)[0] != 4
+            or struct.unpack_from('<I', data, 20)[0] != 1584):
+        raise ValueError(f'{image}: expected boot header v4 with a 4096-byte page')
+    size = struct.unpack_from('<I', data, 8)[0]
+    if not size or 4096 + size > len(data):
+        raise ValueError(f'{image}: empty or truncated kernel payload')
+    packed = data[4096:4096 + size]
+    if packed != v.tf.read(staged):
+        raise ValueError(f'{staged} differs from {image} kernel payload')
+    return kernel_image(packed)
 
 
 def kernel_version(release: str) -> str:
@@ -1653,126 +1706,10 @@ def apex_files(v, names: list[str], insides: list[str]) -> tuple[str, dict]:
     return name, files
 
 
-AVB_FOOTER, AVB_HEADER = b'AVBf', b'AVB0'
-AVB_HASH_DESCRIPTOR = 2
-# avb_crypto.h: algorithm type -> (hash, RSA key bits). Type 0 is an unsigned vbmeta.
-AVB_ALGORITHMS = {1: ('sha256', 2048), 2: ('sha256', 4096), 3: ('sha256', 8192),
-                  4: ('sha512', 2048), 5: ('sha512', 4096), 6: ('sha512', 8192)}
-# The DER DigestInfo prefixes of PKCS#1 v1.5 signatures (RFC 8017 section 9.2).
-DIGEST_INFO = {'sha256': bytes.fromhex('3031300d060960864801650304020105000420'),
-               'sha512': bytes.fromhex('3051300d060960864801650304020305000440')}
-
-
-def avb_vbmeta(data: bytes) -> dict:
-    """The vbmeta of an image with an AVB footer (avb_vbmeta_image.h): its algorithm type, the signed bytes
-    (header and auxiliary block), the hash and signature of its authentication block, its public key, every
-    descriptor in order as (tag, partition name, (image size, hash algorithm, salt, digest)) with name and hash None
-    for descriptors other than hash descriptors, and the size of the image before the footer."""
-    if len(data) < 64 or data[-64:-60] != AVB_FOOTER:
-        raise ValueError('no AVB footer')
-    original, offset, size = struct.unpack('>QQQ', data[-52:-28])
-    if original > offset or offset + size > len(data) - 64 or size < 256:
-        raise ValueError('AVB footer points outside the image')
-    vbmeta = data[offset:offset + size]
-    if vbmeta[:4] != AVB_HEADER:
-        raise ValueError('no vbmeta at the AVB footer offset')
-    auth, aux = struct.unpack('>QQ', vbmeta[12:28])
-    algorithm = struct.unpack('>I', vbmeta[28:32])[0]
-    (hash_offset, hash_size, signature_offset, signature_size, key_offset, key_size, _metadata_offset,
-     _metadata_size, start, length) = struct.unpack('>10Q', vbmeta[32:112])
-    if 256 + auth + aux > len(vbmeta):
-        raise ValueError('vbmeta blocks outside the vbmeta')
-    auth_block, block = vbmeta[256:256 + auth], vbmeta[256 + auth:256 + auth + aux]
-    if (hash_offset + hash_size > auth or signature_offset + signature_size > auth or key_offset + key_size > aux
-            or start + length > aux):
-        raise ValueError('vbmeta fields outside their blocks')
-    descriptors, position, end = [], start, start + length
-    while position < end:
-        if position + 16 > end:
-            raise ValueError('truncated vbmeta descriptor')
-        tag, following = struct.unpack('>QQ', block[position:position + 16])
-        body = block[position + 16:position + 16 + following]
-        if len(body) != following or position + 16 + following > end:
-            raise ValueError('truncated vbmeta descriptor')
-        if tag == AVB_HASH_DESCRIPTOR:
-            if following < 116:
-                raise ValueError('truncated hash descriptor')
-            image_size = struct.unpack('>Q', body[:8])[0]
-            algorithm_name = body[8:40].rstrip(b'\0').decode('ascii', 'replace')
-            name_length, salt_length, digest_length = struct.unpack('>III', body[40:52])
-            at = 116
-            if at + name_length + salt_length + digest_length > following:
-                raise ValueError('truncated hash descriptor')
-            name = body[at:at + name_length].decode('utf-8', 'replace')
-            salt = body[at + name_length:at + name_length + salt_length]
-            digest = body[at + name_length + salt_length:at + name_length + salt_length + digest_length]
-            descriptors.append((tag, name, (image_size, algorithm_name, salt, digest)))
-        else:
-            descriptors.append((tag, None, None))
-        position += 16 + following
-    return {'algorithm': algorithm, 'signed': vbmeta[:256] + block,
-            'hash': auth_block[hash_offset:hash_offset + hash_size],
-            'signature': auth_block[signature_offset:signature_offset + signature_size],
-            'key': block[key_offset:key_offset + key_size], 'descriptors': descriptors, 'original': original}
-
-
-def avb_signature_problem(meta: dict) -> str:
-    """Why a vbmeta's signature does not verify with its own public key, or '' when it does: the hash of its header
-    and auxiliary block, and RSA PKCS#1 v1.5 with exponent 65537 over that hash, as libavb checks it."""
-    if meta['algorithm'] not in AVB_ALGORITHMS:
-        return 'not signed' if meta['algorithm'] == 0 else f'unknown AVB algorithm {meta["algorithm"]}'
-    hash_name, bits = AVB_ALGORITHMS[meta['algorithm']]
-    size, key = bits // 8, meta['key']
-    if len(key) != 8 + 2 * size or struct.unpack('>I', key[:4])[0] != bits:
-        return f'its public key is not an RSA-{bits} key'
-    modulus = int.from_bytes(key[8:8 + size], 'big')
-    digest = hashlib.new(hash_name, meta['signed']).digest()
-    if meta['hash'] != digest:
-        return 'its vbmeta hash does not match'
-    if len(meta['signature']) != size or not modulus:
-        return 'its signature has the wrong size'
-    message = pow(int.from_bytes(meta['signature'], 'big'), 65537, modulus).to_bytes(size, 'big')
-    tail = DIGEST_INFO[hash_name] + digest
-    if message != b'\0\1' + b'\xff' * (size - len(tail) - 3) + b'\0' + tail:
-        return 'its signature does not verify'
-    return ''
-
-
-def hash_descriptor_matches(descriptor: tuple, content: bytes) -> bool:
-    size, algorithm, salt, digest = descriptor
-    if algorithm not in ('sha256', 'sha512'):
-        return False
-    return size == len(content) and hashlib.new(algorithm, salt + content).digest() == digest
-
-
-def cpio_members(data: bytes) -> list[str]:
-    """The member names of an initramfs (newc cpio archives one after another, gzip compressed or not), in order.
-    Anything the kernel would unpack that this cannot read is an error, so no member goes unseen."""
-    if data[:2] == b'\x1f\x8b':
-        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
-            data = stream.read(MAX_MEMBER_BYTES + 1)
-        if len(data) > MAX_MEMBER_BYTES:
-            raise ValueError('initramfs too large')
-    names, at = [], 0
-    while True:
-        while at < len(data) and data[at] == 0:
-            at += 1
-        if at >= len(data):
-            return names
-        header = data[at:at + 110]
-        if len(header) < 110 or header[:6] not in (b'070701', b'070702'):
-            raise ValueError('initramfs holds data that is not a newc cpio archive')
-        file_size, name_size = int(header[54:62], 16), int(header[94:102], 16)
-        name = data[at + 110:at + 110 + name_size]
-        if not name_size or len(name) != name_size or name[-1] != 0:
-            raise ValueError('truncated cpio member name')
-        at = (at + 110 + name_size + 3) & ~3
-        at = (at + file_size + 3) & ~3
-        if at > len(data) + 3:
-            raise ValueError('truncated cpio member')
-        name = name[:-1].decode('utf-8', 'replace')
-        if name != 'TRAILER!!!':
-            names.append(name)
+# The same contract module is shipped with sign_virt_apex.
+from .guest_vm_contract import (AVB_FOOTER, AVB_HEADER, AVB_ALGORITHMS, DIGEST_INFO,
+                                avb_vbmeta, avb_signature_problem, hash_descriptor_matches, cpio_members)
+from . import guest_vm_contract as guest_contract
 
 
 GUEST_DESCRIPTORS = ('boot', 'initrd_normal', 'initrd_debug')
@@ -1804,6 +1741,7 @@ def rule_apex_guest_images(rule, v):
         except (ValueError, struct.error) as error:
             problems.append(f'{kernel}: {error}')
             continue
+        problems += [f'{kernel}: {problem}' for problem in guest_contract.descriptor_problems(meta, data, files[initrd])]
         signature = avb_signature_problem(meta)
         if signature:
             problems.append(f'{kernel} is {signature}' if signature == 'not signed' else f'{kernel}: {signature}')
@@ -1829,16 +1767,20 @@ def rule_apex_guest_images(rule, v):
             elif not hash_descriptor_matches(hashes[part], content):
                 problems.append(f'the {part} descriptor of {kernel} does not match {source}')
     for initrd, want in sorted(members.items()):
+        role = 'decoder_vm' if initrd == 'etc/decoder_vm_initrd.img' else 'fsvm'
         try:
             got = cpio_members(files[initrd])
-        except ValueError as error:
+            problem = guest_contract.initrd_problem(role, files[initrd])
+        except (ValueError, OSError, EOFError) as error:
             problems.append(f'{initrd}: {error}')
             continue
         if sorted(got) != sorted(want):
-            extra = sorted(set(got) - set(want)) or sorted({m for m in got if got.count(m) > 1})
+            extra = sorted(set(got) - set(want))
             missing = sorted(set(want) - set(got))
             problems.append(f'{initrd} does not hold its VM\'s files: extra {", ".join(extra) or "none"}, missing '
                             f'{", ".join(missing) or "none"}')
+        if problem:
+            problems.append(f'{initrd}: {problem}')
     for initrd, needles in sorted(forbidden.items()):
         problems += [f'{initrd} holds {needle}' for needle in needles if initrd_holds(files[initrd], needle.encode())]
     return not problems, '; '.join(problems) or (f'{len(kernels)} guest kernels, the pinned guest kernel, signed with '
@@ -1846,93 +1788,89 @@ def rule_apex_guest_images(rule, v):
                                                  f'VM\'s files, in {name}')
 
 
-def kernel_words(text: str) -> list[tuple[str, str | None]]:
-    """(name, value) of each parameter of a kernel command line, as the kernel's next_arg and parameq read it:
-    words split at blanks outside double quotes, quotes dropped, value None for a bare name, and - and _ the same
-    in names."""
-    words, word, quoted, started = [], [], False, False
-    for char in text + ' ':
-        if char == '"':
-            quoted, started = not quoted, True
-        elif char.isspace() and not quoted:
-            if started:
-                words.append(''.join(word))
-            word, started = [], False
-        else:
-            word.append(char)
-            started = True
-    result = []
-    for item in words:
-        name, sep, value = item.partition('=')
-        result.append((name.replace('-', '_'), value if sep else None))
-    return result
+def packaged_boot_source(v, source, staged):
+    """Compare the checked inputs with the final FP6 v4 boot headers and sections."""
+    image = source['image']
+    if not v.tf.exists(image):
+        raise ValueError(f'{image} is missing')
+    data = v.tf.read(image)
+    if source['file'] == 'BOOT/cmdline':
+        if len(data) < 1580 or data[:8] != b'ANDROID!' or struct.unpack_from('<I', data, 40)[0] != 4:
+            raise ValueError(f'{image}: expected boot header v4')
+        actual = data[44:1580].split(b'\0', 1)[0]
+    else:
+        if len(data) < 2128 or data[:8] != b'VNDRBOOT' or struct.unpack_from('<I', data, 8)[0] != 4:
+            raise ValueError(f'{image}: expected vendor boot header v4')
+        page = struct.unpack_from('<I', data, 12)[0]
+        header, dtb_size = struct.unpack_from('<II', data, 2096)
+        ramdisk = struct.unpack_from('<I', data, 24)[0]
+        table, _, _, config_size = struct.unpack_from('<4I', data, 2112)
+        if page != 4096 or header != 2128:
+            raise ValueError(f'{image}: unsupported vendor boot layout')
+        padded = lambda size: (size + page - 1) // page * page
+        dtb_at = padded(header) + padded(ramdisk)
+        config_at = dtb_at + padded(dtb_size) + padded(table)
+        if dtb_at + dtb_size > len(data) or config_at + config_size > len(data):
+            raise ValueError(f'{image}: truncated vendor boot sections')
+        for name, actual_part in [('VENDOR_BOOT/dtb', data[dtb_at:dtb_at + dtb_size]),
+                                  ('VENDOR_BOOT/vendor_bootconfig', data[config_at:config_at + config_size])]:
+            if not v.tf.exists(name) or v.tf.read(name) != actual_part:
+                raise ValueError(f'{name} differs from {image}')
+        actual = data[28:2076].split(b'\0', 1)[0]
+    if actual != staged.split(b'\0', 1)[0].rstrip(b'\n'):
+        raise ValueError(f'{source["file"]} differs from {image}')
 
 
-def boot_parameters(v, sources: list[dict]) -> list[tuple[str, str, str | None]]:
-    """(source, name, value) of every kernel parameter the target files give the kernel: command lines (boot and
-    vendor_boot), the kernel. keys of a bootconfig, the bootargs of every device tree and overlay, and the kernel's
-    built-in CONFIG_CMDLINE. Every source is required: a missing one is an error, never an empty list."""
-    found = []
+def boot_inputs(v, sources: list[dict]) -> dict[str, bytes]:
+    """Require every raw boot input and bind staged sections to the final boot images."""
+    inputs = {}
     for source in sources:
-        name, kind = source['file'], source['format']
+        name = source['file']
         if not v.tf.exists(name):
             raise ValueError(f'{name} is missing')
-        data = v.tf.read(name)
-        texts = []
-        if kind == 'cmdline':
-            texts.append(text_of(data).replace('\0', ' '))
-        elif kind == 'bootconfig':
-            for line in lines_of(data):
-                line = line.split('#', 1)[0].strip()
-                if not line:
-                    continue
-                if '{' in line or '}' in line:
-                    raise ValueError(f'{name}: nested bootconfig keys are not read')
-                key, sep, value = line.partition('=')
-                key = key.strip()
-                if key.startswith('kernel.'):
-                    texts.append(key[len('kernel.'):] + (sep + value.strip() if sep else ''))
-        elif kind == 'dtb':
-            if data[-64:-60] == AVB_FOOTER:
-                data = avb_payload(data)
-            for tree in device_trees(data):
-                for node in tree.values():
-                    if 'bootargs' in node['props']:
-                        texts.append(text_of(node['props']['bootargs']).replace('\0', ' '))
-        elif kind == 'kconfig':
-            for line in lines_of(data):
-                match = re.fullmatch(r'CONFIG_CMDLINE="((?:[^"\\]|\\.)*)"', line.strip())
-                if match:
-                    texts.append(re.sub(r'\\(.)', r'\1', match[1]))
-        else:
-            raise ValueError(f'unknown boot parameter source format {kind}')
-        for text in texts:
-            found += [(name, key, value) for key, value in kernel_words(text)]
-    return found
+        inputs[name] = v.tf.read(name)
+        if 'image' in source:
+            packaged_boot_source(v, source, inputs[name])
+    return inputs
 
 
 def rule_fs_in_vm_coupling(rule, v):
-    """The filesystem VM for SD cards and USB drives (its daemon in the image) and the kernel's partition scan of
-    those disks move together. With the daemon the kernel must not read their tables: no input of the kernel's
-    command line (boot_parameters) may assign the scan parameter at all, in any form. Without it the kernel must
-    (the opt-out is there), or partitioned cards would not work. With the daemon, the VM's initramfs must not hold
-    the self test only the host harness's initramfs has, and the VM's kernel must be the phone kernel's release: it
-    is built from kernel_common apart, and fixes reach it only by a rebuild."""
-    has_daemon = v.tf.exists(rule['daemon'])
+    """The shipped FP6 profile requires FS-in-VM and a kernel with no scan override.
+
+    The raw name check is deliberately conservative, including inactive DT properties,
+    comments and bytes after NUL. It makes no assertion about Linux tokenization.
+    """
+    if not v.tf.exists(rule['daemon']):
+        return False, f'{rule["daemon"]} is missing: the FP6 image requires the filesystem VM'
+    try:
+        inputs = boot_inputs(v, rule['boot_parameters'])
+        kernel = shipped_kernel(v, rule)
+        config = embedded_kernel_config(kernel)
+        if config.get('CONFIG_BLK_NO_EXTERNAL_PART_SCAN') != 'y':
+            return False, ('CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y is required in the shipped kernel embedded '
+                           'config for compile-time scan isolation')
+        name = rule['parameter'].encode('ascii').replace(b'-', b'_')
+        for source, data in inputs.items():
+            if name in data.replace(b'-', b'_'):
+                return False, f'{rule["parameter"]} appears in raw boot input {source}'
+        if name in kernel:
+            return False, f'{rule["kernel_image"]} kernel still contains the removed {rule["parameter"]} override'
+    except (ValueError, KeyError, OSError, EOFError) as error:
+        return False, f'boot inputs: {error}'
     guest = ''
-    if has_daemon and 'guest_kernel' in rule:
+    if 'guest_kernel' in rule:
         want = rule['guest_kernel']
         try:
             apex, content = apex_file(v, want['apex'], want['file'])
             guest = kernel_banner(content)
-            host = kernel_banner(v.tf.read(want['host']))
+            host = kernel_banner(kernel)
             same = kernel_version(guest) == kernel_version(host)
         except (ValueError, FileNotFoundError, KeyError) as error:
             return False, f'filesystem VM kernel: {error}'
         if not same:
             return False, (f'{want["file"]} in {apex} is {guest}, the phone kernel {host}: rebuild the filesystem '
                            f'VM kernel from the kernel_common pin')
-    if has_daemon and 'initrd' in rule:
+    if 'initrd' in rule:
         want = rule['initrd']
         try:
             apex, content = apex_file(v, want['apex'], want['file'])
@@ -1941,23 +1879,133 @@ def rule_fs_in_vm_coupling(rule, v):
         if initrd_holds(content, want['forbidden'].encode()):
             return False, f'{want["file"]} in {apex} holds {want["forbidden"]}: the self test ships'
 
-    try:
-        parameters = boot_parameters(v, rule['boot_parameters'])
-    except ValueError as error:
-        return False, f'boot parameters: {error}'
-    name = rule['parameter'].replace('-', '_')
-    assigned = [(source, key if value is None else f'{key}={value}') for source, key, value in parameters
-                if key == name]
-    if has_daemon and assigned:
-        where = '; '.join(f'{word} in {source}' for source, word in assigned)
-        return False, f'{rule["daemon"]} is in the image and the kernel command line assigns {name}: {where}'
-    opt_out = any(f'{key}={value}' == rule['opt_out'] for _, key, value in parameters if value is not None)
-    if not has_daemon and not opt_out:
-        return False, f'no {rule["daemon"]} and no {rule["opt_out"]}: partitioned cards would not work'
-    if not has_daemon:
-        return True, 'kernel partition scan'
-    checked = f'{name} in none of {len(rule["boot_parameters"])} boot parameter sources'
+    checked = (f'compile-time scan isolation from embedded IKCONFIG, staged kernel matches {rule["kernel_image"]}, '
+               f'no override in {len(inputs)} raw boot inputs or the shipped kernel')
     return True, f'filesystem VM, its kernel {guest}, {checked}' if guest else f'filesystem VM, {checked}'
+
+
+MEMORY_SIZE = re.compile(r'(0x[0-9a-fA-F]+|[0-9]+)([KMGT]?)')
+
+
+def memory_bytes(text: str) -> int:
+    """The bytes of a kernel memory size (memparse): a number, decimal or 0x hex, with an optional K, M, G or T."""
+    match = MEMORY_SIZE.fullmatch(text)
+    if not match:
+        raise ValueError(f'not a memory size: {text}')
+    return int(match[1], 0) << (10 * ' KMGT'.index(match[2] or ' '))
+
+
+def reserve_parts(value: str) -> tuple[int, int, str]:
+    """(size, alignment, name) of a reserve_mem value: size:alignment:name."""
+    parts = value.split(':')
+    if len(parts) != 3:
+        raise ValueError(f'reserve_mem={value} is not size:alignment:name')
+    return memory_bytes(parts[0]), memory_bytes(parts[1]), parts[2]
+
+
+def plain_boot_words(data: bytes, source: str) -> list[tuple[str, str | None, int]]:
+    """Only plain ASCII arguments are accepted, so lexical state cannot cross a join.
+
+    This restricted input profile excludes non-ASCII bytes,
+    quotes, NUL and end markers require a different qualified packaging profile.
+    """
+    if any(c not in b' \t\r\n\v\f' and not 33 <= c <= 126 for c in data) or b'"' in data or b"'" in data:
+        raise ValueError(f'{source}: reserve_mem proof requires plain ASCII arguments without quotes or NUL')
+    found = []
+    for match in re.finditer(rb'[^ \t\r\n\v\f]+', data):
+        word = match[0].decode('ascii')
+        if word == '--':
+            raise ValueError(f'{source}: end marker can suppress reserve_mem')
+        key, separator, value = word.partition('=')
+        found.append((key.replace('-', '_'), value if separator else None, match.end()))
+    return found
+
+
+def reserve_inputs(v, rule: dict) -> tuple[list[tuple[str, bytes]], int]:
+    """Plain sources and a conservative upper bound on all bytes preceding vendor arguments.
+
+    Count every possible DT bootargs property, including inactive nodes and overlays.
+    Count the built-in prefix even without EXTEND, so bootloader ordering cannot make
+    this bound smaller than the inputs inspected here. The shipped FP6 has one DTB.
+    """
+    inputs = boot_inputs(v, rule['boot_parameters'])
+    config = embedded_kernel_config(shipped_kernel(v, rule))
+    config_source = f'{rule["kernel_image"]} embedded IKCONFIG'
+    if config.get('CONFIG_CMDLINE_FORCE') == 'y':
+        raise ValueError('CONFIG_CMDLINE_FORCE ignores the packaged vendor reserve_mem arguments')
+    cmdline = config.get('CONFIG_CMDLINE', '')
+    if not re.fullmatch(r'"[^"\\]*"', cmdline):
+        raise ValueError(f'{config_source}: reserve_mem proof requires one literal CONFIG_CMDLINE without escapes')
+    lines, prefix = [(config_source, cmdline[1:-1].encode('utf-8'))], 0
+    for source in rule['boot_parameters']:
+        name, kind = source['file'], source['format']
+        data = inputs[name]
+        if kind == 'cmdline':
+            lines.append((name, data.rstrip(b'\n')))
+        elif kind == 'bootconfig':
+            if b'kernel' in data.lower():
+                raise ValueError(f'{name}: kernel bootconfig keys are unsupported for the reserve_mem proof')
+        elif kind == 'dtb':
+            if data[-64:-60] == AVB_FOOTER:
+                data = avb_payload(data)
+            for index, tree in enumerate(device_trees(data)):
+                for path, node in tree.items():
+                    if 'bootargs' in node['props']:
+                        value = node['props']['bootargs']
+                        if not value.endswith(b'\0') or b'\0' in value[:-1]:
+                            raise ValueError(f'{name}: reserve_mem proof requires one terminated bootargs string')
+                        lines.append((f'{name}[{index}]{path}', value[:-1]))
+        else:
+            raise ValueError(f'unknown boot input format {kind}')
+    for name, data in lines:
+        plain_boot_words(data, name)
+        if name != 'VENDOR_BOOT/vendor_cmdline':
+            prefix += len(data) + 1
+    return lines, prefix
+
+
+def rule_vm_pool_reserve(rule, v):
+    """One recipe-sized vendor reserve must survive arm64's 2048 bytes including NUL.
+
+    A worst-case prefix includes all other packaged command-line bytes and one join
+    separator per input, including empty ones. Plain words and no kernel XBC keys make
+    this proof independent of quote state, XBC tree rendering and source order.
+    Every potential named reserve counts against Linux's eight slots, even if a
+    duplicate or inactive input might not allocate, so no ordering can fill the table.
+    """
+    if v.packaging is None:
+        return False, 'no kernel packaging recipe to compare with'
+    name = rule['name']
+    wanted = [entry['argument'].split('=', 1)[1] for entry in v.packaging.get('kernel_cmdline', [])
+              if entry['argument'].startswith('reserve_mem=') and entry['argument'].endswith(':' + name)]
+    if len(wanted) != 1:
+        return False, f'the kernel packaging recipe has {len(wanted)} reserve_mem for {name}, not one'
+    try:
+        want = reserve_parts(wanted[0])
+        lines, prefix = reserve_inputs(v, rule)
+        entries = [(source, value, end) for source, data in lines
+                   for key, value, end in plain_boot_words(data, source) if key == 'reserve_mem']
+        for source, value, _ in entries:
+            size, _, reserve_name = reserve_parts(value or '')
+            if not size or not 0 < len(reserve_name) < 16:
+                return False, f'{source}: unsupported named reserve_mem={value}'
+        if len(entries) > 8:
+            return False, f'{len(entries)} named reserve_mem entries exceed Linux table capacity 8: {name} could be refused'
+        found = [(source, value, end) for source, value, end in entries if value.rsplit(':', 1)[-1] == name]
+        if len(found) != 1:
+            where = ', '.join(source for source, _, _ in found) or 'none'
+            return False, f'{len(found)} reserve_mem for {name}, not one: {where}'
+        source, value, end = found[0]
+        if source != 'VENDOR_BOOT/vendor_cmdline':
+            return False, f'reserve_mem for {name} is not in the effective vendor command line: {source}'
+        if reserve_parts(value) != want:
+            return False, f'reserve_mem={value} in {source}, the kernel packaging recipe has reserve_mem={wanted[0]}'
+        if prefix + end > 2047:
+            return False, f'reserve_mem ends at worst-case byte {prefix + end}, beyond arm64 2047 data bytes plus NUL'
+    except (ValueError, KeyError, OSError, EOFError) as error:
+        return False, f'boot inputs: {error}'
+    return True, (f'reserve_mem={value} in {source}, recipe matched, ends by byte {prefix + end}/2047 '
+                  f'including built-in prefix, {len(entries)}/8 named reservations across packaged inputs')
 
 
 def rule_dex_calls(rule, v):
@@ -2063,6 +2111,7 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'no_diagnostic_sanitizer': rule_no_diagnostic_sanitizer,
          'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions,
          'fs_in_vm_coupling': rule_fs_in_vm_coupling, 'apex_guest_images': rule_apex_guest_images,
+         'vm_pool_reserve': rule_vm_pool_reserve,
          'dex_calls': rule_dex_calls, 'elf_calls': rule_elf_calls}
 
 
