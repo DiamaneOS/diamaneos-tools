@@ -4247,6 +4247,30 @@
       ]
     },
     {
+      "id": "vm-filters-kill-on-user-builds",
+      "why": "User builds kill a protected VM's processes on a system call outside their seccomp filters: crosvm, the VM manager (whose filter every crosvm it starts inherits), and fsvmd for cards and OBB images. Each program carries its user-build action as text, made from the same switch that sets the filter's action, so a build whose filters would only log is refused. Debuggable builds log instead, so that a phone run of every VM use shows a call missing from a list.",
+      "variants": [
+        "user"
+      ],
+      "type": "binary_count",
+      "files": [
+        "SYSTEM/apex/com.android.virt.apex!bin/crosvm",
+        "SYSTEM/apex/com.android.virt.apex!bin/virtmgr",
+        "SYSTEM_EXT/bin/fsvmd",
+        "SYSTEM_EXT/bin/fsvmd_obb"
+      ],
+      "patterns": [
+        {
+          "text": "DiamaneOS seccomp filter: user builds kill",
+          "min": 1
+        },
+        {
+          "text": "DiamaneOS seccomp filter: user builds log",
+          "count": 0
+        }
+      ]
+    },
+    {
       "id": "camera-provider-seccomp-policy",
       "why": "The camera provider may start threads but no processes (clone3 hides its flags from the filter), open only Unix and QRTR sockets and never map memory writable and executable. It may not run programs or trace or write other processes.",
       "type": "text",

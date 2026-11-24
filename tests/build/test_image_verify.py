@@ -2431,6 +2431,86 @@ class RuleTests(unittest.TestCase):
             check(container=b'not an apex')
         self.assertIs(subject.rule_apex_payload, subject.RULES['apex_payload'])
 
+    def test_vm_filters_kill_on_user_builds(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['vm-filters-kill-on-user-builds']
+        virt = 'SYSTEM/apex/com.android.virt.apex'
+        self.assertEqual([virt + '!bin/crosvm', virt + '!bin/virtmgr', 'SYSTEM_EXT/bin/fsvmd', 'SYSTEM_EXT/bin/fsvmd_obb'],
+                         rule['files'])
+        # User builds only, official or not: debuggable builds log on purpose.
+        self.assertTrue(subject.rule_applies(rule, 'user', True))
+        self.assertTrue(subject.rule_applies(rule, 'user', False))
+        self.assertFalse(subject.rule_applies(rule, 'userdebug', False))
+        kill, log = b'DiamaneOS seccomp filter: user builds kill', b'DiamaneOS seccomp filter: user builds log'
+        elf = lambda *texts: b'\x7fELF\0' + b'\0'.join(texts) + b'\0'
+
+        def apex(magic_at, magic):
+            image = bytearray(4096)
+            image[magic_at:magic_at + len(magic)] = magic
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, 'w') as archive:
+                archive.writestr('apex_payload.img', bytes(image))
+            return buffer.getvalue()
+        erofs = apex(1024, bytes.fromhex('e2e1f5e0'))
+
+        def fsck(crosvm=elf(kill), virtmgr=elf(kill)):
+            def run(args):
+                # fsck.erofs --extract=DIR IMAGE writes the payload's tree into DIR.
+                self.assertEqual('apex_payload.img', Path(args[1]).name)
+                out = Path(str(args[0]).removeprefix('--extract='))
+                (out / 'bin').mkdir(parents=True)
+                for name, data in (('crosvm', crosvm), ('virtmgr', virtmgr)):
+                    if data is not None:
+                        (out / 'bin' / name).write_bytes(data)
+                return ''
+            return FakeTools({('fsck.erofs',): run})
+
+        def check(crosvm=elf(kill), virtmgr=elf(kill), fsvmd=elf(kill), fsvmd_obb=elf(kill), container=erofs):
+            v = self.harness({virt: container, 'SYSTEM_EXT/bin/fsvmd': fsvmd, 'SYSTEM_EXT/bin/fsvmd_obb': fsvmd_obb},
+                             tools=fsck(crosvm, virtmgr))
+            return subject.rule_binary_count(rule, v)
+
+        self.assertEqual((True, ''), check())
+        for detail, change in [
+                (virt + "!bin/crosvm: 'DiamaneOS seccomp filter: user builds kill' found 0 times",
+                 {'crosvm': elf(log)}),
+                (virt + "!bin/crosvm: 'DiamaneOS seccomp filter: user builds log' found 1 times (want 0)",
+                 {'crosvm': elf(log)}),
+                (virt + "!bin/virtmgr: 'DiamaneOS seccomp filter: user builds log' found 1 times (want 0)",
+                 {'virtmgr': elf(kill, log)}),
+                ("SYSTEM_EXT/bin/fsvmd: 'DiamaneOS seccomp filter: user builds kill' found 0 times",
+                 {'fsvmd': elf(b'seccomp filter on')}),
+                ("SYSTEM_EXT/bin/fsvmd_obb: 'DiamaneOS seccomp filter: user builds log' found 1 times",
+                 {'fsvmd_obb': elf(log)})]:
+            with self.subTest(detail=detail):
+                ok, found = check(**change)
+                self.assertFalse(ok)
+                self.assertIn(detail, found)
+        # A program missing from the payload, a payload of another kind or an APEX without one is an error (a failed
+        # check), never a pass.
+        with self.assertRaisesRegex(ValueError, 'no bin/virtmgr in the erofs payload'):
+            check(virtmgr=None)
+        with self.assertRaisesRegex(ValueError, 'not an ext4 image or an erofs image'):
+            check(container=apex(1024, b'\0\0\0\0'))
+        with self.assertRaisesRegex(ValueError, 'has no apex_payload.img'):
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, 'w') as archive:
+                archive.writestr('apex_manifest.pb', b'manifest')
+            check(container=buffer.getvalue())
+        with self.assertRaises(FileNotFoundError):
+            subject.rule_binary_count(rule, self.harness({virt: erofs}, tools=fsck()))
+        # An ext4 payload is read through debugfs.
+        ext4 = apex(1080, bytes.fromhex('53ef'))
+
+        def debugfs(args):
+            command = str(args[1]).split(' ')
+            self.assertEqual('/bin/crosvm', command[1])
+            if command[0] == 'dump':
+                Path(command[2]).write_bytes(elf(kill))
+            return self.debugfs_stat(0o100755, 0, 2000, 'u:object_r:crosvm_exec:s0', 10)
+        v = self.harness({virt: ext4}, tools=FakeTools({('debugfs_static',): debugfs}))
+        self.assertEqual(elf(kill), subject.installed_bytes(v, virt + '!bin/crosvm'))
+
     def test_widevine_software_only_rules(self):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         apex = 'VENDOR/' + self.WIDEVINE_APEX.removeprefix('vendor/')
