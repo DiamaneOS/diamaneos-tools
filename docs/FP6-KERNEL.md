@@ -148,8 +148,31 @@ other chips' drivers, debug and test interfaces, and CoreSight tracing.
 **Kernel command line.** `BoardConfigKernel.mk` adds the words of `kernel_cmdline`, each with its
 reason, and none may be an argument that `config/fp6-build.json` forbids.
 
-The one word is `scsi_mod.scan=sync`: asynchronous scanning would number the UFS logical units
-differently on each boot, and the device names its disks by letter.
+`scsi_mod.scan=sync`: asynchronous scanning would number the UFS logical units differently on each
+boot, and the device names its disks by letter.
+
+`reserve_mem=512M:2M:gunyah_vm_pool`: memory for protected VMs, set aside before the page
+allocator starts. The Gunyah driver lends it to protected VMs only, in 2 MiB blocks, so a VM's
+memory comes in few pieces however scattered the rest is.
+
+512 MiB holds the decode service VM (288 MiB) and two typical filesystem VMs of 96 MiB: an SD
+card and a USB drive, or a card and the probe or format VM of another disk.
+
+Each of them also takes its 4 MiB firmware region and its 6 MiB of bounce buffers from the pool.
+The bounce buffers are shared with the host, as ordinary memory would be. A larger VM gets ordinary
+memory.
+
+The hypervisor refuses a VM start once the memory pieces lent and shared to all running VMs
+together pass a budget.
+
+- The Gunyah driver refuses such a lend before it is sent, at 19000 pieces for firmware 16.115.0
+  (`vm_pieces` and `vm_pieces_max` in `/sys/class/misc/gunyah_vm_pool/`).
+- Another firmware may need another value. `gunyah_rsc_mgr.vm_pieces_max=` on the kernel command
+  line sets it.
+
+The bootconfig carries Android keys only, so the pool is a kernel argument. It is in every build
+and lands with protected VMs in user builds. The device's SELinux policy decides which VM managers
+may take it.
 
 **Symbol rules,** checked on every build:
 
