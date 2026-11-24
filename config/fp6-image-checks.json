@@ -1459,6 +1459,88 @@
       ]
     },
     {
+      "id": "sd-hold-trigger",
+      "why": "A new SD card waits while the phone is locked: the kernel holds a new card on a removable MMC host, unpowered and without a command, while kernel.hold_new_sd is 1 (CONFIG_MMC_HOLD_NEW_CARDS, set at boot). init writes the lock state the system server sets, only 0 or 1. Without the trigger no SD card ever starts.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/init/hold_new_sd.rc"
+      ],
+      "lines": [
+        "on property:security.hold_new_sd=0",
+        "    write /proc/sys/kernel/hold_new_sd 0",
+        "on property:security.hold_new_sd=1",
+        "    write /proc/sys/kernel/hold_new_sd 1"
+      ]
+    },
+    {
+      "id": "sd-hold-framework",
+      "why": "The system server sets the hold while the lock screen shows and clears it when the lock screen is dismissed, and sets it again when it starts, before the lock screen state is known.",
+      "type": "zip_contains",
+      "file": "SYSTEM/framework/services.jar",
+      "text": "security.hold_new_sd"
+    },
+    {
+      "id": "sd-hold-labels",
+      "why": "The kernel's hold has its own type instead of the generic proc label, and the property takes only 0 and 1.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_property_contexts"
+      ],
+      "match": "any",
+      "lines": [
+        "(genfscon proc \"/sys/kernel/hold_new_sd\" (u object_r proc_hold_new_sd ((s0) (s0))))"
+      ],
+      "regex": [
+        "^security\\.hold_new_sd\\s+u:object_r:hold_new_sd_prop:s0\\s+exact\\s+enum\\s+0\\s+1$"
+      ]
+    },
+    {
+      "id": "sd-hold-writers",
+      "why": "Only init writes the kernel's hold.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "proc_hold_new_sd",
+      "cls": "file",
+      "perm": "write",
+      "allowed": [
+        "init"
+      ]
+    },
+    {
+      "id": "sd-hold-setters",
+      "why": "Only the system server sets the lock state for the hold (init sets every property by design).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "hold_new_sd_prop",
+      "cls": "property_service",
+      "perm": "set",
+      "allowed": [
+        "init",
+        "system_server"
+      ]
+    },
+    {
       "id": "oem-unlocking",
       "why": "OEM unlocking managed by the OS, as stock.",
       "type": "properties",
