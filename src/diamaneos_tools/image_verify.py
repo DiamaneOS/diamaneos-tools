@@ -28,6 +28,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from . import build_workspace as bw
+from . import code_calls
 from . import firmware
 from .build_workspace import Action, CheckFailed
 
@@ -1959,6 +1960,51 @@ def rule_fs_in_vm_coupling(rule, v):
     return True, f'filesystem VM, its kernel {guest}, {checked}' if guest else f'filesystem VM, {checked}'
 
 
+def rule_dex_calls(rule, v):
+    """Each listed method of a Java archive's dex code calls every method in its 'calls' and reads or writes every
+    field in its 'fields' (each 'Lclass;->name'). Hooks in upstream methods are lost without a build error, for
+    example in a rebase: the method is then upstream's again, and this check names it."""
+    methods = rule['methods']
+    if not methods or not all(want.get('calls') or want.get('fields') for want in methods.values()):
+        return False, 'the rule names a method without a hook, or none'
+    found = code_calls.dex_references(v.tf.read(rule['file']), list(methods))
+    problems = []
+    for method, want in methods.items():
+        if method not in found:
+            problems.append(f'{method} is not in {rule["file"]}')
+            continue
+        calls, fields = found[method]
+        missing = [c for c in want.get('calls', []) if c not in calls]
+        missing += [f for f in want.get('fields', []) if f not in fields]
+        if missing:
+            problems.append(f'{method} lacks ' + ', '.join(missing))
+    return not problems, '; '.join(problems) or f'every hook in place in {rule["file"]} ({len(methods)} checked)'
+
+
+def rule_elf_calls(rule, v):
+    """Each listed function of an AArch64 binary branches to every function in its 'calls' and to none in its
+    'never', and the binary has no function 'absent' names (qualified names, such as android::vold::vfat::Mount).
+    Read from the code and the function symbols of .gnu_debugdata, so a hook lost without a build error fails
+    here by name."""
+    if not rule['functions'] or not all(want.get('calls') or want.get('never') for want in rule['functions'].values()):
+        return False, 'the rule names a function without a hook, or none'
+    code = code_calls.NativeCode(v.tf.read(rule['file']))
+    problems = [f'{rule["file"]} has {name}' for name in rule.get('absent', []) if code.has(name)]
+    for function, want in rule['functions'].items():
+        if not code.has(function):
+            problems.append(f'{function} is not in {rule["file"]}')
+            continue
+        callees = code.callees(function)
+        missing = [c for c in want.get('calls', []) if c not in callees]
+        if missing:
+            problems.append(f'{function} does not call ' + ', '.join(missing))
+        called = [c for c in want.get('never', []) if c in callees]
+        if called:
+            problems.append(f'{function} calls ' + ', '.join(called))
+    checked = len(rule['functions'])
+    return not problems, '; '.join(problems) or f'every hook in place in {rule["file"]} ({checked} checked)'
+
+
 def rule_no_diagnostic_sanitizer(rule, v):
     """No installed native binary holds the diagnostic sanitizer signatures, other than the runtimes the rule names."""
     problems, count = [], 0
@@ -2016,7 +2062,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
          'no_diagnostic_sanitizer': rule_no_diagnostic_sanitizer,
          'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions,
-         'fs_in_vm_coupling': rule_fs_in_vm_coupling, 'apex_guest_images': rule_apex_guest_images}
+         'fs_in_vm_coupling': rule_fs_in_vm_coupling, 'apex_guest_images': rule_apex_guest_images,
+         'dex_calls': rule_dex_calls, 'elf_calls': rule_elf_calls}
 
 
 def validate_rules(document: dict) -> list:

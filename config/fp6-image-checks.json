@@ -6809,6 +6809,301 @@
         "file": "etc/fs/fsvm_kernel",
         "host": "BOOT/kernel"
       }
+    },
+    {
+      "id": "decode-gate-framework-hooks",
+      "why": "The decode gate protects every gated process (SystemUI, the system server, system apps) through one call at each image entry point of the framework: BitmapFactory, BitmapRegionDecoder, ImageDecoder (and AnimatedImageDrawable through it), Movie, Picture's stream reader, ContentResolver thumbnails, ImageView and Icon loads, AssetManager's asset sources, Resources and ResourcesImpl image files, and the gate's start in each app (ActivityThread). Each hook sits in an upstream method and a rebase can drop it without a build error, which brings native decoding back everywhere. This reads framework.jar's dex code and names each entry point that no longer calls its gate.",
+      "type": "dex_calls",
+      "file": "SYSTEM/framework/framework.jar",
+      "methods": {
+        "Landroid/graphics/BitmapFactory;->decodeByteArray([BIILandroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/GatedDecodes;->bitmapFactory"
+          ]
+        },
+        "Landroid/graphics/BitmapFactory;->decodeStream(Ljava/io/InputStream;Landroid/graphics/Rect;Landroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gatesStream"
+          ]
+        },
+        "Landroid/graphics/BitmapFactory;->decodeStreamInternal(Ljava/io/InputStream;Landroid/graphics/Rect;Landroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gatesStream",
+            "Landroid/graphics/GatedDecodes;->bitmapFactory"
+          ]
+        },
+        "Landroid/graphics/BitmapFactory;->decodeFileDescriptor(Ljava/io/FileDescriptor;Landroid/graphics/Rect;Landroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/DecodeGate;->exempt",
+            "Landroid/graphics/GatedDecodes;->bitmapFactory"
+          ]
+        },
+        "Landroid/graphics/BitmapRegionDecoder;->newInstance([BII)Landroid/graphics/BitmapRegionDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/GatedDecodes;->region"
+          ]
+        },
+        "Landroid/graphics/BitmapRegionDecoder;->newInstance(Ljava/io/FileDescriptor;Z)Landroid/graphics/BitmapRegionDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/DecodeGate;->exempt",
+            "Landroid/graphics/GatedDecodes;->region"
+          ]
+        },
+        "Landroid/graphics/BitmapRegionDecoder;->newInstance(Landroid/os/ParcelFileDescriptor;)Landroid/graphics/BitmapRegionDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/DecodeGate;->exempt",
+            "Landroid/graphics/GatedDecodes;->region"
+          ]
+        },
+        "Landroid/graphics/BitmapRegionDecoder;->newInstance(Ljava/io/InputStream;)Landroid/graphics/BitmapRegionDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gatesStream",
+            "Landroid/graphics/GatedDecodes;->region"
+          ]
+        },
+        "Landroid/graphics/BitmapRegionDecoder;->decodeRegion(Landroid/graphics/Rect;Landroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/GatedDecodes$Region;->decodeRegion"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder$ByteArraySource;->createImageDecoder(Z)Landroid/graphics/ImageDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/GatedDecodes;->header"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder$ByteBufferSource;->createImageDecoder(Z)Landroid/graphics/ImageDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/GatedDecodes;->header"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder;->createFromFile(Ljava/io/File;ZLandroid/graphics/ImageDecoder$Source;)Landroid/graphics/ImageDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/GatedDecodes;->header"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder$ContentResolverSource;->createImageDecoder(Z)Landroid/graphics/ImageDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/GatedDecodes;->header"
+          ]
+        },
+        "Landroid/graphics/Picture;->createFromStream(Ljava/io/InputStream;)Landroid/graphics/Picture;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder;->createFromStream(Ljava/io/InputStream;ZZLandroid/graphics/ImageDecoder$Source;)Landroid/graphics/ImageDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gatesStream",
+            "Landroid/graphics/GatedDecodes;->header"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder;->createFromAssetFileDescriptor(Landroid/content/res/AssetFileDescriptor;ZLandroid/graphics/ImageDecoder$Source;)Landroid/graphics/ImageDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates",
+            "Landroid/graphics/DecodeGate;->exempt",
+            "Landroid/graphics/GatedDecodes;->header"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder;->createFromAsset(Landroid/content/res/AssetManager$AssetInputStream;ZLandroid/graphics/ImageDecoder$Source;)Landroid/graphics/ImageDecoder;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gatesStream"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder;->decodeBitmapInternal()Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/GatedDecodes;->decode"
+          ]
+        },
+        "Landroid/graphics/ImageDecoder;->decodeDrawableImpl(Landroid/graphics/ImageDecoder$Source;Landroid/graphics/ImageDecoder$OnHeaderDecodedListener;)Landroid/graphics/drawable/Drawable;": {
+          "calls": [
+            "Landroid/graphics/GatedDecodes;->animated"
+          ]
+        },
+        "Landroid/graphics/Movie;->decodeStream(Ljava/io/InputStream;)Landroid/graphics/Movie;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gatesStream"
+          ]
+        },
+        "Landroid/graphics/Movie;->decodeByteArray([BII)Landroid/graphics/Movie;": {
+          "calls": [
+            "Landroid/graphics/DecodeGate;->gates"
+          ]
+        },
+        "Landroid/content/ContentResolver;->loadThumbnail(Landroid/content/ContentInterface;Landroid/net/Uri;Landroid/util/Size;Landroid/os/CancellationSignal;I)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/content/ContentResolver;->vmThumbnails",
+            "Lcom/android/internal/diamaneos/cleancopies/VmThumbnails;->load"
+          ]
+        },
+        "Landroid/content/ContentResolver;->vmThumbnails()Z": {
+          "calls": [
+            "Lcom/android/internal/diamaneos/cleancopies/VmThumbnails;->applies"
+          ]
+        },
+        "Landroid/widget/ImageView;->getDrawableFromUri(Landroid/net/Uri;)Landroid/graphics/drawable/Drawable;": {
+          "calls": [
+            "Lcom/android/internal/diamaneos/cleancopies/VmIconLoads;->applies",
+            "Lcom/android/internal/diamaneos/cleancopies/VmIconLoads;->loadUri"
+          ]
+        },
+        "Landroid/graphics/drawable/Icon;->loadDrawableInner(Landroid/content/Context;)Landroid/graphics/drawable/Drawable;": {
+          "calls": [
+            "Lcom/android/internal/diamaneos/cleancopies/VmIconLoads;->handles",
+            "Lcom/android/internal/diamaneos/cleancopies/VmIconLoads;->load",
+            "Landroid/graphics/drawable/IconGating;->mustLoadGated",
+            "Landroid/graphics/drawable/IconGating;->load"
+          ]
+        },
+        "Landroid/graphics/drawable/Icon;->getResourcesForPackage(Landroid/content/Context;Ljava/lang/String;)Landroid/content/res/Resources;": {
+          "calls": [
+            "Landroid/graphics/drawable/IconGating;->resourcesFor",
+            "Landroid/graphics/drawable/IconGating;->isGated"
+          ]
+        },
+        "Landroid/graphics/drawable/Icon;->loadDrawableAsUser(Landroid/content/Context;I)Landroid/graphics/drawable/Drawable;": {
+          "calls": [
+            "Landroid/graphics/drawable/IconGating;->isGated"
+          ]
+        },
+        "Landroid/content/res/AssetManager;->open(Ljava/lang/String;I)Ljava/io/InputStream;": {
+          "fields": [
+            "Landroid/content/res/AssetManager$AssetInputStream;->mSourceApks"
+          ]
+        },
+        "Landroid/content/res/AssetManager;->openNonAsset(ILjava/lang/String;I)Ljava/io/InputStream;": {
+          "fields": [
+            "Landroid/content/res/AssetManager$AssetInputStream;->mSourceApks",
+            "Landroid/content/res/AssetManager$AssetInputStream;->mSourceCookie"
+          ]
+        },
+        "Landroid/content/res/Resources;->openRawResource(ILandroid/util/TypedValue;)Ljava/io/InputStream;": {
+          "calls": [
+            "Landroid/content/res/ImageFileGates;->effective",
+            "Landroid/content/res/ImageFileGate;->openImage"
+          ]
+        },
+        "Landroid/content/res/ResourcesImpl;->loadDrawable(Landroid/content/res/Resources;Landroid/util/TypedValue;IILandroid/content/res/Resources$Theme;Z)Landroid/graphics/drawable/Drawable;": {
+          "calls": [
+            "Landroid/content/res/ImageFileGates;->gateFor",
+            "Landroid/content/res/ImageFileGates;->cacheFor"
+          ]
+        },
+        "Landroid/content/res/ResourcesImpl;->loadDrawableForCookie(Landroid/content/res/Resources;Landroid/util/TypedValue;IIZ)Landroid/graphics/drawable/Drawable;": {
+          "calls": [
+            "Landroid/content/res/ImageFileGates;->gateFor",
+            "Landroid/content/res/ImageFileGate;->loadImage"
+          ]
+        },
+        "Landroid/app/ActivityThread;->handleBindApplication(Landroid/app/ActivityThread$AppBindData;)V": {
+          "calls": [
+            "Lcom/android/internal/diamaneos/cleancopies/CleanCopyGate;->installForApp"
+          ]
+        }
+      }
+    },
+    {
+      "id": "decode-gate-system-server-hook",
+      "why": "The system server starts its decode gate in SystemServer.run (CleanImageMaker.installGate). Without that call its image loads decode natively. This reads services.jar's dex code.",
+      "type": "dex_calls",
+      "file": "SYSTEM/framework/services.jar",
+      "methods": {
+        "Lcom/android/server/SystemServer;->run()V": {
+          "calls": [
+            "Lcom/android/server/cleanimages/CleanImageMaker;->installGate"
+          ]
+        }
+      }
+    },
+    {
+      "id": "vold-cards-in-vm-hooks",
+      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that mounts FAT or exFAT in Android's kernel.",
+      "type": "elf_calls",
+      "file": "SYSTEM/bin/vold",
+      "absent": [
+        "android::vold::vfat::Mount",
+        "android::vold::exfat::Mount"
+      ],
+      "functions": {
+        "android::vold::PublicVolume::doMount": {
+          "calls": [
+            "android::vold::PublicVolume::checkInVm",
+            "android::vold::PublicVolume::mountInVm"
+          ],
+          "never": [
+            "android::vold::vfat::Check",
+            "android::vold::exfat::Check",
+            "android::vold::vfat::Mount",
+            "android::vold::exfat::Mount"
+          ]
+        },
+        "android::vold::PublicVolume::doUnmount": {
+          "calls": [
+            "android::vold::PublicVolume::UnmountInVm::UnmountInVm",
+            "android::vold::PublicVolume::UnmountInVm::fuseGone"
+          ]
+        },
+        "android::vold::PublicVolume::doFormat": {
+          "calls": [
+            "android::vold::PublicVolume::formatInVm"
+          ]
+        },
+        "android::vold::Disk::readPartitions": {
+          "calls": [
+            "android::vold::Disk::isVmDisk",
+            "android::vold::Disk::readPartitionsInVm"
+          ]
+        },
+        "android::vold::Disk::destroy": {
+          "calls": [
+            "android::vold::Disk::beforeDestroyInVm"
+          ]
+        },
+        "android::vold::Disk::destroyAllVolumes": {
+          "calls": [
+            "android::vold::Disk::prepareStopAll",
+            "android::vold::Disk::removeRanges"
+          ]
+        },
+        "android::vold::Disk::unmountAll": {
+          "calls": [
+            "android::vold::Disk::prepareStopAll"
+          ]
+        },
+        "android::vold::Disk::partitionPublic": {
+          "calls": [
+            "android::vold::Disk::beforePartitionInVm",
+            "android::vold::Disk::isVmDisk"
+          ]
+        },
+        "android::vold::Disk::partitionMixed": {
+          "calls": [
+            "android::vold::Disk::beforePartitionInVm",
+            "android::vold::Disk::isVmDisk"
+          ]
+        },
+        "android::vold::ObbVolume::doMount": {
+          "calls": [
+            "android::vold::ObbVolume::mountInVm"
+          ],
+          "never": [
+            "android::vold::vfat::Mount"
+          ]
+        },
+        "android::vold::ObbVolume::doUnmount": {
+          "calls": [
+            "android::vold::ObbVolume::stopInVm"
+          ]
+        }
+      }
     }
   ]
 }
