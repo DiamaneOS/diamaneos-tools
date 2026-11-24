@@ -1,5 +1,6 @@
 import copy
 import functools
+import gzip
 import hashlib
 import io
 import json
@@ -71,6 +72,18 @@ def dex(*strings):
     return bytes(header) + ids + data
 
 
+def arm64_image(payload):
+    """A minimal supported Image header followed by synthetic test content."""
+    return struct.pack('<II6QII', 0x14000010, 0xd503201f, 0, 64 + len(payload), 10,
+                       0, 0, 0, 0x644d5241, 0) + payload
+
+
+def kernel_fixture(config=b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\n', release='6.18.39-test', extra=b''):
+    """An Image-format fixture with a banner and Linux embedded-config framing."""
+    return arm64_image(f'Linux version {release} (test)\0'.encode() + extra
+                       + b'IKCFG_ST' + gzip.compress(config, mtime=0) + b'IKCFG_ED')
+
+
 def boot_parameter_files(**over):
     """Every input of the kernel command line in target files, as the FP6 build has them, without the card scan."""
     files = {'VENDOR_BOOT/vendor_cmdline': b'scsi_mod.scan=sync reserve_mem=512M:2M:gunyah_vm_pool loop.max_part=0 bootconfig',
@@ -78,8 +91,30 @@ def boot_parameter_files(**over):
              'VENDOR_BOOT/vendor_bootconfig': b'androidboot.hardware=qcom\nandroidboot.hypervisor.vm.supported=0\n',
              'VENDOR_BOOT/dtb': dtb({'/': {}, '/chosen': {'bootargs': b'loop.max_part=7 swiotlb=noforce\0'}}),
              'IMAGES/dtbo.img': dtb({'/': {}, '/fragment@0': {}}),
-             'META/kernel_configs.txt': b'CONFIG_BOOT_CONFIG=y\nCONFIG_CMDLINE="console=ttynull bootconfig"\n'}
+             'META/kernel_configs.txt': b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\nCONFIG_BOOT_CONFIG=y\nCONFIG_CMDLINE="console=ttynull bootconfig"\nCONFIG_CMDLINE_EXTEND=y\n'}
     files.update(over)
+    files.setdefault('BOOT/kernel', kernel_fixture(files['META/kernel_configs.txt'] or b''))
+    boot = bytearray(4096)
+    boot[:8] = b'ANDROID!'
+    kernel = files['BOOT/kernel'] or b''
+    struct.pack_into('<I', boot, 8, len(kernel))
+    struct.pack_into('<I', boot, 20, 1584)
+    struct.pack_into('<I', boot, 40, 4)
+    cmdline = files['BOOT/cmdline'] or b''
+    boot[44:44 + len(cmdline)] = cmdline
+    boot += kernel + bytes(-len(kernel) % 4096)
+    vendor = bytearray(4096)
+    vendor[:8] = b'VNDRBOOT'
+    struct.pack_into('<II', vendor, 8, 4, 4096)
+    cmdline = files['VENDOR_BOOT/vendor_cmdline'] or b''
+    vendor[28:28 + len(cmdline)] = cmdline
+    dt = files['VENDOR_BOOT/dtb'] or b''
+    bc = files['VENDOR_BOOT/vendor_bootconfig'] or b''
+    struct.pack_into('<II', vendor, 2096, 2128, len(dt))
+    struct.pack_into('<4I', vendor, 2112, 0, 0, 108, len(bc))
+    vendor += dt + bytes(-len(dt) % 4096) + bc
+    files.setdefault('IMAGES/boot.img', bytes(boot))
+    files.setdefault('IMAGES/vendor_boot.img', bytes(vendor))
     return files
 
 
@@ -141,12 +176,19 @@ def signed_avb_image(content, descriptors, key=None, extra=b'', sign_with=None):
 
 
 def newc(*names, trailer=True):
-    """A newc cpio archive of empty members."""
+    """A newc cpio archive with the role's actual metadata and a synthetic ELF payload."""
     out = b''
-    for name in names + (('TRAILER!!!',) if trailer else ()):
+    role = 'decoder_vm' if 'dev/console' in names else 'fsvm'
+    for ino, name in enumerate(names + (('TRAILER!!!',) if trailer else ())):
+        mode, links, major, minor = subject.guest_contract.FILES[role].get(name, (0o100755, 1, 0, 0))
+        if name == 'TRAILER!!!':
+            mode, links, major, minor = 0, 1, 0, 0
+        data = b'\x7fELFfixture' if mode & 0o170000 == 0o100000 else b''
         raw = name.encode() + b'\0'
-        out += b'070701' + b'0' * 48 + b'%08x' % 0 + b'0' * 32 + b'%08x' % len(raw) + b'0' * 8 + raw
-        out += bytes(-len(out) % 4)
+        fields = [ino, mode, 0, 0, links, 0, len(data), 0, 0, major, minor, len(raw), 0]
+        entry = b'070701' + b''.join(b'%08x' % value for value in fields) + raw
+        entry += bytes(-len(entry) % 4) + data
+        out += entry + bytes(-len(entry) % 4)
     return out
 
 
@@ -167,11 +209,13 @@ class FakeTools:
 
 
 class Harness:
-    def __init__(self, root: Path, members: dict, symlinks=None, tools=None, kernel=None, variant='user', record=None):
+    def __init__(self, root: Path, members: dict, symlinks=None, tools=None, kernel=None, variant='user', record=None,
+                 packaging=None):
         path = root / 'tf.zip'
         with zipfile.ZipFile(path, 'w') as archive:
             for name, data in members.items():
-                archive.writestr(name, data)
+                if data is not None:
+                    archive.writestr(name, data)
             for name, target in (symlinks or {}).items():
                 info = zipfile.ZipInfo(name)
                 info.external_attr = (stat.S_IFLNK | 0o777) << 16
@@ -182,6 +226,7 @@ class Harness:
         self.variant = variant
         self.record = record or {}
         self.config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        self.packaging = packaging
         self.sources = subject.Sources(self.tf, kernel, root)
 
     def file(self, name):
@@ -220,33 +265,34 @@ class RuleTests(unittest.TestCase):
         rule = scan_rule()
         check = subject.rule_fs_in_vm_coupling
         self.assertTrue(check(rule, self.harness(boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x'})))[0])
-        self.assertTrue(check(rule, self.harness(boot_parameter_files(**{
+        self.assertFalse(check(rule, self.harness(boot_parameter_files(**{
             'VENDOR_BOOT/vendor_cmdline': b'loop.max_part=0 external_part_scan=1'})))[0])
         ok, detail = check(rule, self.harness(boot_parameter_files(**{
             'SYSTEM_EXT/bin/fsvmd': b'x', 'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))
         self.assertFalse(ok)
-        self.assertIn('the kernel command line assigns external_part_scan', detail)
+        self.assertIn('external_part_scan appears in raw boot input', detail)
         ok, detail = check(rule, self.harness(boot_parameter_files(**{'SYSTEM/build.prop': b''})))
         self.assertFalse(ok)
-        self.assertIn('would not work', detail)
+        self.assertIn('requires the filesystem VM', detail)
 
     def test_the_filesystem_vm_kernel_follows_the_phone_kernel(self):
         import gzip as gz
         self.assertEqual('6.18.39-g6e6288100615',
-                         subject.kernel_banner(b'\0Linux version 6.18.39-g6e6288100615 (b@c) #1 SMP PREEMPT\0'))
-        self.assertEqual('6.18.39-x', subject.kernel_banner(gz.compress(b'Linux version 6.18.39-x (b@c)')))
+                         subject.kernel_banner(arm64_image(b'\0Linux version 6.18.39-g6e6288100615 (b@c) #1 SMP PREEMPT\0')))
+        self.assertEqual('6.18.39-x', subject.kernel_banner(gz.compress(arm64_image(b'Linux version 6.18.39-x (b@c)'))))
         self.assertEqual('6.18.39', subject.kernel_version('6.18.39-android17-0-g1'))
         with self.assertRaises(ValueError):
-            subject.kernel_banner(b'no banner')
+            subject.kernel_banner(arm64_image(b'no banner'))
         with self.assertRaises(ValueError):
-            subject.kernel_banner(b'Linux version 6.18.38 (a) Linux version 6.18.39 (b)')
+            subject.kernel_banner(arm64_image(b'Linux version 6.18.38 (a) Linux version 6.18.39 (b)'))
         rule = dict(scan_rule(), guest_kernel={'apex': ['SYSTEM/apex/com.android.virt.apex'], 'file': 'etc/fs/fsvm_kernel',
                                                'host': 'BOOT/kernel'})
-        files = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x', 'BOOT/kernel': b'Linux version 6.18.39-g42022e1 (b@c)'})
+        files = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x',
+                                       'BOOT/kernel': kernel_fixture(release='6.18.39-g42022e1')})
         check = subject.rule_fs_in_vm_coupling
 
         def guest(banner):
-            return mock.patch.object(subject, 'apex_file', return_value=('com.android.virt.apex', banner))
+            return mock.patch.object(subject, 'apex_file', return_value=('com.android.virt.apex', arm64_image(banner)))
         with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
             ok, detail = check(rule, self.harness(files))
         self.assertTrue(ok, detail)
@@ -259,8 +305,8 @@ class RuleTests(unittest.TestCase):
             self.assertFalse(check(rule, self.harness(files))[0])
         with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
             self.assertFalse(check(rule, self.harness(dict(files, **{'BOOT/kernel': b''})))[0])
-        # Without the daemon there is no VM kernel to compare.
-        self.assertTrue(check(rule, self.harness(boot_parameter_files(**{
+        # The shipped profile always requires the daemon.
+        self.assertFalse(check(rule, self.harness(boot_parameter_files(**{
             'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))[0])
 
     def test_no_boot_parameter_source_turns_the_card_scan_back_on(self):
@@ -280,14 +326,19 @@ class RuleTests(unittest.TestCase):
             ('VENDOR_BOOT/vendor_cmdline', b'external_part_scan="on" loop.max_part=0'),
             ('VENDOR_BOOT/vendor_cmdline', b'external_part_scan=0'),
             ('BOOT/cmdline', b'external_part_scan=true'),
+            ('BOOT/cmdline', b'external_part_scan="1'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'androidboot.hardware=qcom; kernel.external_part_scan=1\n'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'kernel.external_part_scan := 1\n'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'kernel.external_part_scan += 1\n'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'kernel { external_part_scan=1; }\n'),
             ('VENDOR_BOOT/vendor_bootconfig', b'androidboot.hardware=qcom\nkernel.external_part_scan = 1\n'),
             ('VENDOR_BOOT/dtb', dtb({'/': {}, '/chosen': {'bootargs': b'console=ttyMSM0 external_part_scan=Y\0'}})),
             ('IMAGES/dtbo.img', dtb({'/': {}, '/fragment@0': {}, '/fragment@0/__overlay__': {
                 'bootargs': b'external_part_scan=1\0'}})),
-            ('META/kernel_configs.txt', b'CONFIG_CMDLINE="console=ttynull external_part_scan=1 bootconfig"\n'),
+            ('META/kernel_configs.txt', b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\nCONFIG_CMDLINE="console=ttynull external_part_scan=1 bootconfig"\n'),
         ]
         for name, content in overrides:
-            ok, detail = check(rule, self.harness({**daemon, **base, name: content}))
+            ok, detail = check(rule, self.harness({**daemon, **boot_parameter_files(**{name: content})}))
             self.assertFalse(ok, f'{name}: {content!r}')
             self.assertIn('external_part_scan', detail)
             self.assertIn(name, detail)
@@ -295,10 +346,95 @@ class RuleTests(unittest.TestCase):
             ok, detail = check(rule, self.harness({**daemon, **{k: v for k, v in base.items() if k != name}}))
             self.assertFalse(ok, name)
             self.assertIn(name, detail)
-        # Without the daemon the kernel keeps its scan.
-        ok, detail = check(rule, self.harness({**base, 'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'}))
-        self.assertTrue(ok, detail)
+        # No compatibility profile can bypass the compile-time boundary.
+        ok, detail = check(rule, self.harness(boot_parameter_files(**{'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))
+        self.assertFalse(ok, detail)
         self.assertFalse(check(rule, self.harness(base))[0])
+
+    def test_final_boot_images_match_the_checked_staging_inputs(self):
+        base = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x'})
+        for name, offset in [('IMAGES/boot.img', 44), ('IMAGES/vendor_boot.img', 28),
+                             ('IMAGES/vendor_boot.img', 4096), ('IMAGES/vendor_boot.img', -1)]:
+            content = bytearray(base[name])
+            content[offset] ^= 1
+            ok, detail = subject.rule_fs_in_vm_coupling(scan_rule(), self.harness({**base, name: bytes(content)}))
+            self.assertFalse(ok, detail)
+            self.assertIn('differs from ' + name, detail)
+
+    def test_pool_clients_exactly_and_from_every_policy_input(self):
+        # Each variant's pool clients are exactly its list: one missing client falls back to ordinary memory, and a
+        # policy input missing from the target files is a finding, not a smaller policy.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        user = rules['vm-pool-clients-user']
+        clients = ' '.join(user['allowed']).encode()
+        base = (b'(type gunyah_vm_pool_device)\n' + b''.join(b'(type %s)\n' % c.encode() for c in user['allowed'])
+                + b'(typeattribute gunyah_vm_pool_client)\n(typeattributeset gunyah_vm_pool_client (' + clients + b'))\n'
+                + b'(allow gunyah_vm_pool_client gunyah_vm_pool_device (chr_file (open read ioctl)))\n')
+        cil = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+        others = {name: b'' for name in user['files'] if '*' not in name and name != cil}
+        globbed = {name.replace('*', '202604'): b'' for name in user['files'] if '*' in name}
+        members = dict(others, **globbed, **{cil: base})
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(members))
+        self.assertTrue(ok, detail)
+        fewer = base.replace(b' fsvmd_obb_virtualizationmanager', b'').replace(b'fsvmd_obb_virtualizationmanager ', b'')
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(dict(members, **{cil: fewer})))
+        self.assertFalse(ok)
+        self.assertIn('fsvmd_obb_virtualizationmanager', detail)
+        missing = dict(members)
+        del missing['ODM/etc/selinux/odm_sepolicy.cil']
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(missing))
+        self.assertFalse(ok)
+        self.assertIn('ODM/etc/selinux/odm_sepolicy.cil', detail)
+        no_mapping = {k: v for k, v in members.items() if not k.startswith('PRODUCT/etc/selinux/mapping/')}
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(no_mapping))
+        self.assertFalse(ok)
+        self.assertIn('PRODUCT/etc/selinux/mapping/*.cil', detail)
+
+    def test_pool_reserve_is_the_packaging_value(self):
+        # The final command line sets aside exactly what the kernel packaging recipe says, once.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['protected-vm-memory-pool']
+        packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_text())
+        check = subject.RULES[rule['type']]
+
+        def run(**over):
+            return check(rule, self.harness(boot_parameter_files(**over), packaging=packaging))
+        ok, detail = run()
+        self.assertTrue(ok, detail)
+        self.assertIn('512M', detail)
+        cmdline = 'VENDOR_BOOT/vendor_cmdline'
+        for wrong in (b'reserve_mem=256M:2M:gunyah_vm_pool', b'reserve_mem=0G:2M:gunyah_vm_pool',
+                      b'reserve_mem=512M:4M:gunyah_vm_pool', b'loop.max_part=0',
+                      b'reserve_mem=512M:2M:gunyah_vm_pool reserve_mem=512M:2M:gunyah_vm_pool',
+                      b'"reserve_mem="512M:2M:gunyah_vm_pool""',
+                      b'unrelated\xa0reserve_mem=512M:2M:gunyah_vm_pool'):
+            ok, detail = run(**{cmdline: wrong})
+            self.assertFalse(ok, wrong)
+            self.assertIn('reserve_mem', detail)
+        # A second reserve from another input of the command line.
+        ok, detail = run(**{'BOOT/cmdline': b'reserve_mem=64M:2M:gunyah_vm_pool'})
+        self.assertFalse(ok)
+        self.assertIn('BOOT/cmdline', detail)
+        for source, content in [
+            ('VENDOR_BOOT/vendor_cmdline', b'-- reserve_mem=512M:2M:gunyah_vm_pool'),
+            ('BOOT/cmdline', b'reserve_mem=512M:2M:gunyah_vm_pool'),
+            ('VENDOR_BOOT/dtb', dtb({'/': {}, '/unrelated': {'bootargs': b'reserve_mem=512M:2M:gunyah_vm_pool\0'}})),
+        ]:
+            args = {cmdline: b'bootconfig', source: content}
+            ok, detail = run(**args)
+            self.assertFalse(ok, detail)
+        for override in [
+            {'VENDOR_BOOT/vendor_bootconfig': b'kernel.--;\n'},
+            {'BOOT/cmdline': b'-- init_argument'},
+            {'META/kernel_configs.txt': b'CONFIG_CMDLINE="reserve_mem=512M:2M:other"\nCONFIG_CMDLINE_FORCE=y\n'},
+        ]:
+            ok, detail = run(**override)
+            self.assertFalse(ok, detail)
+        # The same size written in GiB is the same reserve.
+        self.assertTrue(run(**{cmdline: b'reserve_mem=0x20000000:2M:gunyah_vm_pool'})[0])
+        ok, detail = run(**{'BOOT/cmdline': None})
+        self.assertFalse(ok)
+        self.assertIn('BOOT/cmdline is missing', detail)
 
     def test_the_filesystem_vm_initramfs_in_an_erofs_virt_apex(self):
         # The virtualization APEX has an erofs payload: its initramfs is read through the build's fsck.erofs.
@@ -359,6 +495,11 @@ class RuleTests(unittest.TestCase):
         decoder_initrd = newc('dev', 'dev/console', 'proc', 'init')
         fs_initrd = newc('bin', 'dev', 'mnt', 'proc', 'sys', 'init', 'bin/fsck.exfat', 'bin/fsck_msdos',
                          'bin/mkfs.exfat', 'bin/newfs_msdos')
+        patch = mock.patch.object(subject.guest_contract, 'ROLE_DIGESTS', {
+            role: (len(data), hashlib.sha256(data).hexdigest()) for role, data in
+            [('decoder_vm', decoder_initrd), ('fsvm', fs_initrd)]})
+        patch.start()
+        self.addCleanup(patch.stop)
 
         def guest(initrd, kernel=kernel_bytes, debug=None, **kw):
             return signed_avb_image(kernel, [('boot', kernel, b'salt1'), ('initrd_normal', initrd, b'salt2'),
@@ -376,6 +517,10 @@ class RuleTests(unittest.TestCase):
         ok, detail = check(files())
         self.assertTrue(ok, detail)
         self.assertIn('signed with the key of PREBUILT_IMAGES/pvmfw_embedded.avbpubkey', detail)
+        replacement = fs_initrd.replace(b'ELFfixture', b'ELFrebuild', 1)
+        ok, detail = check(files(**{'etc/fs/fsvm_kernel': guest(replacement), 'etc/fsvm_initrd.img': replacement}))
+        self.assertFalse(ok)
+        self.assertIn('independent build role digest', detail)
         # An initramfs changed after its kernel was signed.
         changed = fs_initrd + bytes(4)
         ok, detail = check(files(**{'etc/fsvm_initrd.img': changed}))
@@ -441,11 +586,11 @@ class RuleTests(unittest.TestCase):
         appended = decoder_initrd + newc('bin/sh')
         ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(appended), 'etc/decoder_vm_initrd.img': appended}))
         self.assertFalse(ok)
-        self.assertIn('extra bin/sh', detail)
+        self.assertIn('data after the cpio trailer', detail)
         hidden = decoder_initrd + b'\x1f\x8bcompressed'
         ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(hidden), 'etc/decoder_vm_initrd.img': hidden}))
         self.assertFalse(ok)
-        self.assertIn('not a newc cpio archive', detail)
+        self.assertIn('data after the cpio trailer', detail)
         # Test code in an initramfs.
         test = newc('dev', 'dev/console', 'proc', 'init', 'decoder_vm_init_test')
         ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(test), 'etc/decoder_vm_initrd.img': test}))
@@ -479,6 +624,11 @@ class RuleTests(unittest.TestCase):
         decoder_initrd = newc('dev', 'dev/console', 'proc', 'init')
         fs_initrd = newc('bin', 'dev', 'mnt', 'proc', 'sys', 'init', 'bin/fsck.exfat', 'bin/fsck_msdos',
                          'bin/mkfs.exfat', 'bin/newfs_msdos')
+        patch = mock.patch.object(subject.guest_contract, 'ROLE_DIGESTS', {
+            role: (len(data), hashlib.sha256(data).hexdigest()) for role, data in
+            [('decoder_vm', decoder_initrd), ('fsvm', fs_initrd)]})
+        patch.start()
+        self.addCleanup(patch.stop)
         pinned, rebuilt = b'pinned guest kernel', b'rebuilt guest kernel'
         rule = dict(rule, kernel_body={'bytes': len(pinned), 'sha256': hashlib.sha256(pinned).hexdigest()})
 
@@ -534,7 +684,7 @@ class RuleTests(unittest.TestCase):
                 b'(allow fsvmd fsvmd_virtualizationmanager (vsock_socket (read write setopt)))\n')
         cil = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
         user, debug = rules['vm-pool-clients-user'], rules['vm-pool-clients-userdebug']
-        others = {name: b'' for name in user['files'] if '*' not in name and name != cil}
+        others = {name.replace('*', '202604'): b'' for name in user['files'] if name != cil}
 
         def policy(text):
             return self.harness(dict(others, **{cil: text}))
