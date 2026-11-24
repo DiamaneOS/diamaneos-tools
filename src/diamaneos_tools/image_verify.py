@@ -250,6 +250,8 @@ def parse_dtb(data: bytes) -> dict:
             name = data[offset:end].decode()
             offset = (end + 1 + 3) & ~3
             stack.append(name)
+            if path_of(stack) in nodes:
+                raise ValueError(f'duplicate device tree node {path_of(stack)}')
             nodes[path_of(stack)] = {'props': {}, 'children': set()}
             if len(stack) > 1:
                 nodes[path_of(stack[:-1])]['children'].update({name, name.split('@')[0]})
@@ -261,6 +263,8 @@ def parse_dtb(data: bytes) -> dict:
             length, name_offset = struct.unpack_from('>II', data, offset)
             offset += 8
             name = strings[name_offset:strings.index(b'\0', name_offset)].decode()
+            if name in nodes[path_of(stack)]['props']:
+                raise ValueError(f'duplicate device tree property {path_of(stack)}:{name}')
             nodes[path_of(stack)]['props'][name] = data[offset:offset + length]
             offset = (offset + length + 3) & ~3
         elif token == 4:  # FDT_NOP

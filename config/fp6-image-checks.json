@@ -1172,22 +1172,8 @@
       ]
     },
     {
-      "id": "protected-vms-off-user",
-      "why": "User builds offer no virtual machines: without the hypervisor switches in the bootconfig, Android's virtualization service reports VMs as unsupported.",
-      "type": "text",
-      "files": [
-        "VENDOR_BOOT/vendor_bootconfig"
-      ],
-      "absent": [
-        "androidboot.hypervisor."
-      ],
-      "variants": [
-        "user"
-      ]
-    },
-    {
-      "id": "protected-vms-userdebug",
-      "why": "Debuggable builds offer protected VMs on Gunyah, and only protected ones: the hypervisor refuses ordinary VMs.",
+      "id": "protected-vms",
+      "why": "Every build offers protected VMs on Gunyah, and only protected ones: the hypervisor refuses ordinary VMs.",
       "type": "text",
       "files": [
         "VENDOR_BOOT/vendor_bootconfig"
@@ -1195,9 +1181,37 @@
       "lines": [
         "androidboot.hypervisor.protected_vm.supported=1",
         "androidboot.hypervisor.vm.supported=0"
+      ]
+    },
+    {
+      "id": "protected-vms-framework",
+      "why": "Every build ships Android's virtualization framework and declares it. Release signing gives its payload and pvmfw's built-in key the release AVB key, and the signer refuses a pvmfw without it.",
+      "type": "files_present",
+      "paths": [
+        "SYSTEM/apex/com.android.virt.apex",
+        "VENDOR/etc/permissions/features_com.android.virt.xml"
+      ]
+    },
+    {
+      "id": "protected-vm-memory-pool",
+      "why": "The kernel sets memory aside at boot for protected VMs (reserve_mem, from the kernel packaging recipe), so the decode service's VM and one SD card VM start even when memory is scattered.",
+      "type": "text",
+      "files": [
+        "VENDOR_BOOT/vendor_cmdline"
       ],
-      "variants": [
-        "userdebug"
+      "regex": [
+        "(^|\\s)reserve_mem=[0-9]+[MG]:2M:gunyah_vm_pool(\\s|$)"
+      ]
+    },
+    {
+      "id": "loop-devices-no-partitions",
+      "why": "Loop devices get no partitions (loop.max_part=0), so the kernel never reads a partition table inside an image file that an app hands to a loop device.",
+      "type": "text",
+      "files": [
+        "VENDOR_BOOT/vendor_cmdline"
+      ],
+      "regex": [
+        "(^|\\s)loop\\.max_part=0(\\s|$)"
       ]
     },
     {
