@@ -28,8 +28,8 @@
     {
       "name": "clang-tools",
       "path": "toolchain/clang-tools",
-      "url": "https://android.googlesource.com/platform/prebuilts/clang-tools",
-      "revision": "4155cb466dcd9b53c6f873829c53aa6f905449dd",
+      "url": "https://github.com/DiamaneOS/kernel_prebuilts_clang-tools",
+      "revision": "e051ae740fca281bb63e72b5e0adf55d8d0c921a",
       "sparse": ["/*", "!/*/", "/linux-x86/"]
     },
     {
