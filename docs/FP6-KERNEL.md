@@ -261,7 +261,6 @@ or EUD, and Qualcomm's download mode off by default, which alone decides whether
 
 | Setting | Why |
 | --- | --- |
-| `CONFIG_RANDSTRUCT_NONE` | 6.18 builds Rust only without structure randomisation, and the Rust binder replaces the most attacked IPC driver with memory-safe code. |
 | Lockdown at integrity level | Android reads DMA-BUF statistics with a BPF program, which confidentiality level breaks. |
 | CoreSight `not-built-in` | The GKI configuration builds it as modules, so the deny list keeps the modules out. |
 | `CONFIG_DEBUG_FS_DISALLOW_MOUNT` | debugfs cannot be mounted. Kernel drivers keep the debugfs API, through a fix in `kernel_common-6.18`. |

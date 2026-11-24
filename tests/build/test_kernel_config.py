@@ -141,8 +141,8 @@ class KernelConfigTests(unittest.TestCase):
         no_lockdown = 'CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE'
         rows = [
             disabled('CONFIG_CFI'),
-            # Rust and the Rust binder replace RANDSTRUCT and the C binder.
-            disabled('CONFIG_RUST'), disabled('CONFIG_ANDROID_BINDER_IPC_RUST'), disabled('CONFIG_RANDSTRUCT_NONE'),
+            # Rust and the Rust binder replace the C binder. Structure layouts stay randomised.
+            disabled('CONFIG_RUST'), disabled('CONFIG_ANDROID_BINDER_IPC_RUST'), disabled('CONFIG_RANDSTRUCT_FULL'),
             enabled('CONFIG_ANDROID_BINDER_IPC'),
             # The 48-bit address space.
             (flipped((b'CONFIG_ARM64_VA_BITS_48=y', b'CONFIG_ARM64_VA_BITS_39=y'),
