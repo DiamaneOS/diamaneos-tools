@@ -454,6 +454,10 @@ Then come the device rules of `config/fp6-image-checks.json`, each with its reas
 matters, the variants and the kind of build it applies to. For example, `no-diagnostic-sanitizer`
 refuses the full UBSan runtime in any native binary of a `user` build.
 
+Some rules read the built code. `decode-gate-framework-hooks` and `vold-cards-in-vm-hooks` name each
+upstream method of `framework.jar` and each function of `vold` that no longer calls its hook, for
+example after a rebase.
+
 `build.json`'s `signing` value selects the profile. A set signed with the public test keys gets the
 checks above. A set signed with your own keys gets signed versions of `record`, `test-keys`,
 `avb-chain` and `validators`, through [`images check`](SIGNING.md#check-a-signed-image-set).
