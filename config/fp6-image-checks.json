@@ -1215,6 +1215,134 @@
       ]
     },
     {
+      "id": "protected-vm-guest-images",
+      "why": "The virtualization APEX carries the kernel and initramfs of the decode service VM and of the filesystem VM. Each kernel's signature verifies with the key pvmfw boots guests with, and its vbmeta holds exactly the boot, initrd_normal and initrd_debug descriptors, which match the kernel and its initramfs, as pvmfw requires before it boots a guest. Each initramfs holds exactly its VM's files, so a valid pair in the other VM's paths fails, and no initramfs holds test code. Both kernels are the guest kernel build the Virtualization tree pins (guest/diamaneos/kernel/README.md): a rebuild of the guest kernel updates kernel_body here. A rebase or build change that drops a guest image, ships one unsigned, swaps the guests or changes an initramfs after signing fails here. Release signing signs them again with the release key (sign_virt_apex).",
+      "type": "apex_guest_images",
+      "apex": [
+        "SYSTEM/apex/com.android.virt.apex",
+        "SYSTEM/apex/com.android.virt.capex"
+      ],
+      "kernels": {
+        "etc/fs/decoder_vm_kernel": "etc/decoder_vm_initrd.img",
+        "etc/fs/fsvm_kernel": "etc/fsvm_initrd.img"
+      },
+      "key": "PREBUILT_IMAGES/pvmfw_embedded.avbpubkey",
+      "kernel_body": {
+        "bytes": 8312840,
+        "sha256": "3c46473ad1be58bcff30d3b50f52de6796669a7859db00ad45746cd5c92bbef4"
+      },
+      "members": {
+        "etc/decoder_vm_initrd.img": ["dev", "dev/console", "proc", "init"],
+        "etc/fsvm_initrd.img": ["bin", "dev", "mnt", "proc", "sys", "init", "bin/fsck.exfat", "bin/fsck_msdos", "bin/mkfs.exfat", "bin/newfs_msdos"]
+      },
+      "forbidden": {
+        "etc/decoder_vm_initrd.img": [
+          "decoder_vm_init_test"
+        ],
+        "etc/fsvm_initrd.img": [
+          "fsvm.selftest"
+        ]
+      }
+    },
+    {
+      "id": "protected-vm-services",
+      "why": "Every build ships the decode service (images from apps decoded in a protected VM) with its privileged permission allowlist, and fsvmd with its init file (SD cards and USB drives served from a protected VM). A lost product switch shows here.",
+      "type": "files_present",
+      "paths": [
+        "SYSTEM_EXT/priv-app/DiamaneOSSanitizer/DiamaneOSSanitizer.apk",
+        "SYSTEM_EXT/etc/permissions/DiamaneOSSanitizer.xml",
+        "SYSTEM_EXT/bin/fsvmd",
+        "SYSTEM_EXT/etc/init/fsvmd.rc"
+      ]
+    },
+    {
+      "id": "protected-vm-test-apps-absent",
+      "why": "The decode service's test app, which calls the service from outside its allowlist, is built for tests only and never installed.",
+      "type": "files_absent",
+      "paths": [
+        "SYSTEM_EXT/app/DiamaneOSSanitizerTest/DiamaneOSSanitizerTest.apk",
+        "SYSTEM_EXT/priv-app/DiamaneOSSanitizerTest/DiamaneOSSanitizerTest.apk"
+      ]
+    },
+    {
+      "id": "decode-service-domain",
+      "why": "The decode service runs in its own SELinux domain (decode_service_app), not as a platform app.",
+      "type": "text",
+      "files": [
+        "SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts"
+      ],
+      "regex": [
+        "^user=_app seinfo=platform isPrivApp=true name=de\\.diamaneos\\.sanitizer domain=decode_service_app type=app_data_file levelFrom=user$"
+      ]
+    },
+    {
+      "id": "vm-pool-clients-user",
+      "why": "Only the VM managers of the decode service and of fsvmd, for cards and OBB images, may open the memory pool for protected VMs. An OBB VM takes pool memory only when the pool has room, and vold stops it when a drive needs that room.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "gunyah_vm_pool_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "decode_service_app_virtualizationmanager",
+        "fsvmd_virtualizationmanager",
+        "fsvmd_obb_virtualizationmanager"
+      ],
+      "variants": [
+        "user"
+      ]
+    },
+    {
+      "id": "vm-pool-clients-userdebug",
+      "why": "Only the VM managers of the decode service and of fsvmd, for cards and OBB images, plus shell's for the release suite on debuggable builds, may open the memory pool for protected VMs.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "gunyah_vm_pool_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "decode_service_app_virtualizationmanager",
+        "fsvmd_virtualizationmanager",
+        "fsvmd_obb_virtualizationmanager",
+        "shell_virtualizationmanager"
+      ],
+      "variants": [
+        "userdebug"
+      ]
+    },
+    {
+      "id": "fsvmd-vsock-timeouts",
+      "why": "fsvmd may set the timeouts of the vsock connection to its VM. Without it the SD card VM cannot be reached (found on the user build tests of 2026-11-18).",
+      "type": "sepolicy_allows",
+      "files": [
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil"
+      ],
+      "source": "fsvmd",
+      "target": "fsvmd_virtualizationmanager",
+      "cls": "vsock_socket",
+      "perm": "setopt"
+    },
+    {
       "id": "usb-port-control-recovery-default",
       "why": "Recovery and fastbootd load their own modules without the boot default, so USB stays on there.",
       "type": "text",
