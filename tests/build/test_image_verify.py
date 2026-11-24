@@ -1,8 +1,10 @@
 import copy
+import functools
 import hashlib
 import io
 import json
 import math
+import random
 from pathlib import Path
 import stat
 import struct
@@ -89,6 +91,63 @@ def scan_rule():
 
 def cells(*values):
     return struct.pack('>' + 'I' * len(values), *values)
+
+
+@functools.lru_cache(maxsize=None)
+def rsa_test_key(seed=7, bits=2048):
+    """(n, d, AVB public key blob) of a made-up RSA key, for vbmeta signatures the checks verify."""
+    rng = random.Random(seed)
+
+    def prime():
+        while True:
+            c = rng.getrandbits(bits // 2) | (3 << (bits // 2 - 2)) | 1
+            if c % 65537 != 1 and all(pow(a, c - 1, c) == 1 for a in (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37)):
+                return c
+    p, q = prime(), prime()
+    n = p * q
+    d = pow(65537, -1, (p - 1) * (q - 1))
+    size = bits // 8
+    n0inv = (-pow(n, -1, 1 << 32)) % (1 << 32)
+    blob = struct.pack('>II', bits, n0inv) + n.to_bytes(size, 'big') + pow(2, 2 * bits, n).to_bytes(size, 'big')
+    return n, d, blob
+
+
+def signed_avb_image(content, descriptors, key=None, extra=b'', sign_with=None):
+    """An image with an AVB footer whose vbmeta (SHA256_RSA2048) holds one hash descriptor per (name, bytes, salt)
+    plus the raw descriptors in extra, signed with key (rsa_test_key) or, for a wrong signature, sign_with."""
+    n, d, blob = key or rsa_test_key()
+    body_all = b''
+    for name, image, salt in descriptors:
+        digest = hashlib.sha256(salt + image).digest()
+        body = (struct.pack('>Q', len(image)) + b'sha256'.ljust(32, b'\0')
+                + struct.pack('>IIII', len(name), len(salt), len(digest), 0) + bytes(60) + name.encode() + salt + digest)
+        body += bytes(-len(body) % 8)
+        body_all += struct.pack('>QQ', 2, len(body)) + body
+    body_all += extra
+    aux = blob + body_all
+    aux += bytes(-len(aux) % 64)
+    header = (b'AVB0' + struct.pack('>II', 1, 0) + struct.pack('>QQ', 320, len(aux)) + struct.pack('>I', 1)
+              + struct.pack('>QQQQ', 0, 32, 32, 256) + struct.pack('>QQ', 0, len(blob)) + struct.pack('>QQ', len(blob), 0)
+              + struct.pack('>QQ', len(blob), len(body_all)))
+    header = header.ljust(256, b'\0')
+    digest = hashlib.sha256(header + aux).digest()
+    tail = bytes.fromhex('3031300d060960864801650304020105000420') + digest
+    message = int.from_bytes(b'\0\1' + b'\xff' * (256 - len(tail) - 3) + b'\0' + tail, 'big')
+    sn, sd, _ = sign_with or (n, d, blob)
+    signature = pow(message, sd, sn).to_bytes(256, 'big')
+    vbmeta = header + (digest + signature).ljust(320, b'\0') + aux
+    footer = b'AVBf' + struct.pack('>II', 1, 0) + struct.pack('>QQQ', len(content), len(content), len(vbmeta)) + bytes(28)
+    return content + vbmeta + footer
+
+
+def newc(*names, trailer=True):
+    """A newc cpio archive of empty members."""
+    out = b''
+    for name in names + (('TRAILER!!!',) if trailer else ()):
+        raw = name.encode() + b'\0'
+        out += b'070701' + b'0' * 48 + b'%08x' % 0 + b'0' * 32 + b'%08x' % len(raw) + b'0' * 8 + raw
+        out += bytes(-len(out) % 4)
+    return out
 
 
 class FakeTools:
@@ -270,6 +329,225 @@ class RuleTests(unittest.TestCase):
         ok, detail = check(rule, self.harness(dict(members, **{'SYSTEM/apex/com.android.virt.apex': apex(bytes(4096))})))
         self.assertFalse(ok)
         self.assertIn('not an ext4 image or an erofs image', detail)
+
+    def test_guest_images_signed_over_their_initramfs(self):
+        # The decode service VM and the filesystem VM: each kernel's vbmeta, signed with pvmfw's key, binds the kernel
+        # itself (boot) and its initramfs (initrd_normal, initrd_debug). pvmfw boots nothing else, so a mismatch here
+        # is a VM that never starts. Each initramfs holds exactly its VM's files.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['protected-vm-guest-images']
+        self.assertIs(subject.RULES[rule['type']], subject.rule_apex_guest_images)
+        kernel_bytes = b'guest kernel'
+        rule = dict(rule, kernel_body={'bytes': len(kernel_bytes), 'sha256': hashlib.sha256(kernel_bytes).hexdigest()})
+        erofs = bytes(1024) + bytes.fromhex('e2e1f5e0') + bytes(3068)
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, 'w') as archive:
+            archive.writestr('apex_payload.img', erofs)
+        key = rsa_test_key()
+        members = {'SYSTEM/apex/com.android.virt.apex': data.getvalue(),
+                   'PREBUILT_IMAGES/pvmfw_embedded.avbpubkey': key[2]}
+
+        def payload(files):
+            def run(args):
+                out = Path(str(args[0]).split('=', 1)[1])
+                for name, content in files.items():
+                    (out / name).parent.mkdir(parents=True, exist_ok=True)
+                    (out / name).write_bytes(content)
+                return ''
+            return run
+
+        decoder_initrd = newc('dev', 'dev/console', 'proc', 'init')
+        fs_initrd = newc('bin', 'dev', 'mnt', 'proc', 'sys', 'init', 'bin/fsck.exfat', 'bin/fsck_msdos',
+                         'bin/mkfs.exfat', 'bin/newfs_msdos')
+
+        def guest(initrd, kernel=kernel_bytes, debug=None, **kw):
+            return signed_avb_image(kernel, [('boot', kernel, b'salt1'), ('initrd_normal', initrd, b'salt2'),
+                                             ('initrd_debug', initrd if debug is None else debug, b'salt3')], **kw)
+
+        def files(**over):
+            out = {'etc/fs/decoder_vm_kernel': guest(decoder_initrd), 'etc/decoder_vm_initrd.img': decoder_initrd,
+                   'etc/fs/fsvm_kernel': guest(fs_initrd), 'etc/fsvm_initrd.img': fs_initrd}
+            out.update(over)
+            return out
+
+        def check(content, extra_members=None):
+            return subject.rule_apex_guest_images(rule, self.harness(
+                dict(members, **(extra_members or {})), tools=FakeTools({('fsck.erofs',): payload(content)})))
+        ok, detail = check(files())
+        self.assertTrue(ok, detail)
+        self.assertIn('signed with the key of PREBUILT_IMAGES/pvmfw_embedded.avbpubkey', detail)
+        # An initramfs changed after its kernel was signed.
+        changed = fs_initrd + bytes(4)
+        ok, detail = check(files(**{'etc/fsvm_initrd.img': changed}))
+        self.assertFalse(ok)
+        self.assertIn('the initrd_normal descriptor of etc/fs/fsvm_kernel does not match etc/fsvm_initrd.img', detail)
+        # Only the debug descriptor differs.
+        ok, detail = check(files(**{'etc/fs/fsvm_kernel': guest(fs_initrd, debug=changed)}))
+        self.assertFalse(ok)
+        self.assertIn('the initrd_debug descriptor of etc/fs/fsvm_kernel does not match etc/fsvm_initrd.img', detail)
+        # A kernel changed after signing.
+        kernel = guest(decoder_initrd)
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': b'X' + kernel[1:]}))
+        self.assertFalse(ok)
+        self.assertIn('the boot descriptor of etc/fs/decoder_vm_kernel does not match', detail)
+        # A second descriptor of the same name, and a descriptor of another name or kind.
+        twice = signed_avb_image(kernel_bytes, [('boot', kernel_bytes, b'salt1'), ('initrd_normal', b'other', b's4'),
+                                                ('initrd_normal', decoder_initrd, b's2'),
+                                                ('initrd_debug', decoder_initrd, b's3')])
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': twice}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/decoder_vm_kernel has more than one initrd_normal descriptor', detail)
+        named = signed_avb_image(kernel_bytes, [('boot', kernel_bytes, b'salt1'), ('initrd_normal', decoder_initrd, b's2'),
+                                                ('initrd_debug', decoder_initrd, b's3'), ('vendor_boot', b'v', b's4')])
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': named}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/decoder_vm_kernel has other descriptors: vendor_boot', detail)
+        prop = struct.pack('>QQQQ', 0, 24, 3, 1) + b'abc\0x\0' + bytes(2)
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(decoder_initrd, extra=prop)}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/decoder_vm_kernel has other descriptors: tag 0', detail)
+        # A signature that does not verify, a valid signature with another key, an unsigned vbmeta.
+        other = rsa_test_key(seed=8)
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(decoder_initrd, sign_with=other)}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/decoder_vm_kernel: its signature does not verify', detail)
+        ok, detail = check(files(**{'etc/fs/fsvm_kernel': guest(fs_initrd, key=other)}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/fsvm_kernel is not signed with the key of PREBUILT_IMAGES/pvmfw_embedded.avbpubkey', detail)
+        unsigned = bytearray(guest(decoder_initrd))
+        footer = struct.unpack('>QQQ', bytes(unsigned[-52:-28]))
+        struct.pack_into('>I', unsigned, footer[1] + 28, 0)
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': bytes(unsigned)}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/decoder_vm_kernel is not signed', detail)
+        ok, detail = check(files(**{'etc/fs/fsvm_kernel': b'plain kernel'}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/fsvm_kernel: no AVB footer', detail)
+        bare = signed_avb_image(b'k', [('boot', b'k', b's')])
+        ok, detail = check(files(**{'etc/fs/fsvm_kernel': bare}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/fsvm_kernel has no initrd_normal descriptor', detail)
+        # Both valid pairs, each in the other VM's paths.
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(fs_initrd), 'etc/decoder_vm_initrd.img': fs_initrd,
+                                    'etc/fs/fsvm_kernel': guest(decoder_initrd), 'etc/fsvm_initrd.img': decoder_initrd}))
+        self.assertFalse(ok)
+        self.assertIn("etc/decoder_vm_initrd.img does not hold its VM's files", detail)
+        self.assertIn("etc/fsvm_initrd.img does not hold its VM's files", detail)
+        # One more file, or a second archive the kernel would unpack too.
+        more = newc('dev', 'dev/console', 'proc', 'init', 'bin/sh')
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(more), 'etc/decoder_vm_initrd.img': more}))
+        self.assertFalse(ok)
+        self.assertIn('extra bin/sh', detail)
+        appended = decoder_initrd + newc('bin/sh')
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(appended), 'etc/decoder_vm_initrd.img': appended}))
+        self.assertFalse(ok)
+        self.assertIn('extra bin/sh', detail)
+        hidden = decoder_initrd + b'\x1f\x8bcompressed'
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(hidden), 'etc/decoder_vm_initrd.img': hidden}))
+        self.assertFalse(ok)
+        self.assertIn('not a newc cpio archive', detail)
+        # Test code in an initramfs.
+        test = newc('dev', 'dev/console', 'proc', 'init', 'decoder_vm_init_test')
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(test), 'etc/decoder_vm_initrd.img': test}))
+        self.assertFalse(ok)
+        self.assertIn('etc/decoder_vm_initrd.img holds decoder_vm_init_test', detail)
+        # A guest image missing from the APEX.
+        missing = files()
+        del missing['etc/decoder_vm_initrd.img']
+        self.assertRaisesRegex(ValueError, 'no etc/decoder_vm_initrd.img in the erofs payload', check, missing)
+        # A truncated vbmeta is a finding, not a crash.
+        good = guest(decoder_initrd)
+        cut = good[:-64][:len(kernel_bytes) + 100] + good[-64:]
+        ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': cut}))
+        self.assertFalse(ok)
+        self.assertIn('etc/fs/decoder_vm_kernel:', detail)
+
+    def test_guest_kernels_are_the_pinned_guest_build(self):
+        # Both packaged guest kernels are the guest kernel the Virtualization tree pins (guest/diamaneos/kernel), byte
+        # for byte before the AVB footer: a release number check alone misses a same-release rebuild.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['protected-vm-guest-images']
+        self.assertEqual(rule.get('kernel_body'), {
+            'bytes': 8312840, 'sha256': '3c46473ad1be58bcff30d3b50f52de6796669a7859db00ad45746cd5c92bbef4'})
+        erofs = bytes(1024) + bytes.fromhex('e2e1f5e0') + bytes(3068)
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, 'w') as archive:
+            archive.writestr('apex_payload.img', erofs)
+        key = rsa_test_key()
+        members = {'SYSTEM/apex/com.android.virt.apex': data.getvalue(),
+                   'PREBUILT_IMAGES/pvmfw_embedded.avbpubkey': key[2]}
+        decoder_initrd = newc('dev', 'dev/console', 'proc', 'init')
+        fs_initrd = newc('bin', 'dev', 'mnt', 'proc', 'sys', 'init', 'bin/fsck.exfat', 'bin/fsck_msdos',
+                         'bin/mkfs.exfat', 'bin/newfs_msdos')
+        pinned, rebuilt = b'pinned guest kernel', b'rebuilt guest kernel'
+        rule = dict(rule, kernel_body={'bytes': len(pinned), 'sha256': hashlib.sha256(pinned).hexdigest()})
+
+        def guest(kernel, initrd):
+            return signed_avb_image(kernel, [('boot', kernel, b'salt1'), ('initrd_normal', initrd, b'salt2'),
+                                             ('initrd_debug', initrd, b'salt3')])
+
+        def check(decoder_kernel, fs_kernel):
+            content = {'etc/fs/decoder_vm_kernel': guest(decoder_kernel, decoder_initrd),
+                       'etc/decoder_vm_initrd.img': decoder_initrd,
+                       'etc/fs/fsvm_kernel': guest(fs_kernel, fs_initrd), 'etc/fsvm_initrd.img': fs_initrd}
+
+            def run(args):
+                out = Path(str(args[0]).split('=', 1)[1])
+                for name, value in content.items():
+                    (out / name).parent.mkdir(parents=True, exist_ok=True)
+                    (out / name).write_bytes(value)
+                return ''
+            return subject.rule_apex_guest_images(rule, self.harness(members, tools=FakeTools({('fsck.erofs',): run})))
+        ok, detail = check(pinned, pinned)
+        self.assertTrue(ok, detail)
+        for decoder_kernel, fs_kernel, wrong in ((rebuilt, pinned, 'etc/fs/decoder_vm_kernel'),
+                                                 (pinned, rebuilt, 'etc/fs/fsvm_kernel')):
+            ok, detail = check(decoder_kernel, fs_kernel)
+            self.assertFalse(ok)
+            self.assertIn(f'{wrong} is not the pinned guest kernel', detail)
+
+    def test_protected_vm_service_and_policy_rules(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        present = {path: b'x' for path in rules['protected-vm-services']['paths']}
+        self.assertTrue(subject.rule_files_present(rules['protected-vm-services'], self.harness(present))[0])
+        ok, detail = subject.rule_files_present(rules['protected-vm-services'], self.harness(
+            {k: v for k, v in present.items() if 'fsvmd' not in k}))
+        self.assertFalse(ok)
+        self.assertIn('SYSTEM_EXT/bin/fsvmd', detail)
+        self.assertFalse(subject.rule_files_absent(rules['protected-vm-test-apps-absent'], self.harness(
+            {'SYSTEM_EXT/app/DiamaneOSSanitizerTest/DiamaneOSSanitizerTest.apk': b'x'}))[0])
+        seapp = (b'user=_app seinfo=platform isPrivApp=true name=de.diamaneos.sanitizer domain=decode_service_app '
+                 b'type=app_data_file levelFrom=user\n')
+        self.assertTrue(subject.rule_text(rules['decode-service-domain'], self.harness(
+            {'SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts': seapp}))[0])
+        self.assertFalse(subject.rule_text(rules['decode-service-domain'], self.harness(
+            {'SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts': seapp.replace(b'decode_service_app', b'platform_app')}))[0])
+        # The pool's users: exactly the decode service's and fsvmd's VM managers (cards and OBB images), shell's too
+        # on userdebug.
+        base = (b'(type gunyah_vm_pool_device)\n(type decode_service_app_virtualizationmanager)\n'
+                b'(type fsvmd_virtualizationmanager)\n(type fsvmd_obb_virtualizationmanager)\n'
+                b'(type shell_virtualizationmanager)\n(type fsvmd)\n'
+                b'(typeattribute gunyah_vm_pool_client)\n'
+                b'(typeattributeset gunyah_vm_pool_client (decode_service_app_virtualizationmanager '
+                b'fsvmd_obb_virtualizationmanager fsvmd_virtualizationmanager))\n'
+                b'(allow gunyah_vm_pool_client gunyah_vm_pool_device (chr_file (open read ioctl)))\n'
+                b'(allow fsvmd fsvmd_virtualizationmanager (vsock_socket (read write setopt)))\n')
+        cil = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+        user, debug = rules['vm-pool-clients-user'], rules['vm-pool-clients-userdebug']
+        others = {name: b'' for name in user['files'] if '*' not in name and name != cil}
+
+        def policy(text):
+            return self.harness(dict(others, **{cil: text}))
+        self.assertEqual((user['variants'], debug['variants']), (['user'], ['userdebug']))
+        self.assertTrue(subject.rule_sepolicy_sources(user, policy(base))[0])
+        with_shell = base.replace(b'fsvmd_virtualizationmanager))', b'fsvmd_virtualizationmanager shell_virtualizationmanager))')
+        self.assertTrue(subject.rule_sepolicy_sources(debug, policy(with_shell))[0])
+        ok, detail = subject.rule_sepolicy_sources(user, policy(with_shell))
+        self.assertFalse(ok)
+        self.assertIn('shell_virtualizationmanager', detail)
+        self.assertTrue(subject.rule_sepolicy_allows(rules['fsvmd-vsock-timeouts'], self.harness({cil: base}))[0])
+        self.assertFalse(subject.rule_sepolicy_allows(rules['fsvmd-vsock-timeouts'], self.harness(
+            {cil: base.replace(b' setopt)', b')')}))[0])
 
     def test_file_presence_absence_and_symlinks(self):
         v = self.harness({'VENDOR/bin/a': b'x', 'SYSTEM_EXT/priv-app/Old/Old.apk': b'x'},
