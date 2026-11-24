@@ -190,8 +190,15 @@ class KernelConfigTests(unittest.TestCase):
         policy = json.loads((ROOT / 'config/kernel-vendor-policy-fp6.json').read_text())
         good = (b'CONFIG_QRTR=m\n# CONFIG_QRTR_TUN is not set\n'
                 b'# CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT is not set\n'
-                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n# CONFIG_STM is not set\n')
+                b'CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_DMESG_RESTRICT=y\n# CONFIG_STM is not set\n'
+                b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\nCONFIG_BLK_DEV_SD=y\nCONFIG_MMC_BLOCK=y\n')
         self.assertEqual(kernel_config.check(good, policy, 'production')['status'], 'PASS')
+        # The card protection needs its drivers built in: a module build drops it, and the final config must say so.
+        for symbol in ('CONFIG_BLK_DEV_SD', 'CONFIG_MMC_BLOCK'):
+            module = good.replace(symbol.encode() + b'=y', symbol.encode() + b'=m')
+            self.assertEqual(kernel_config.check(module, policy, 'production')['status'], 'FAIL', symbol)
+        dropped = good.replace(b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\n', b'')
+        self.assertEqual(kernel_config.check(dropped, policy, 'production')['status'], 'FAIL')
         qrtr, tunnel = 'CONFIG_QRTR', 'CONFIG_QRTR_TUN'
         dumps = 'CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT'
         unset = lambda symbol: f'# {symbol} is not set'.encode()
