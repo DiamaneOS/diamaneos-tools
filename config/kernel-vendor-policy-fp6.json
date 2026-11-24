@@ -2,6 +2,9 @@
   "schema_version": 1,
   "id": "fp6-6-18-vendor-kernel-policy-v1",
   "baseline": {
+    "CONFIG_BLK_NO_EXTERNAL_PART_SCAN": "y",
+    "CONFIG_BLK_DEV_SD": "y",
+    "CONFIG_MMC_BLOCK": "y",
     "CONFIG_QRTR": "m",
     "CONFIG_QRTR_TUN": "n",
     "CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT": "n",

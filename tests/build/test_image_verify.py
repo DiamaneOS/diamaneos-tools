@@ -69,6 +69,24 @@ def dex(*strings):
     return bytes(header) + ids + data
 
 
+def boot_parameter_files(**over):
+    """Every input of the kernel command line in target files, as the FP6 build has them, without the card scan."""
+    files = {'VENDOR_BOOT/vendor_cmdline': b'scsi_mod.scan=sync reserve_mem=512M:2M:gunyah_vm_pool loop.max_part=0 bootconfig',
+             'BOOT/cmdline': b'',
+             'VENDOR_BOOT/vendor_bootconfig': b'androidboot.hardware=qcom\nandroidboot.hypervisor.vm.supported=0\n',
+             'VENDOR_BOOT/dtb': dtb({'/': {}, '/chosen': {'bootargs': b'loop.max_part=7 swiotlb=noforce\0'}}),
+             'IMAGES/dtbo.img': dtb({'/': {}, '/fragment@0': {}}),
+             'META/kernel_configs.txt': b'CONFIG_BOOT_CONFIG=y\nCONFIG_CMDLINE="console=ttynull bootconfig"\n'}
+    files.update(over)
+    return files
+
+
+def scan_rule():
+    """The card scan rule of the image checks, without its guest kernel and initramfs parts."""
+    rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+    return {k: v for k, v in rules['fs-in-vm-kernel-scan'].items() if k not in ('initrd', 'guest_kernel')}
+
+
 def cells(*values):
     return struct.pack('>' + 'I' * len(values), *values)
 
@@ -131,6 +149,127 @@ class RuleTests(unittest.TestCase):
         ok, detail = subject.rule_files_not_stock({'files': {'VENDOR/lib64/libmissing.so': stock}}, v)
         self.assertFalse(ok)
         self.assertIn('missing', detail)
+
+    def test_the_shipped_initramfs_has_no_self_test(self):
+        import gzip as gz
+        self.assertTrue(subject.initrd_holds(b'070701...fsvm.selftest=...', b'fsvm.selftest'))
+        self.assertTrue(subject.initrd_holds(gz.compress(b'x fsvm.selftest y'), b'fsvm.selftest'))
+        self.assertFalse(subject.initrd_holds(gz.compress(b'070701 init fsck_msdos'), b'fsvm.selftest'))
+        self.assertFalse(subject.initrd_holds(b'070701 init', b'fsvm.selftest'))
+
+    def test_filesystem_vm_and_the_kernel_scan_move_together(self):
+        rule = scan_rule()
+        check = subject.rule_fs_in_vm_coupling
+        self.assertTrue(check(rule, self.harness(boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x'})))[0])
+        self.assertTrue(check(rule, self.harness(boot_parameter_files(**{
+            'VENDOR_BOOT/vendor_cmdline': b'loop.max_part=0 external_part_scan=1'})))[0])
+        ok, detail = check(rule, self.harness(boot_parameter_files(**{
+            'SYSTEM_EXT/bin/fsvmd': b'x', 'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))
+        self.assertFalse(ok)
+        self.assertIn('the kernel command line assigns external_part_scan', detail)
+        ok, detail = check(rule, self.harness(boot_parameter_files(**{'SYSTEM/build.prop': b''})))
+        self.assertFalse(ok)
+        self.assertIn('would not work', detail)
+
+    def test_the_filesystem_vm_kernel_follows_the_phone_kernel(self):
+        import gzip as gz
+        self.assertEqual('6.18.39-g6e6288100615',
+                         subject.kernel_banner(b'\0Linux version 6.18.39-g6e6288100615 (b@c) #1 SMP PREEMPT\0'))
+        self.assertEqual('6.18.39-x', subject.kernel_banner(gz.compress(b'Linux version 6.18.39-x (b@c)')))
+        self.assertEqual('6.18.39', subject.kernel_version('6.18.39-android17-0-g1'))
+        with self.assertRaises(ValueError):
+            subject.kernel_banner(b'no banner')
+        with self.assertRaises(ValueError):
+            subject.kernel_banner(b'Linux version 6.18.38 (a) Linux version 6.18.39 (b)')
+        rule = dict(scan_rule(), guest_kernel={'apex': ['SYSTEM/apex/com.android.virt.apex'], 'file': 'etc/fs/fsvm_kernel',
+                                               'host': 'BOOT/kernel'})
+        files = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x', 'BOOT/kernel': b'Linux version 6.18.39-g42022e1 (b@c)'})
+        check = subject.rule_fs_in_vm_coupling
+
+        def guest(banner):
+            return mock.patch.object(subject, 'apex_file', return_value=('com.android.virt.apex', banner))
+        with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
+            ok, detail = check(rule, self.harness(files))
+        self.assertTrue(ok, detail)
+        self.assertIn('6.18.39-g6e6288100615', detail)
+        with guest(b'Linux version 6.18.36-g0123456 (b@c)'):
+            ok, detail = check(rule, self.harness(files))
+        self.assertFalse(ok)
+        self.assertIn('rebuild the filesystem VM kernel', detail)
+        with guest(b'no banner'):
+            self.assertFalse(check(rule, self.harness(files))[0])
+        with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
+            self.assertFalse(check(rule, self.harness(dict(files, **{'BOOT/kernel': b''})))[0])
+        # Without the daemon there is no VM kernel to compare.
+        self.assertTrue(check(rule, self.harness(boot_parameter_files(**{
+            'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))[0])
+
+    def test_no_boot_parameter_source_turns_the_card_scan_back_on(self):
+        # Every input of the kernel's command line counts, in every form the kernel takes for a true or false bool,
+        # and a missing input is a finding.
+        rule = scan_rule()
+        check = subject.rule_fs_in_vm_coupling
+        base = boot_parameter_files()
+        daemon = {'SYSTEM_EXT/bin/fsvmd': b'x'}
+        ok, detail = check(rule, self.harness({**daemon, **base}))
+        self.assertTrue(ok, detail)
+        overrides = [
+            ('VENDOR_BOOT/vendor_cmdline', b'loop.max_part=0 external_part_scan=y'),
+            ('VENDOR_BOOT/vendor_cmdline', b'loop.max_part=0 external_part_scan'),
+            ('VENDOR_BOOT/vendor_cmdline', b'loop.max_part=0 external-part-scan=1'),
+            ('VENDOR_BOOT/vendor_cmdline', b'loop.max_part=0 "external_part_scan=1"'),
+            ('VENDOR_BOOT/vendor_cmdline', b'external_part_scan="on" loop.max_part=0'),
+            ('VENDOR_BOOT/vendor_cmdline', b'external_part_scan=0'),
+            ('BOOT/cmdline', b'external_part_scan=true'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'androidboot.hardware=qcom\nkernel.external_part_scan = 1\n'),
+            ('VENDOR_BOOT/dtb', dtb({'/': {}, '/chosen': {'bootargs': b'console=ttyMSM0 external_part_scan=Y\0'}})),
+            ('IMAGES/dtbo.img', dtb({'/': {}, '/fragment@0': {}, '/fragment@0/__overlay__': {
+                'bootargs': b'external_part_scan=1\0'}})),
+            ('META/kernel_configs.txt', b'CONFIG_CMDLINE="console=ttynull external_part_scan=1 bootconfig"\n'),
+        ]
+        for name, content in overrides:
+            ok, detail = check(rule, self.harness({**daemon, **base, name: content}))
+            self.assertFalse(ok, f'{name}: {content!r}')
+            self.assertIn('external_part_scan', detail)
+            self.assertIn(name, detail)
+        for name in base:
+            ok, detail = check(rule, self.harness({**daemon, **{k: v for k, v in base.items() if k != name}}))
+            self.assertFalse(ok, name)
+            self.assertIn(name, detail)
+        # Without the daemon the kernel keeps its scan.
+        ok, detail = check(rule, self.harness({**base, 'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'}))
+        self.assertTrue(ok, detail)
+        self.assertFalse(check(rule, self.harness(base))[0])
+
+    def test_the_filesystem_vm_initramfs_in_an_erofs_virt_apex(self):
+        # The virtualization APEX has an erofs payload: its initramfs is read through the build's fsck.erofs.
+        def apex(payload):
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, 'w') as archive:
+                archive.writestr('apex_payload.img', payload)
+            return data.getvalue()
+        erofs = bytes(1024) + bytes.fromhex('e2e1f5e0') + bytes(3068)
+
+        def extract(initrd):
+            def run(args):
+                out = Path(str(args[0]).split('=', 1)[1])
+                (out / 'etc').mkdir(parents=True)
+                (out / 'etc/fsvm_initrd.img').write_bytes(initrd)
+                return ''
+            return run
+        rule = dict(scan_rule(), initrd={'apex': ['SYSTEM/apex/com.android.virt.apex'], 'file': 'etc/fsvm_initrd.img',
+                                         'forbidden': 'fsvm.selftest'})
+        members = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x', 'SYSTEM/apex/com.android.virt.apex': apex(erofs)})
+        check = subject.rule_fs_in_vm_coupling
+        clean = self.harness(members, tools=FakeTools({('fsck.erofs',): extract(b'070701 init')}))
+        self.assertTrue(check(rule, clean)[0])
+        self.assertEqual(clean.tools.calls[0][0], 'fsck.erofs')
+        ok, detail = check(rule, self.harness(members, tools=FakeTools({('fsck.erofs',): extract(b'x fsvm.selftest')})))
+        self.assertFalse(ok)
+        self.assertIn('the self test ships', detail)
+        ok, detail = check(rule, self.harness(dict(members, **{'SYSTEM/apex/com.android.virt.apex': apex(bytes(4096))})))
+        self.assertFalse(ok)
+        self.assertIn('not an ext4 image or an erofs image', detail)
 
     def test_file_presence_absence_and_symlinks(self):
         v = self.harness({'VENDOR/bin/a': b'x', 'SYSTEM_EXT/priv-app/Old/Old.apk': b'x'},
@@ -1861,6 +2000,30 @@ class RuleTests(unittest.TestCase):
                 self.assertIn(detail, found)
         with self.assertRaises(FileNotFoundError):
             check(members={config: line})
+
+    def test_no_diagnostic_sanitizer_reads_an_erofs_apex(self):
+        # User builds ship the virtualization APEX, whose payload is erofs: its binaries are checked too.
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, 'w') as archive:
+            archive.writestr('apex_payload.img', bytes(1024) + bytes.fromhex('e2e1f5e0') + bytes(3068))
+
+        def extract(files):
+            def run(args):
+                out = Path(str(args[0]).split('=', 1)[1])
+                for name, content in files.items():
+                    (out / name).parent.mkdir(parents=True, exist_ok=True)
+                    (out / name).write_bytes(content)
+                return ''
+            return run
+        members = {'SYSTEM/apex/com.android.virt.apex': data.getvalue()}
+        rule = {'runtimes': []}
+        clean = self.harness(members, tools=FakeTools({('fsck.erofs',): extract({'bin/crosvm': b'\x7fELF clean',
+                                                                                  'etc/x.txt': b'text'})}))
+        self.assertEqual((True, '1 native binaries'), subject.rule_no_diagnostic_sanitizer(rule, clean))
+        dirty = self.harness(members, tools=FakeTools({('fsck.erofs',): extract({'bin/virtmgr': b'\x7fELF __ubsan_handle_add_overflow'})}))
+        ok, found = subject.rule_no_diagnostic_sanitizer(rule, dirty)
+        self.assertFalse(ok)
+        self.assertIn('com.android.virt.apex!bin/virtmgr', found)
 
     def test_no_diagnostic_sanitizer_rule(self):
         committed = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}['no-diagnostic-sanitizer']
