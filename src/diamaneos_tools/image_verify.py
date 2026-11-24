@@ -1210,15 +1210,30 @@ def pattern_bytes(pattern: dict) -> bytes:
     return bytes.fromhex(pattern['hex']) if 'hex' in pattern else pattern['text'].encode('latin-1')
 
 
+def installed_bytes(v, spec: str) -> bytes:
+    """A file of the image set by its name in the rules: a target-files, kernel: or image: path, or APEX!PATH for a file
+    in the payload of an APEX in the target files (ext4 or erofs)."""
+    if '!' in spec:
+        apex, inside = spec.split('!', 1)
+        return apex_file(v, [apex], inside)[1]
+    return v.sources.read(spec)
+
+
 def rule_binary_count(rule, v):
-    data = v.sources.read(rule['file'])
+    """Counts of byte patterns in one file ('file') or in each of several ('files', each problem named by its file)."""
+    files = rule['files'] if 'files' in rule else [rule['file']]
     problems = []
-    for pattern in rule['patterns']:
-        count = data.count(pattern_bytes(pattern))
-        if 'count' in pattern and count != pattern['count']:
-            problems.append(f'{pattern.get("hex") or pattern["text"]!r} found {count} times (want {pattern["count"]})')
-        if 'min' in pattern and count < pattern['min']:
-            problems.append(f'{pattern.get("hex") or pattern["text"]!r} found {count} times (want at least {pattern["min"]})')
+    for spec in files:
+        data = installed_bytes(v, spec)
+        where = f'{spec}: ' if 'files' in rule else ''
+        for pattern in rule['patterns']:
+            count = data.count(pattern_bytes(pattern))
+            if 'count' in pattern and count != pattern['count']:
+                problems.append(f'{where}{pattern.get("hex") or pattern["text"]!r} found {count} times '
+                                f'(want {pattern["count"]})')
+            if 'min' in pattern and count < pattern['min']:
+                problems.append(f'{where}{pattern.get("hex") or pattern["text"]!r} found {count} times (want at least '
+                                f'{pattern["min"]})')
     return not problems, '; '.join(problems)
 
 
