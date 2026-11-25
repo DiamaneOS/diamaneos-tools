@@ -1233,7 +1233,7 @@
       "key": "PREBUILT_IMAGES/pvmfw_embedded.avbpubkey",
       "kernel_body": {
         "bytes": 8312840,
-        "sha256": "d78c51046308f7780c1108c426ba5e8f1849b0d567dc8ec1d9b96098e913b9e0"
+        "sha256": "40a25a16404a18a7139576a9ce79873bb85e4d124aa3aceb318e5fc4075f8639"
       },
       "members": {
         "etc/decoder_vm_initrd.img": ["dev", "dev/console", "proc", "init"],
