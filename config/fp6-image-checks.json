@@ -7122,6 +7122,122 @@
       }
     },
     {
+      "id": "task-snapshot-own-files",
+      "why": "The window manager decodes a task snapshot image without the VM only when the open file is the system server's own (owner system, label system_data_file, one name, no group or other write) and its bytes are the ones whose SHA-256 it recorded in the snapshot's proto when it wrote them with its own encoder (SnapshotImageFiles, CleanFileStream). Every other file goes to the VM. This reads services.jar's dex code: the loader and the writer keep their hooks, and no other services.jar method calls CleanFileStream.read, the entry point that lets bytes skip the VM, besides the snapshot loader and the wallpaper's own files (WallpaperVmSanitizer.openClean). A rebase that drops a hook or adds a caller fails here by name.",
+      "type": "dex_calls",
+      "file": "SYSTEM/framework/services.jar",
+      "methods": {
+        "Lcom/android/server/wm/AppSnapshotLoader;->loadTask(IIZ)Landroid/window/TaskSnapshot;": {
+          "calls": [
+            "Lcom/android/server/wm/SnapshotImageFiles;->decode"
+          ],
+          "fields": [
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosHighResSha256",
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosLowResSha256"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotImageFiles;->decode(Ljava/io/File;Ljava/lang/String;Landroid/graphics/BitmapFactory$Options;I)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Lcom/android/server/wm/SnapshotImageFiles;->openOwn",
+            "Landroid/graphics/BitmapFactory;->decodeStream",
+            "Landroid/graphics/DecodeGate;->ownerScope",
+            "Landroid/graphics/BitmapFactory;->decodeFile"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotImageFiles;->openOwn(Ljava/io/File;Ljava/lang/String;)Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;": {
+          "calls": [
+            "Landroid/system/Os;->open",
+            "Landroid/system/Os;->fstat",
+            "Landroid/os/SELinux;->getFileContext",
+            "Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->read"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotPersistQueue$StoreWriteQueueItem;->writeBitmap(Landroid/graphics/Bitmap;Z)Z": {
+          "calls": [
+            "Lcom/android/server/wm/SnapshotImageFiles;->write"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotPersistQueue$StoreWriteQueueItem;->writeProto()Z": {
+          "fields": [
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosHighResSha256",
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosLowResSha256"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotImageFiles;->write(Landroid/graphics/Bitmap;Landroid/graphics/Bitmap$CompressFormat;ILjava/io/File;)Ljava/lang/String;": {
+          "calls": [
+            "Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->sha256"
+          ]
+        }
+      },
+      "only_callers": {
+        "Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->read": [
+          "Lcom/android/server/wm/SnapshotImageFiles;->openOwn(Ljava/io/File;Ljava/lang/String;)Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;",
+          "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean(Ljava/io/File;)Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;"
+        ]
+      }
+    },
+    {
+      "id": "task-snapshot-label",
+      "why": "The task and activity snapshot directories (/data/system_ce/<user>/snapshots and activity_snapshots, each with a random subdirectory) have no line of their own and take the /data default, system_data_file, which the snapshot loader requires before it decodes a file without the VM. A line that labels them otherwise, or a changed /data default, would move the files to a type whose writers the system-data-file-writers check does not cover.",
+      "type": "file_contexts_label",
+      "files": [
+        "SYSTEM/etc/selinux/plat_file_contexts",
+        "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
+        "PRODUCT/etc/selinux/product_file_contexts",
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "ODM/etc/selinux/odm_file_contexts"
+      ],
+      "device_paths": [
+        "/data/system_ce/0/snapshots",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/1.proto",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/1.jpg",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/1_reduced.jpg",
+        "/data/system_ce/10/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/12_reduced.jpg",
+        "/data/system_ce/0/activity_snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/3_reduced.jpg"
+      ],
+      "label": "u:object_r:system_data_file:s0"
+    },
+    {
+      "id": "system-data-file-writers",
+      "why": "Only the system server and the platform's trusted daemons (init, vold, vold_prepare_subdirs, installd) may create, write, rename or link system_data_file files, or add, remove or move names in its directories. The task snapshot loader decodes files of this label without the VM when their recorded hash matches, so a new writer (an app domain or a vendor daemon) would be a new way to place a file there. The hash pin holds without this, and this keeps the label's writers as reviewed.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "system_data_file",
+      "classes": [
+        "file",
+        "dir",
+        "lnk_file"
+      ],
+      "perms": [
+        "create",
+        "write",
+        "append",
+        "rename",
+        "link",
+        "add_name",
+        "remove_name",
+        "reparent"
+      ],
+      "allowed": [
+        "init",
+        "installd",
+        "system_server",
+        "vold",
+        "vold_prepare_subdirs"
+      ]
+    },
+    {
       "id": "vold-cards-in-vm-hooks",
       "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that checks or mounts FAT or exFAT in Android. While new adoptable storage is off, a private or mixed partition table is refused (RefuseNewAdoption, out of line so the call shows in vold's partition entry, into which partitionMixed is inlined) and nothing is partitioned for it, in Android or in the VM.",
       "type": "elf_calls",

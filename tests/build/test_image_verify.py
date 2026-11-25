@@ -2039,7 +2039,7 @@ class RuleTests(unittest.TestCase):
     def test_hook_rules_name_each_lost_hook(self):
         from tests.build.test_code_calls import jar, make_dex, make_elf
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        for rule_id in ('decode-gate-framework-hooks', 'decode-gate-system-server-hook'):
+        for rule_id in ('decode-gate-framework-hooks', 'decode-gate-system-server-hook', 'task-snapshot-own-files'):
             rule = rules[rule_id]
             hooks = [(m, h) for m, want in rule['methods'].items()
                      for h in want.get('calls', []) + want.get('fields', [])]
@@ -2096,6 +2096,85 @@ class RuleTests(unittest.TestCase):
         for name in rule['absent']:
             ok, detail = vold(extra={'android::vold::VolumeManager::start': name})
             self.assertIn(f'SYSTEM/bin/vold has {name}', detail)
+
+    def test_task_snapshot_rule_names_another_caller_of_the_clean_file_reader(self):
+        from tests.build.test_code_calls import jar, make_dex
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['task-snapshot-own-files']
+        read = 'Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->read'
+        self.assertEqual({read}, set(rule['only_callers']))
+        wallpaper = ('Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean(Ljava/io/File;)'
+                     'Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;')
+        self.assertIn(wallpaper, rule['only_callers'][read])
+
+        def check(extra):
+            methods = {m: [('field' if h in want.get('fields', []) else 'call', h)
+                           for h in want.get('calls', []) + want.get('fields', [])] + [('units', [0x000e])]
+                       for m, want in rule['methods'].items()}
+            methods.update(extra)
+            return subject.rule_dex_calls(rule, self.harness({rule['file']: jar(make_dex(methods))}))
+        self.assertTrue(check({})[0])
+        self.assertTrue(check({wallpaper: [('call', read)]})[0])
+        sneaky = 'Lcom/android/server/wm/TaskPersister;->restoreImage(Ljava/lang/String;)Landroid/graphics/Bitmap;'
+        self.assertEqual((False, f'{read} is also called by {sneaky}'), check({sneaky: [('call', read)]}))
+
+    def test_file_contexts_label_names_every_line_that_relabels_a_path(self):
+        plat = (b'# comment\n/data(/.*)?\t\tu:object_r:system_data_file:s0\n'
+                b'/data/system_ce           u:object_r:system_userdir_file:s0\n'
+                b'/data/system_ce/[0-9]+/backup(/.*)?\tu:object_r:backup_data_file:s0\n')
+        rule = {'files': ['SYSTEM/etc/selinux/plat_file_contexts', 'VENDOR/etc/selinux/vendor_file_contexts'],
+                'device_paths': ['/data/system_ce/0/snapshots', '/data/system_ce/10/snapshots/u/1_reduced.jpg'],
+                'label': 'u:object_r:system_data_file:s0'}
+        members = {'SYSTEM/etc/selinux/plat_file_contexts': plat}
+        self.assertEqual((True, '2 paths labelled u:object_r:system_data_file:s0'),
+                         subject.rule_file_contexts_label(rule, self.harness(members)))
+        vendor = b'/data/system_ce/[0-9]+/snapshots(/.*)?  u:object_r:vendor_snapshot_file:s0\n'
+        ok, detail = subject.rule_file_contexts_label(rule, self.harness(
+            dict(members, **{'VENDOR/etc/selinux/vendor_file_contexts': vendor})))
+        self.assertFalse(ok)
+        self.assertIn('/data/system_ce/0/snapshots is u:object_r:vendor_snapshot_file:s0 by '
+                      '/data/system_ce/[0-9]+/snapshots(/.*)? in VENDOR/etc/selinux/vendor_file_contexts', detail)
+        self.assertIn('/data/system_ce/10/snapshots/u/1_reduced.jpg is u:object_r:vendor_snapshot_file:s0', detail)
+        default = plat.replace(b'system_data_file', b'other_data_file')
+        self.assertFalse(subject.rule_file_contexts_label(rule, self.harness(
+            {'SYSTEM/etc/selinux/plat_file_contexts': default}))[0])
+        self.assertEqual((False, 'no line labels /data/system_ce/0/snapshots; '
+                                 'no line labels /data/system_ce/10/snapshots/u/1_reduced.jpg'),
+                         subject.rule_file_contexts_label(rule, self.harness(
+                             {'SYSTEM/etc/selinux/plat_file_contexts': b'/system(/.*)? u:object_r:system_file:s0\n'})))
+        self.assertFalse(subject.rule_file_contexts_label(rule, self.harness({}))[0])
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        committed = rules['task-snapshot-label']
+        self.assertEqual('file_contexts_label', committed['type'])
+        self.assertTrue(subject.rule_file_contexts_label(committed, self.harness(members))[0])
+
+    def test_system_data_file_writers_are_the_reviewed_domains(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['system-data-file-writers']
+        self.assertEqual('sepolicy_sources', rule['type'])
+        plat = (b'(type init)\n(type installd)\n(type system_server)\n(type vold)\n(type vold_prepare_subdirs)\n'
+                b'(type untrusted_app)\n(type system_data_file)\n(type app_data_file)\n(type zygote)\n'
+                b'(typeattributeset data_file_type (system_data_file app_data_file))\n'
+                b'(typeattributeset appdomain (untrusted_app))\n'
+                b'(allow init data_file_type (dir (create write add_name)))\n'
+                b'(allow installd system_data_file (dir (rename reparent remove_name)))\n'
+                b'(allow system_server system_data_file (file (create write rename link)))\n'
+                b'(allow vold system_data_file (lnk_file (create)))\n'
+                b'(allow vold_prepare_subdirs system_data_file (dir (add_name)))\n'
+                b'(allow zygote system_data_file (file (read open getattr)))\n'
+                b'(allow appdomain app_data_file (file (create write)))\n')
+        others = {name: b'' for name in rule['files'] if '*' not in name}
+        judge = lambda extra: subject.rule_sepolicy_sources(
+            rule, self.harness({**others, 'SYSTEM/etc/selinux/plat_sepolicy.cil': plat + extra}))
+        ok, detail = judge(b'')
+        self.assertTrue(ok, detail)
+        for grant, domain in ((b'(allow appdomain data_file_type (file (append)))\n', 'untrusted_app'),
+                              (b'(allow zygote system_data_file (dir (write)))\n', 'zygote'),
+                              (b'(allow zygote system_data_file (lnk_file (create)))\n', 'zygote'),
+                              (b'(allow zygote system_data_file (file (link)))\n', 'zygote')):
+            with self.subTest(grant=grant):
+                self.assertEqual((False, 'also ' + domain), judge(grant))
+        self.assertTrue(judge(b'(allow zygote system_data_file (dir (search getattr)))\n')[0])
 
     def test_hook_rules_fail_when_the_code_cannot_be_read(self):
         from tests.build.test_code_calls import jar, make_elf

@@ -132,8 +132,44 @@ class Dex:
         """The methods ('Lclass;->name') a method's code invokes and the fields ('Lclass;->name') it reads or
         writes."""
         calls, fields = set(), set()
+        for kind, index in self._operands(code):
+            if kind == 'invoke':
+                called = self.method(index, proto=False)
+                calls.add(called)
+                # D8 reaches a nest member's private field through a synthetic accessor.
+                nest = _NEST_ACCESSOR.fullmatch(called)
+                if nest:
+                    fields.add(nest.group(1) + '->' + nest.group(2))
+            else:
+                fields.add(self.field(index))
+        return calls, fields
+
+    def all_classes(self) -> list:
+        """The class data offsets of every class this file defines."""
+        return [self._u32(self.class_off + 32 * index + 24) for index in range(self.class_count)]
+
+    def callers(self, targets: set) -> dict:
+        """{target: {caller 'Lclass;->name(parameters)return'}} for the methods ('Lclass;->name') in targets that
+        code in this file invokes, read from every method of every class it defines."""
+        indexes = {}
+        for index in range(self.method_count):
+            head = self.method(index, proto=False)
+            if head in targets:
+                indexes[index] = head
+        found = {}
+        if not indexes:
+            return found
+        for class_data in self.all_classes():
+            for index, code in self.methods(class_data):
+                for kind, operand in self._operands(code):
+                    if kind == 'invoke' and operand in indexes:
+                        found.setdefault(indexes[operand], set()).add(self.method(index))
+        return found
+
+    def _operands(self, code: int):
+        """('invoke', method index) and ('field', field index) for each such instruction of a method's code."""
         if not code:
-            return calls, fields
+            return
         units = self._u32(code + 12)
         start = code + 16
         insns = struct.unpack_from(f'<{units}H', self.data, start)
@@ -156,16 +192,10 @@ class Dex:
                 if at + size > units:
                     raise ValueError('truncated dex code')
                 if opcode in _INVOKES and opcode not in _CUSTOM:
-                    called = self.method(insns[at + 1], proto=False)
-                    calls.add(called)
-                    # D8 reaches a nest member's private field through a synthetic accessor.
-                    nest = _NEST_ACCESSOR.fullmatch(called)
-                    if nest:
-                        fields.add(nest.group(1) + '->' + nest.group(2))
+                    yield 'invoke', insns[at + 1]
                 elif opcode in _FIELD_OPS:
-                    fields.add(self.field(insns[at + 1]))
+                    yield 'field', insns[at + 1]
             at += size
-        return calls, fields
 
 
 def archive_dex(data: bytes) -> list:
@@ -191,6 +221,22 @@ def dex_references(data: bytes, methods: list) -> dict:
                     name = dex.method(index)
                     if name in methods and name not in found:
                         found[name] = dex.references(code)
+    except (struct.error, IndexError):
+        raise ValueError('truncated dex file') from None
+    return found
+
+
+def dex_callers(data: bytes, targets: list) -> dict:
+    """{target: {caller}} for the methods ('Lclass;->name') in targets: every method of an archive's dex files
+    whose code invokes one, as 'Lclass;->name(parameters)return'. An archive without dex files raises ValueError."""
+    files = archive_dex(data)
+    if not files:
+        raise ValueError('no dex files')
+    found = {}
+    try:
+        for dex in files:
+            for target, callers in dex.callers(set(targets)).items():
+                found.setdefault(target, set()).update(callers)
     except (struct.error, IndexError):
         raise ValueError('truncated dex file') from None
     return found

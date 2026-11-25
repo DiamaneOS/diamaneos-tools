@@ -246,6 +246,21 @@ class DexTests(unittest.TestCase):
         with self.assertRaises(zipfile.BadZipFile):
             subject.dex_references(b'not a zip', [DECODE])
 
+    def test_callers_of_a_method_in_every_class_and_dex_file(self):
+        read = 'La/Clean;->read'
+        own = 'Lb/Snapshots;->openOwn(Ljava/io/File;)La/Clean;'
+        other = 'Lc/Other;->load()V'
+        first = make_dex({own: [('call', read), ('units', [0x000e])], 'Lb/Snapshots;->write()V': [('call', GATES)]})
+        second = make_dex({other: [('units', [0x0018, 0x0071, 0, 0, 0]), ('call-range', read)],
+                           DECODE: [('call', GATES)]})
+        self.assertEqual({read: {own, other}}, subject.dex_callers(jar(first, second), [read]))
+        self.assertEqual({read: {own}}, subject.dex_callers(jar(first), [read, 'La/Clean;->absent']))
+        self.assertEqual({}, subject.dex_callers(jar(second), ['La/Clean;->absent']))
+        with self.assertRaisesRegex(ValueError, 'no dex files'):
+            subject.dex_callers(jar(), [read])
+        with self.assertRaises(ValueError):
+            subject.dex_callers(jar(first[:len(first) - 3]), [read])
+
 
 class NativeTests(unittest.TestCase):
     FUNCTIONS = {

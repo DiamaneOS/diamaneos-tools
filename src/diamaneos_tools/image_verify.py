@@ -527,6 +527,35 @@ def rule_property_prefix(rule, v):
     return not bad, '; '.join(bad)
 
 
+def rule_file_contexts_label(rule, v):
+    """Each listed device path takes the rule's label: every line of the file_contexts files the rule names whose
+    path expression matches it gives that label, and at least one does. A new line that relabels the path (a more
+    specific one, or a changed default) fails by name, whichever line would win on the device. A file the image
+    lacks has no line to give."""
+    files = [name for pattern in rule['files'] for name in v.tf.glob(pattern) if v.tf.exists(name)]
+    entries = []
+    for name in files:
+        for line in text_of(v.tf.read(name)).splitlines():
+            words = line.split()
+            if not words or words[0].startswith('#'):
+                continue
+            try:
+                expression = re.compile(words[0])
+            except re.error:
+                return False, f'{name}: unreadable path expression {words[0]!r}'
+            entries.append((name, words[0], expression, words[-1]))
+    if not entries:
+        return False, 'no lines in ' + ', '.join(rule['files'])
+    problems = []
+    for path in rule['device_paths']:
+        matching = [(name, text, label) for name, text, expression, label in entries if expression.fullmatch(path)]
+        if not matching:
+            problems.append(f'no line labels {path}')
+        problems += [f'{path} is {label} by {text} in {name}' for name, text, label in matching
+                     if label != rule['label']]
+    return not problems, '; '.join(problems) or f'{len(rule["device_paths"])} paths labelled {rule["label"]}'
+
+
 def rule_sepolicy_exclusive(rule, v):
     text = text_of(v.tf.read(rule['file']))
     pattern = r'^\(allow (\S+) ' + re.escape(rule['target']) + r' \(' + re.escape(rule['cls']) + r' '
@@ -613,6 +642,9 @@ def cil_expand(name: str, attributes: dict, types: set, memo: dict) -> set:
 def rule_sepolicy_sources(rule, v):
     """Every domain the combined policy lets use a permission on a type is listed.
 
+    The rule names one class and permission ('cls', 'perm'), or several ('classes',
+    'perms'): then a domain with any of the permissions on any of the classes counts.
+
     Reads the platform, mapping and vendor CIL files the rule names (globs
     allowed, versioned compatibility files *.compat.cil skipped) and expands
     attributes on both sides, so platform rules on attributes such as sysfs_type
@@ -628,10 +660,11 @@ def rule_sepolicy_sources(rule, v):
     if rule['target'] not in types:
         return False, rule['target'] + ' is not a type in the policy'
     memo, sources = {}, set()
-    perms_wanted = rule['perms'] if 'perms' in rule else [rule['perm']]
+    classes = rule.get('classes') or [rule['cls']]
+    wanted = set(rule.get('perms') or [rule['perm']])
     for match in ALLOW_RULE.finditer(text):
         src, target, cls, perms = match.groups()
-        if cls != rule['cls'] or not set(perms_wanted) & set(perms.split()):
+        if cls not in classes or not wanted & set(perms.split()):
             continue
         if target == 'self':
             # A rule on self lets each source use the permission on itself.
@@ -2047,12 +2080,22 @@ def rule_vm_pool_reserve(rule, v):
 def rule_dex_calls(rule, v):
     """Each listed method of a Java archive's dex code calls every method in its 'calls' and reads or writes every
     field in its 'fields' (each 'Lclass;->name'). Hooks in upstream methods are lost without a build error, for
-    example in a rebase: the method is then upstream's again, and this check names it."""
+    example in a rebase: the method is then upstream's again, and this check names it. With 'only_callers'
+    ({'Lclass;->name': [caller 'Lclass;->name(parameters)return']}), no other method of the archive may call one
+    of those methods: a new caller of a trusted entry point fails by name."""
     methods = rule['methods']
     if not methods or not all(want.get('calls') or want.get('fields') for want in methods.values()):
         return False, 'the rule names a method without a hook, or none'
-    found = code_calls.dex_references(v.tf.read(rule['file']), list(methods))
+    data = v.tf.read(rule['file'])
+    found = code_calls.dex_references(data, list(methods))
     problems = []
+    only = rule.get('only_callers', {})
+    if only:
+        callers = code_calls.dex_callers(data, list(only))
+        for target, allowed in only.items():
+            others = sorted(callers.get(target, set()) - set(allowed))
+            if others:
+                problems.append(f'{target} is also called by ' + ', '.join(others))
     for method, want in methods.items():
         if method not in found:
             problems.append(f'{method} is not in {rule["file"]}')
@@ -2133,6 +2176,7 @@ def rule_file_metadata(rule, v):
 RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent, 'data_stack': rule_data_stack,
          'files_not_stock': rule_files_not_stock, 'symlink': rule_symlink,
          'text': rule_text, 'properties': rule_properties, 'property_prefix': rule_property_prefix,
+         'file_contexts_label': rule_file_contexts_label,
          'sepolicy_exclusive': rule_sepolicy_exclusive, 'sepolicy_allows': rule_sepolicy_allows,
          'sepolicy_sources': rule_sepolicy_sources, 'sepolicy_denied': rule_sepolicy_denied,
          'sepolicy_dormant': rule_sepolicy_dormant,
