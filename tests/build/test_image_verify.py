@@ -838,6 +838,29 @@ class RuleTests(unittest.TestCase):
         self.assertEqual({'write', 'append'}, set(rules['sd-hold-writers']['perms']))
         self.assertTrue(rules['sd-hold-writers']['exact'] and rules['sd-hold-setters']['exact'])
 
+    def test_webapp_aapt2_rule_reads_the_apex_binary(self):
+        from tests.build.test_code_calls import make_elf
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'webapp-aapt2-parses-no-image']
+        seen = []
+        original = subject.apex_file
+
+        def binary(functions):
+            subject.apex_file = lambda v, names, inside: (seen.append((names, inside)), ('', make_elf(functions)))[1]
+            try:
+                return subject.rule_elf_calls(rule, self.harness({}))
+            finally:
+                subject.apex_file = original
+        device = {'aapt::CompileCommand::Action': ['nop']}
+        self.assertTrue(binary(device)[0])
+        self.assertEqual((['SYSTEM/apex/com.android.webapp.apex', 'SYSTEM/apex/com.android.webapp.capex'], 'bin/aapt2'),
+                         seen[0])
+        stock = {'aapt::CompileCommand::Action': [('bl', 'android::ReadPng'), 'nop'], 'android::ReadPng': ['nop'],
+                 'android::Png::process': ['nop']}
+        ok, detail = binary(stock)
+        self.assertFalse(ok)
+        self.assertIn('has android::ReadPng', detail)
+
     def test_an_apex_file_is_read_from_the_compressed_apex_too(self):
         seen = []
         original = subject.apex_file

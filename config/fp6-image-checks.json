@@ -7424,6 +7424,24 @@
           ]
         }
       }
+    },
+    {
+      "id": "webapp-aapt2-parses-no-image",
+      "why": "The WebApp service runs the APEX's aapt2 compile on icons it downloaded from a web app manifest. The device build of aapt2 stores a PNG as it is and refuses a nine-patch (frameworks_base tools/aapt2/cmd/DeviceImages.h), so no image a website controls is parsed in that privileged process: its PNG reader and cruncher are not in the binary at all. A rebase that drops the hook brings libpng back here.",
+      "type": "elf_calls",
+      "file": "SYSTEM/apex/com.android.webapp.apex!bin/aapt2",
+      "absent": [
+        "android::ReadPng",
+        "android::Png::process"
+      ],
+      "functions": {
+        "aapt::CompileCommand::Action": {
+          "never": [
+            "android::ReadPng",
+            "android::Png::process"
+          ]
+        }
+      }
     }
   ]
 }

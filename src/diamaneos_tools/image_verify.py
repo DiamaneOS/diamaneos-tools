@@ -2063,13 +2063,14 @@ def rule_dex_calls(rule, v):
 
 
 def rule_elf_calls(rule, v):
-    """Each listed function of an AArch64 binary branches to every function in its 'calls' and to none in its
-    'never', and the binary has no function 'absent' names (qualified names, such as android::vold::vfat::Mount).
+    """Each listed function of an AArch64 binary (a target-files member, or APEX!PATH) branches to every function in
+    its 'calls' and to none in its 'never', and the binary has no function 'absent' names (qualified names, such as
+    android::vold::vfat::Mount).
     Read from the code and the function symbols of .gnu_debugdata, so a hook lost without a build error fails
     here by name."""
     if not rule['functions'] or not all(want.get('calls') or want.get('never') for want in rule['functions'].values()):
         return False, 'the rule names a function without a hook, or none'
-    code = code_calls.NativeCode(v.tf.read(rule['file']))
+    code = code_calls.NativeCode(installed_bytes(v, rule['file']) if '!' in rule['file'] else v.tf.read(rule['file']))
     problems = [f'{rule["file"]} has {name}' for name in rule.get('absent', []) if code.has(name)]
     for function, want in rule['functions'].items():
         if not code.has(function):
