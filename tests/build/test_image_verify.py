@@ -613,7 +613,7 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         rule = rules['protected-vm-guest-images']
         self.assertEqual(rule.get('kernel_body'), {
-            'bytes': 8312840, 'sha256': '3c46473ad1be58bcff30d3b50f52de6796669a7859db00ad45746cd5c92bbef4'})
+            'bytes': 8312840, 'sha256': 'd78c51046308f7780c1108c426ba5e8f1849b0d567dc8ec1d9b96098e913b9e0'})
         erofs = bytes(1024) + bytes.fromhex('e2e1f5e0') + bytes(3068)
         data = io.BytesIO()
         with zipfile.ZipFile(data, 'w') as archive:
