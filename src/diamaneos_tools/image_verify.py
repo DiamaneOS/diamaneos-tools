@@ -1803,7 +1803,7 @@ def rule_apex_guest_images(rule, v):
         role = 'decoder_vm' if initrd == 'etc/decoder_vm_initrd.img' else 'fsvm'
         try:
             got = cpio_members(files[initrd])
-            problem = guest_contract.initrd_problem(role, files[initrd])
+            problem = guest_contract.initrd_problem(role, files[initrd], guest_contract.role_digests(v.variant))
         except (ValueError, OSError, EOFError) as error:
             problems.append(f'{initrd}: {error}')
             continue

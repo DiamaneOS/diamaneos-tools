@@ -2,7 +2,7 @@
 """Protected guest contract, shared by the signer and diamaneos-tools.
 
 The tools copy is vendored byte for byte from Virtualization build/apex.
-Role digests below identify the build outputs of the 2026-11-24 squash sources. The compiled
+Role digests below identify the build outputs of the 2026-11-24 squash sources, per variant. The compiled
 signer replaces them with digests derived directly from its Soong producers.
 No digest from the input APEX is trusted as the role identity.
 """
@@ -127,6 +127,16 @@ ROLE_DIGESTS = {
     'decoder_vm': (5508096, 'ab53d0096782bb7257a030150eb9be867392b29a70fc698f3ec1208a7f147bb4'),
     'fsvm': (1886208, '954b83f8a84a2391ab0330b5cc6a315167acc9b029bae694c383ae723d39932f'),
 }
+# The same sources built as userdebug: the VM programs carry the debuggable build's settings (their filters log).
+ROLE_DIGESTS_USERDEBUG = {
+    'decoder_vm': (5512704, '91fd5087077bdff485c2e62508911bf1822d8fd64643f727751b579a1e99ee4e'),
+    'fsvm': (1886720, '875d123b8e106525ff5b3e2a67a836ec80d308b062d67092743635f58e2b9912'),
+}
+
+
+def role_digests(variant):
+    """The role digests of a build variant: userdebug's own, user's for every other variant."""
+    return ROLE_DIGESTS_USERDEBUG if variant == 'userdebug' else ROLE_DIGESTS
 DESCRIPTORS = ('boot', 'initrd_normal', 'initrd_debug')
 MAX_INITRD_BYTES = 64 << 20
 
