@@ -2,7 +2,7 @@
 """Protected guest contract, shared by the signer and diamaneos-tools.
 
 The tools copy is vendored byte for byte from Virtualization build/apex.
-Role digests below identify the reviewed 20261120 build outputs. The compiled
+Role digests below identify the build outputs of the 2026-11-24 squash sources. The compiled
 signer replaces them with digests derived directly from its Soong producers.
 No digest from the input APEX is trusted as the role identity.
 """
@@ -124,8 +124,8 @@ FILES = {
     },
 }
 ROLE_DIGESTS = {
-    'decoder_vm': (5512192, '6781d265b8c97f931780d81b99e58b0919295e4a80881a9c54cc18152b097f6a'),
-    'fsvm': (1886720, '70d6092761b4c6e78dc48b9a0ea6693114d6097f5c28b24d0c2d7c7557bc0b12'),
+    'decoder_vm': (5508096, 'ab53d0096782bb7257a030150eb9be867392b29a70fc698f3ec1208a7f147bb4'),
+    'fsvm': (1886208, '954b83f8a84a2391ab0330b5cc6a315167acc9b029bae694c383ae723d39932f'),
 }
 DESCRIPTORS = ('boot', 'initrd_normal', 'initrd_debug')
 MAX_INITRD_BYTES = 64 << 20

@@ -14,7 +14,7 @@ from tests.build.test_image_verify import newc, rsa_test_key, signed_avb_image
 class ContractTest(unittest.TestCase):
     def test_vendored_source_is_the_reviewed_shared_module(self):
         self.assertEqual(hashlib.sha256(Path(contract.__file__).read_bytes()).hexdigest(),
-                         '7ed773c68fa6da729c2c60047d937739922651e2d9105098e36431c7b55e9953')
+                         '0e743079ebf8c8b43efb8cb4b7c5d293425a07f5f3f67f31a88d249a46969367')
 
     def test_archives_have_one_empty_trailer_and_unique_names(self):
         good = newc('bin', 'dev', 'init')
