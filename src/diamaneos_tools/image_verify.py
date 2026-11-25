@@ -536,14 +536,37 @@ def rule_sepolicy_exclusive(rule, v):
         '' if sources else 'no rule grants it')
 
 
+def policy_text(rule, v):
+    """The CIL text of the files a sepolicy rule names (globs allowed, versioned *.compat.cil skipped), and the
+    problem when one of them is missing: a missing policy input would read as a smaller policy. A rule may name
+    inputs some builds lack in 'optional'."""
+    names, absent = [], []
+    for pattern in rule['files']:
+        found = [n for n in v.tf.glob(pattern) if not n.endswith('.compat.cil') and v.tf.exists(n)]
+        if not found and pattern not in rule.get('optional', []):
+            absent.append(pattern)
+        names += found
+    if absent:
+        return None, 'policy input missing: ' + ', '.join(absent)
+    return '\n'.join(text_of(v.tf.read(name)) for name in names), ''
+
+
+ALLOW_RULE = re.compile(r'^\s*\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', re.M)
+
+
 def rule_sepolicy_allows(rule, v):
-    text = '\n'.join(text_of(v.tf.read(name)) for name in rule['files'])
-    attributes = cil_attributes(text)
+    text, problem = policy_text(rule, v)
+    if text is None:
+        return False, problem
+    attributes = cil_attribute_sets(text)
+    types = set(re.findall(r'^\s*\(type (\S+)\)$', text, re.M)) | {rule['target']}
+    memo = {}
     source = re.compile(re.escape(rule['source']) + r'(_[0-9]+)?')
-    for match in re.finditer(r'^\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', text, re.M):
+    for match in ALLOW_RULE.finditer(text):
         src, target, cls, perms = match.groups()
+        targets = cil_expand(src if target == 'self' else target, attributes, types, memo)
         if (source.fullmatch(src) and cls == rule['cls'] and rule['perm'] in perms.split()
-                and cil_member(rule['target'], target, attributes)):
+                and rule['target'] in targets | {target}):
             return True, f'allowed through {target}'
     return False, f'{rule["source"]} may not {rule["perm"]} {rule["target"]}'
 
@@ -597,25 +620,24 @@ def rule_sepolicy_sources(rule, v):
     every listed file or glob must be in the target files: a missing policy
     input would otherwise read as a smaller policy.
     """
-    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
-    if not names:
-        return False, 'no files match ' + ', '.join(rule['files'])
-    if rule.get('exact'):
-        absent = [pattern for pattern in rule['files']
-                  if not [n for n in v.tf.glob(pattern) if not n.endswith('.compat.cil') and v.tf.exists(n)]]
-        if absent:
-            return False, 'policy input missing: ' + ', '.join(absent)
-    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    text, problem = policy_text(rule, v)
+    if text is None:
+        return False, problem
     attributes = cil_attribute_sets(text)
-    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
+    types = set(re.findall(r'^\s*\(type (\S+)\)$', text, re.M))
     if rule['target'] not in types:
         return False, rule['target'] + ' is not a type in the policy'
     memo, sources = {}, set()
-    for match in re.finditer(r'^\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', text, re.M):
+    perms_wanted = rule['perms'] if 'perms' in rule else [rule['perm']]
+    for match in ALLOW_RULE.finditer(text):
         src, target, cls, perms = match.groups()
-        if cls != rule['cls'] or rule['perm'] not in perms.split() or target == 'self':
+        if cls != rule['cls'] or not set(perms_wanted) & set(perms.split()):
             continue
-        if rule['target'] in cil_expand(target, attributes, types, memo):
+        if target == 'self':
+            # A rule on self lets each source use the permission on itself.
+            if rule['target'] in cil_expand(src, attributes, types, memo):
+                sources.add(rule['target'])
+        elif rule['target'] in cil_expand(target, attributes, types, memo):
             sources |= cil_expand(src, attributes, types, memo)
     others = sorted(sources - set(rule['allowed']))
     missing = sorted(set(rule['allowed']) - sources) if rule.get('exact') else []
@@ -631,21 +653,22 @@ def rule_sepolicy_denied(rule, v):
     one of the classes, with one of the permissions. For example: an app domain
     may create no network sockets of any kind.
     """
-    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
-    if not names:
-        return False, 'no files match ' + ', '.join(rule['files'])
-    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    text, problem = policy_text(rule, v)
+    if text is None:
+        return False, problem
     attributes = cil_attribute_sets(text)
-    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
-    if rule['domain'] not in types:
-        return False, rule['domain'] + ' is not a type in the policy'
+    types = set(re.findall(r'^\s*\(type (\S+)\)$', text, re.M))
+    domains = rule['domains'] if 'domains' in rule else [rule['domain']]
+    unknown = sorted(set(domains) - types)
+    if unknown:
+        return False, ', '.join(unknown) + ' is not a type in the policy'
     memo, found = {}, set()
-    for match in re.finditer(r'^\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', text, re.M):
+    for match in ALLOW_RULE.finditer(text):
         src, target, cls, perms = match.groups()
         if cls not in rule['classes'] or not set(rule['perms']) & set(perms.split()):
             continue
-        if rule['domain'] in cil_expand(src, attributes, types, memo):
-            found.add(f'{cls} {target} through {src}')
+        for domain in set(domains) & cil_expand(src, attributes, types, memo):
+            found.add(f'{domain}: {cls} {target} through {src}')
     return not found, ('allowed: ' + '; '.join(sorted(found))) if found else 'none allowed'
 
 
@@ -666,17 +689,16 @@ def rule_sepolicy_dormant(rule, v):
     file_contexts entry that assigns one of them. Every match counts, also one
     that a later entry would override.
     """
-    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
-    if not names:
-        return False, 'no files match ' + ', '.join(rule['files'])
-    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    text, problem = policy_text(rule, v)
+    if text is None:
+        return False, problem
     attributes = cil_attribute_sets(text)
-    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
+    types = set(re.findall(r'^\s*\(type (\S+)\)$', text, re.M))
     unknown = sorted(set(rule['domains']) - types)
     if unknown:
         return False, 'not a type in the policy: ' + ', '.join(unknown)
     memo, starts = {}, {}
-    for match in re.finditer(r'^\(allow (\S+) (\S+) \((\S+) \(([^)]*)\)\)\)$', text, re.M):
+    for match in ALLOW_RULE.finditer(text):
         src, target, cls, perms = match.groups()
         if cls != 'file' or 'entrypoint' not in perms.split() or target == 'self':
             continue
@@ -729,12 +751,11 @@ def rule_sepolicy_xperms(rule, v):
     a rule on an attribute that widens the list fails too, as does a missing
     list, which would leave every number allowed.
     """
-    names = [n for pattern in rule['files'] for n in v.tf.glob(pattern) if not n.endswith('.compat.cil')]
-    if not names:
-        return False, 'no files match ' + ', '.join(rule['files'])
-    text = '\n'.join(text_of(v.tf.read(name)) for name in names)
+    text, problem = policy_text(rule, v)
+    if text is None:
+        return False, problem
     attributes = cil_attribute_sets(text)
-    types = set(re.findall(r'^\(type (\S+)\)$', text, re.M))
+    types = set(re.findall(r'^\s*\(type (\S+)\)$', text, re.M))
     unknown = sorted(({rule['target']} | set(rule['sources'])) - types)
     if unknown:
         return False, 'not a type in the policy: ' + ', '.join(unknown)
@@ -747,6 +768,16 @@ def rule_sepolicy_xperms(rule, v):
         for source in set(rule['sources']) & cil_expand(src, attributes, types, memo):
             found[source] |= cil_xperm_numbers(numbers)
     problems = []
+    if rule.get('exclusive'):
+        # Any other domain allowed an ioctl on the type, with or without a list, is named.
+        others = set()
+        for match in ALLOW_RULE.finditer(text):
+            src, target, cls, perms = match.groups()
+            if cls == rule['cls'] and 'ioctl' in perms.split() and target != 'self' \
+                    and rule['target'] in cil_expand(target, attributes, types, memo):
+                others |= cil_expand(src, attributes, types, memo) - set(rule['sources'])
+        if others:
+            problems.append('also ioctl from ' + ', '.join(sorted(others)))
     for source in sorted(found):
         if not found[source]:
             problems.append(source + ' has no ioctl allow-list')
@@ -1227,7 +1258,9 @@ def installed_bytes(v, spec: str) -> bytes:
     in the payload of an APEX in the target files (ext4 or erofs)."""
     if '!' in spec:
         apex, inside = spec.split('!', 1)
-        return apex_file(v, [apex], inside)[1]
+        # An APEX named .apex is also read where the build compressed it (.capex).
+        names = [apex, apex[:-len('.apex')] + '.capex'] if apex.endswith('.apex') else [apex]
+        return apex_file(v, names, inside)[1]
     return v.sources.read(spec)
 
 

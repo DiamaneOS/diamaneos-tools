@@ -238,7 +238,13 @@ class RuleTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
 
-    def harness(self, members, **kw):
+    # The policy inputs every image has, empty unless a test gives them: a policy rule fails on a missing input.
+    POLICY_INPUTS = ('SYSTEM/etc/selinux/mapping/36.0.cil', 'SYSTEM_EXT/etc/selinux/mapping/36.0.cil',
+                     'PRODUCT/etc/selinux/mapping/36.0.cil', 'ODM/etc/selinux/odm_sepolicy.cil')
+
+    def harness(self, members, policy_inputs=True, **kw):
+        if policy_inputs and any('/etc/selinux/' in name for name in members):
+            members = {**{name: b'' for name in self.POLICY_INPUTS}, **members}
         h = Harness(self.root, members, **kw)
         self.addCleanup(h.tf.close)
         return h
@@ -382,11 +388,11 @@ class RuleTests(unittest.TestCase):
         self.assertIn('fsvmd_obb_virtualizationmanager', detail)
         missing = dict(members)
         del missing['ODM/etc/selinux/odm_sepolicy.cil']
-        ok, detail = subject.rule_sepolicy_sources(user, self.harness(missing))
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(missing, policy_inputs=False))
         self.assertFalse(ok)
         self.assertIn('ODM/etc/selinux/odm_sepolicy.cil', detail)
         no_mapping = {k: v for k, v in members.items() if not k.startswith('PRODUCT/etc/selinux/mapping/')}
-        ok, detail = subject.rule_sepolicy_sources(user, self.harness(no_mapping))
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(no_mapping, policy_inputs=False))
         self.assertFalse(ok)
         self.assertIn('PRODUCT/etc/selinux/mapping/*.cil', detail)
 
@@ -759,6 +765,60 @@ class RuleTests(unittest.TestCase):
         self.assertTrue(subject.rule_sepolicy_exclusive(exclusive, v)[0])
         v = self.harness({'SYSTEM/etc/selinux/plat_sepolicy.cil': cil + b'(allow untrusted_app vendor_hal_audio_internal_hwservice (hwservice_manager (find)))\n'})
         self.assertFalse(subject.rule_sepolicy_exclusive(exclusive, v)[0])
+
+    def test_policy_rules_read_every_input_and_every_attribute_statement(self):
+        # Review 2d L4: an attribute set in two files keeps both, a missing input fails every policy rule, a rule on
+        # self counts the domain itself, and an ioctl list may be exclusive.
+        plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        members = {plat: b'(type src)\n(type x)\n(type y)\n(typeattributeset tgt (x))\n'
+                         b'(allow src tgt (file (write)))\n',
+                   vendor: b'(typeattributeset tgt (y))\n'}
+        allows = {'files': [plat, vendor], 'source': 'src', 'target': 'x', 'cls': 'file', 'perm': 'write'}
+        self.assertTrue(subject.rule_sepolicy_allows(allows, self.harness(members))[0])
+        self.assertTrue(subject.rule_sepolicy_allows(dict(allows, target='y'), self.harness(members))[0])
+        missing = 'ODM/etc/selinux/odm_sepolicy.cil'
+        for rule in (dict(allows, files=[plat, vendor, missing]),
+                     {'type': 'sepolicy_denied', 'files': [plat, missing], 'domain': 'src', 'classes': ['tcp_socket'],
+                      'perms': ['create']},
+                     {'type': 'sepolicy_sources', 'files': [plat, missing], 'target': 'x', 'cls': 'file',
+                      'perm': 'write', 'allowed': ['src']},
+                     {'type': 'sepolicy_xperms', 'files': [plat, missing], 'target': 'x', 'cls': 'file',
+                      'sources': ['src'], 'allowed': ['0x1']},
+                     {'type': 'sepolicy_dormant', 'files': [plat, missing], 'domains': ['src'],
+                      'contexts': [plat]}):
+            with self.subTest(rule=rule.get('type', 'sepolicy_allows')):
+                check = subject.RULES[rule.get('type', 'sepolicy_allows')]
+                ok, detail = check(rule, self.harness(members, policy_inputs=False))
+                self.assertFalse(ok)
+                self.assertIn('policy input missing: ' + missing, detail)
+        sockets = {plat: b'(type vold)\n(type fsvmd_launcher)\n(type other)\n'
+                         b'(typeattributeset domain (vold fsvmd_launcher other))\n'
+                         b'(allow domain self (unix_stream_socket (connectto)))\n'
+                         b'(allow vold fsvmd_launcher (unix_stream_socket (connectto)))\n'}
+        callers = {'files': [plat], 'target': 'fsvmd_launcher', 'cls': 'unix_stream_socket', 'perm': 'connectto',
+                   'allowed': ['fsvmd_launcher', 'vold'], 'exact': True}
+        self.assertEqual((True, 'exactly fsvmd_launcher, vold'),
+                         subject.rule_sepolicy_sources(callers, self.harness(sockets)))
+        wider = {plat: sockets[plat] + b'(allow other fsvmd_launcher (unix_stream_socket (connectto)))\n'}
+        self.assertEqual((False, 'also other'), subject.rule_sepolicy_sources(callers, self.harness(wider)))
+        pool = {plat: b'(type mgr)\n(type other)\n(type gunyah_vm_pool_device)\n'
+                      b'(allow mgr gunyah_vm_pool_device (chr_file (open read ioctl)))\n'
+                      b'(allowx mgr gunyah_vm_pool_device (ioctl chr_file (0x4130)))\n'}
+        xperms = {'files': [plat], 'target': 'gunyah_vm_pool_device', 'cls': 'chr_file', 'sources': ['mgr'],
+                  'allowed': ['0x4130'], 'exclusive': True}
+        self.assertTrue(subject.rule_sepolicy_xperms(xperms, self.harness(pool))[0])
+        other = {plat: pool[plat] + b'(allow other gunyah_vm_pool_device (chr_file (ioctl)))\n'}
+        self.assertEqual((False, 'also ioctl from other'), subject.rule_sepolicy_xperms(xperms, self.harness(other)))
+
+    def test_an_apex_file_is_read_from_the_compressed_apex_too(self):
+        seen = []
+        original = subject.apex_file
+        subject.apex_file = lambda v, names, inside: (seen.append(names), ('', b'x'))[1]
+        try:
+            self.assertEqual(b'x', subject.installed_bytes(None, 'SYSTEM/apex/com.android.virt.apex!bin/crosvm'))
+        finally:
+            subject.apex_file = original
+        self.assertEqual([['SYSTEM/apex/com.android.virt.apex', 'SYSTEM/apex/com.android.virt.capex']], seen)
 
     def test_sepolicy_sources_expands_attributes_across_files(self):
         plat = (b'(type apexd)\n(type vold)\n(type sysfs)\n(type sysfs_batteryinfo)\n'
