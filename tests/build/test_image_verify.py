@@ -810,6 +810,34 @@ class RuleTests(unittest.TestCase):
         other = {plat: pool[plat] + b'(allow other gunyah_vm_pool_device (chr_file (ioctl)))\n'}
         self.assertEqual((False, 'also ioctl from other'), subject.rule_sepolicy_xperms(xperms, self.harness(other)))
 
+    def test_review_2d_hooks_name_the_code_as_it_is(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        vold = rules['vold-cards-in-vm-hooks']['functions']
+        # Review 2d B1: vold partitions a card in the VM (partitionPublicInVm inlined into partitionPublic calls
+        # partitionInVm), and refuses new adoptable storage (partitionMixed starts no program).
+        self.assertIn('android::vold::Disk::partitionInVm', vold['android::vold::Disk::partitionPublic']['calls'])
+        self.assertIn('android::vold::ForkExecvp', vold['android::vold::Disk::partitionMixed']['never'])
+        self.assertNotIn('beforePartitionInVm', json.dumps(rules['vold-cards-in-vm-hooks']))
+        self.assertEqual(['android::vold::ObbVolume::cleanupInVm'], vold['android::vold::ObbVolume::doUnmount']['calls'])
+        self.assertIn('android::vold::vfat::Check', rules['vold-cards-in-vm-hooks']['absent'])
+        self.assertIn('android::vold::exfat::Check', rules['vold-cards-in-vm-hooks']['absent'])
+        from tests.build.test_code_calls import make_elf
+        renamed = {'android::vold::Disk::partitionPublic': [('bl', 'android::vold::Disk::beforePartitionInVm'),
+                                                             ('bl', 'android::vold::Disk::isVmDisk'), 'nop'],
+                   'android::vold::Disk::beforePartitionInVm': ['nop'], 'android::vold::Disk::isVmDisk': ['nop']}
+        rule = {'type': 'elf_calls', 'file': 'SYSTEM/bin/vold',
+                'functions': {'android::vold::Disk::partitionPublic':
+                              vold['android::vold::Disk::partitionPublic']}}
+        self.assertEqual((False, 'android::vold::Disk::partitionPublic does not call '
+                                 'android::vold::Disk::partitionInVm'),
+                         subject.rule_elf_calls(rule, self.harness({'SYSTEM/bin/vold': make_elf(renamed)})))
+        server = rules['system-server-image-hooks']
+        self.assertEqual('SYSTEM/framework/services.jar', server['file'])
+        self.assertTrue(any('FabricatedFileValues;->enforceCaller' in c for m in server['methods'].values()
+                            for c in m['calls']))
+        self.assertEqual({'write', 'append'}, set(rules['sd-hold-writers']['perms']))
+        self.assertTrue(rules['sd-hold-writers']['exact'] and rules['sd-hold-setters']['exact'])
+
     def test_an_apex_file_is_read_from_the_compressed_apex_too(self):
         seen = []
         original = subject.apex_file

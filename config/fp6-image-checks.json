@@ -1503,7 +1503,7 @@
     },
     {
       "id": "sd-hold-writers",
-      "why": "Only init writes the kernel's hold.",
+      "why": "Only init writes or appends to the kernel's hold.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -1518,9 +1518,13 @@
       ],
       "target": "proc_hold_new_sd",
       "cls": "file",
-      "perm": "write",
       "allowed": [
         "init"
+      ],
+      "exact": true,
+      "perms": [
+        "write",
+        "append"
       ]
     },
     {
@@ -1544,7 +1548,8 @@
       "allowed": [
         "init",
         "system_server"
-      ]
+      ],
+      "exact": true
     },
     {
       "id": "oem-unlocking",
@@ -7095,6 +7100,11 @@
           "calls": [
             "Lcom/android/internal/diamaneos/cleancopies/CleanCopyGate;->installForApp"
           ]
+        },
+        "Landroid/graphics/BitmapFactory;->decodeFile(Ljava/lang/String;Landroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/GatedDecodes;->bitmapFactory"
+          ]
         }
       }
     },
@@ -7113,12 +7123,14 @@
     },
     {
       "id": "vold-cards-in-vm-hooks",
-      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that mounts FAT or exFAT in Android's kernel.",
+      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that checks or mounts FAT or exFAT in Android.",
       "type": "elf_calls",
       "file": "SYSTEM/bin/vold",
       "absent": [
         "android::vold::vfat::Mount",
-        "android::vold::exfat::Mount"
+        "android::vold::exfat::Mount",
+        "android::vold::vfat::Check",
+        "android::vold::exfat::Check"
       ],
       "functions": {
         "android::vold::PublicVolume::doMount": {
@@ -7168,14 +7180,13 @@
         },
         "android::vold::Disk::partitionPublic": {
           "calls": [
-            "android::vold::Disk::beforePartitionInVm",
-            "android::vold::Disk::isVmDisk"
+            "android::vold::Disk::isVmDisk",
+            "android::vold::Disk::partitionInVm"
           ]
         },
         "android::vold::Disk::partitionMixed": {
-          "calls": [
-            "android::vold::Disk::beforePartitionInVm",
-            "android::vold::Disk::isVmDisk"
+          "never": [
+            "android::vold::ForkExecvp"
           ]
         },
         "android::vold::ObbVolume::doMount": {
@@ -7188,7 +7199,228 @@
         },
         "android::vold::ObbVolume::doUnmount": {
           "calls": [
+            "android::vold::ObbVolume::cleanupInVm"
+          ]
+        },
+        "android::vold::ObbVolume::cleanupInVm": {
+          "calls": [
             "android::vold::ObbVolume::stopInVm"
+          ]
+        }
+      }
+    },
+    {
+      "id": "fsvmd-vsock-setopt",
+      "why": "Only fsvmd sets options on the vsock sockets of its own VM manager (its send and receive timeouts).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_virtualizationmanager",
+      "cls": "vsock_socket",
+      "perm": "setopt",
+      "allowed": [
+        "fsvmd"
+      ]
+    },
+    {
+      "id": "fsvmd-obb-vsock-setopt",
+      "why": "Only fsvmd_obb sets options on the vsock sockets of its own VM manager.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_obb_virtualizationmanager",
+      "cls": "vsock_socket",
+      "perm": "setopt",
+      "allowed": [
+        "fsvmd_obb"
+      ]
+    },
+    {
+      "id": "decode-service-no-network",
+      "why": "The decode service runs in a domain of its own without network: it may create no IP, packet or QRTR socket of any kind.",
+      "type": "sepolicy_denied",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "domain": "decode_service_app",
+      "classes": [
+        "socket",
+        "tcp_socket",
+        "udp_socket",
+        "rawip_socket",
+        "icmp_socket",
+        "sctp_socket",
+        "packet_socket",
+        "qipcrtr_socket"
+      ],
+      "perms": [
+        "create"
+      ]
+    },
+    {
+      "id": "fsvmd-obb-no-card",
+      "why": "The OBB image domains (fsvmd_obb, its launcher, VM manager and crosvm) hold no right on any block device: they never reach a card.",
+      "type": "sepolicy_denied",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "domains": [
+        "fsvmd_obb",
+        "fsvmd_obb_launcher",
+        "fsvmd_obb_virtualizationmanager",
+        "fsvmd_obb_virtmgr_crosvm"
+      ],
+      "classes": [
+        "blk_file"
+      ],
+      "perms": [
+        "open",
+        "read",
+        "write",
+        "append",
+        "ioctl",
+        "getattr",
+        "map"
+      ]
+    },
+    {
+      "id": "fsvmd-launcher-callers",
+      "why": "Only vold asks the card slots' fsvmd service for a fsvmd (and the service may reach its own socket).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_launcher",
+      "cls": "unix_stream_socket",
+      "perm": "connectto",
+      "allowed": [
+        "fsvmd_launcher",
+        "vold"
+      ]
+    },
+    {
+      "id": "fsvmd-obb-launcher-callers",
+      "why": "Only vold asks the OBB slots' fsvmd service for a fsvmd_obb (and the service may reach its own socket).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_obb_launcher",
+      "cls": "unix_stream_socket",
+      "perm": "connectto",
+      "allowed": [
+        "fsvmd_obb_launcher",
+        "vold"
+      ]
+    },
+    {
+      "id": "vm-pool-ioctl-user",
+      "why": "The VM managers may send the memory pool node one command only, GH_ANDROID_CREATE_POOL_MEM_FD (0x4130), and no other domain any.",
+      "type": "sepolicy_xperms",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exclusive": true,
+      "variants": [
+        "user"
+      ],
+      "target": "gunyah_vm_pool_device",
+      "cls": "chr_file",
+      "sources": [
+        "decode_service_app_virtualizationmanager",
+        "fsvmd_virtualizationmanager",
+        "fsvmd_obb_virtualizationmanager"
+      ],
+      "allowed": [
+        "0x4130"
+      ]
+    },
+    {
+      "id": "system-server-image-hooks",
+      "why": "The system server refuses fabricated overlay file values from any other process before idmap2d reads them (FabricatedFileValues.enforceCaller), and reads wallpaper bytes only as the VM checked them (WallpaperVmSanitizer). A rebase that drops either call still compiles and reopens a native parser in a privileged process. This reads services.jar's dex code.",
+      "type": "dex_calls",
+      "file": "SYSTEM/framework/services.jar",
+      "methods": {
+        "Lcom/android/server/om/OverlayManagerService$1;->executeRequestLocked(Landroid/content/om/OverlayManagerTransaction$Request;)Ljava/util/Set;": {
+          "calls": [
+            "Lcom/android/server/om/FabricatedFileValues;->enforceCaller"
+          ]
+        },
+        "Lcom/android/server/wallpaper/WallpaperCropper;->generateCropInternal(Lcom/android/server/wallpaper/WallpaperData;)V": {
+          "calls": [
+            "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean"
+          ]
+        },
+        "Lcom/android/server/wallpaper/WallpaperCropper;->isWallpaperCompatibleForDisplay(ILcom/android/server/wallpaper/WallpaperData;)Z": {
+          "calls": [
+            "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean"
+          ]
+        },
+        "Lcom/android/server/wallpaper/WallpaperManagerService;->getWallpaperWithFeature(Ljava/lang/String;Ljava/lang/String;Landroid/app/IWallpaperManagerCallback;ILandroid/os/Bundle;IZ)Landroid/os/ParcelFileDescriptor;": {
+          "calls": [
+            "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openCheckedWallpaper"
           ]
         }
       }
