@@ -396,6 +396,29 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn('PRODUCT/etc/selinux/mapping/*.cil', detail)
 
+    def test_vsock_setopt_rules_take_the_managers_own_sockets(self):
+        # The VM manager sets options on its own vsock sockets (stock virtualization policy, a rule on self): that is
+        # no other source. Any other domain on its sockets is.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        for rid, client, manager in (('fsvmd-vsock-setopt', 'fsvmd', 'fsvmd_virtualizationmanager'),
+                                     ('fsvmd-obb-vsock-setopt', 'fsvmd_obb', 'fsvmd_obb_virtualizationmanager')):
+            rule = rules[rid]
+            base = (b'(type %s)\n(type %s)\n(type vold)\n' % (client.encode(), manager.encode())
+                    + b'(typeattribute virtualizationmanager_domain)\n'
+                    + b'(typeattributeset virtualizationmanager_domain (%s))\n' % manager.encode()
+                    + b'(allow virtualizationmanager_domain self (vsock_socket (create read write setopt)))\n'
+                    + b'(allow %s %s (vsock_socket (read write setopt)))\n' % (client.encode(), manager.encode()))
+            cil = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+            others = {name: b'' for name in rule['files'] if '*' not in name and name != cil}
+            globbed = {name.replace('*', '202604'): b'' for name in rule['files'] if '*' in name}
+            members = dict(others, **globbed, **{cil: base})
+            ok, detail = subject.rule_sepolicy_sources(rule, self.harness(members))
+            self.assertTrue(ok, detail)
+            more = base + b'(allow vold %s (vsock_socket (setopt)))\n' % manager.encode()
+            ok, detail = subject.rule_sepolicy_sources(rule, self.harness(dict(members, **{cil: more})))
+            self.assertFalse(ok)
+            self.assertIn('also vold', detail)
+
     def test_pool_reserve_is_the_packaging_value(self):
         # The final command line sets aside exactly what the kernel packaging recipe says, once.
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}

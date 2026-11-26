@@ -7123,7 +7123,7 @@
     },
     {
       "id": "vold-cards-in-vm-hooks",
-      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that checks or mounts FAT or exFAT in Android.",
+      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that checks or mounts FAT or exFAT in Android. While new adoptable storage is off, partitionMixed refuses (RefuseNewAdoption, out of line so the call shows) and partitions nothing, in Android or in the VM.",
       "type": "elf_calls",
       "file": "SYSTEM/bin/vold",
       "absent": [
@@ -7185,8 +7185,12 @@
           ]
         },
         "android::vold::Disk::partitionMixed": {
+          "calls": [
+            "android::vold::RefuseNewAdoption"
+          ],
           "never": [
-            "android::vold::ForkExecvp"
+            "android::vold::ForkExecvp",
+            "android::vold::Disk::partitionMixedInVm"
           ]
         },
         "android::vold::ObbVolume::doMount": {
@@ -7211,7 +7215,7 @@
     },
     {
       "id": "fsvmd-vsock-setopt",
-      "why": "Only fsvmd sets options on the vsock sockets of its own VM manager (its send and receive timeouts).",
+      "why": "Only fsvmd sets options on the vsock sockets of its own VM manager (its send and receive timeouts), besides the VM manager on its own sockets (stock virtualization policy).",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -7229,12 +7233,13 @@
       "cls": "vsock_socket",
       "perm": "setopt",
       "allowed": [
-        "fsvmd"
+        "fsvmd",
+        "fsvmd_virtualizationmanager"
       ]
     },
     {
       "id": "fsvmd-obb-vsock-setopt",
-      "why": "Only fsvmd_obb sets options on the vsock sockets of its own VM manager.",
+      "why": "Only fsvmd_obb sets options on the vsock sockets of its own VM manager, besides the VM manager on its own sockets (stock virtualization policy).",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -7252,7 +7257,8 @@
       "cls": "vsock_socket",
       "perm": "setopt",
       "allowed": [
-        "fsvmd_obb"
+        "fsvmd_obb",
+        "fsvmd_obb_virtualizationmanager"
       ]
     },
     {
