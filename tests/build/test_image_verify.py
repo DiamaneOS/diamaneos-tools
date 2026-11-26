@@ -837,9 +837,12 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         vold = rules['vold-cards-in-vm-hooks']['functions']
         # Review 2d B1: vold partitions a card in the VM (partitionPublicInVm inlined into partitionPublic calls
-        # partitionInVm), and refuses new adoptable storage (partitionMixed starts no program).
+        # partitionInVm), and refuses new adoptable storage: vold's partition entry, into which partitionMixed is
+        # inlined, calls RefuseNewAdoption and starts no program.
         self.assertIn('android::vold::Disk::partitionInVm', vold['android::vold::Disk::partitionPublic']['calls'])
-        self.assertIn('android::vold::ForkExecvp', vold['android::vold::Disk::partitionMixed']['never'])
+        entry = vold['android::vold::VoldNativeService::partition']
+        self.assertEqual(['android::vold::RefuseNewAdoption'], entry['calls'])
+        self.assertIn('android::vold::ForkExecvp', entry['never'])
         self.assertNotIn('beforePartitionInVm', json.dumps(rules['vold-cards-in-vm-hooks']))
         self.assertEqual(['android::vold::ObbVolume::cleanupInVm'], vold['android::vold::ObbVolume::doUnmount']['calls'])
         self.assertIn('android::vold::vfat::Check', rules['vold-cards-in-vm-hooks']['absent'])
@@ -939,6 +942,18 @@ class RuleTests(unittest.TestCase):
         self.assertIn('tcp_socket port through netdomain', detail)
         self.assertTrue(subject.rule_sepolicy_denied(dict(rule, domain='app_b', perms=['bind']),
                                                      self.harness(members))[0])
+        # A target left out by name: only that one.
+        blocks = {'SYSTEM/etc/selinux/plat_sepolicy.cil': b'(type obb)\n(type apex_dm_device)\n(type card)\n'
+                  b'(typeattributeset vmm (obb))\n(allow vmm apex_dm_device (blk_file (open read)))\n'}
+        cards = {'files': ['SYSTEM/etc/selinux/plat_sepolicy.cil'], 'domains': ['obb'], 'classes': ['blk_file'],
+                 'perms': ['open', 'read'], 'except_targets': ['apex_dm_device']}
+        self.assertEqual((True, 'none allowed'), subject.rule_sepolicy_denied(cards, self.harness(blocks)))
+        more = {k: v + b'(allow vmm card (blk_file (read)))\n' for k, v in blocks.items()}
+        ok, detail = subject.rule_sepolicy_denied(cards, self.harness(more))
+        self.assertFalse(ok)
+        self.assertIn('blk_file card through vmm', detail)
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        self.assertEqual(['apex_dm_device'], rules['fsvmd-obb-no-card']['except_targets'])
         self.assertFalse(subject.rule_sepolicy_denied(dict(rule, domain='absent'), self.harness(members))[0])
 
     def test_soc_serial_and_thermal_hal_rules(self):

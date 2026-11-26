@@ -651,7 +651,8 @@ def rule_sepolicy_denied(rule, v):
     Reads the CIL files the rule names, as sepolicy_sources does, and fails on
     every allow rule whose source (attributes expanded) includes the domain, for
     one of the classes, with one of the permissions. For example: an app domain
-    may create no network sockets of any kind.
+    may create no network sockets of any kind. Targets named in 'except_targets'
+    (type names, as written in the rule) are left out.
     """
     text, problem = policy_text(rule, v)
     if text is None:
@@ -666,6 +667,8 @@ def rule_sepolicy_denied(rule, v):
     for match in ALLOW_RULE.finditer(text):
         src, target, cls, perms = match.groups()
         if cls not in rule['classes'] or not set(rule['perms']) & set(perms.split()):
+            continue
+        if target in rule.get('except_targets', ()):
             continue
         for domain in set(domains) & cil_expand(src, attributes, types, memo):
             found.add(f'{domain}: {cls} {target} through {src}')

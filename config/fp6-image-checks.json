@@ -7123,7 +7123,7 @@
     },
     {
       "id": "vold-cards-in-vm-hooks",
-      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that checks or mounts FAT or exFAT in Android. While new adoptable storage is off, partitionMixed refuses (RefuseNewAdoption, out of line so the call shows) and partitions nothing, in Android or in the VM.",
+      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that checks or mounts FAT or exFAT in Android. While new adoptable storage is off, a private or mixed partition table is refused (RefuseNewAdoption, out of line so the call shows in vold's partition entry, into which partitionMixed is inlined) and nothing is partitioned for it, in Android or in the VM.",
       "type": "elf_calls",
       "file": "SYSTEM/bin/vold",
       "absent": [
@@ -7184,7 +7184,7 @@
             "android::vold::Disk::partitionInVm"
           ]
         },
-        "android::vold::Disk::partitionMixed": {
+        "android::vold::VoldNativeService::partition": {
           "calls": [
             "android::vold::RefuseNewAdoption"
           ],
@@ -7293,7 +7293,7 @@
     },
     {
       "id": "fsvmd-obb-no-card",
-      "why": "The OBB image domains (fsvmd_obb, its launcher, VM manager and crosvm) hold no right on any block device: they never reach a card.",
+      "why": "The OBB image domains (fsvmd_obb, its launcher, VM manager and crosvm) hold no right on any block device: they never reach a card. Left out: the dm devices of APEXes, which every VM manager and crosvm may read (stock virtualization policy).",
       "type": "sepolicy_denied",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -7311,6 +7311,9 @@
         "fsvmd_obb_launcher",
         "fsvmd_obb_virtualizationmanager",
         "fsvmd_obb_virtmgr_crosvm"
+      ],
+      "except_targets": [
+        "apex_dm_device"
       ],
       "classes": [
         "blk_file"
