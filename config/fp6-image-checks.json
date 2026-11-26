@@ -7165,7 +7165,10 @@
         },
         "Lcom/android/server/wm/SnapshotImageFiles;->write(Landroid/graphics/Bitmap;Landroid/graphics/Bitmap$CompressFormat;ILjava/io/File;)Ljava/lang/String;": {
           "calls": [
-            "Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->sha256"
+            "Ljava/security/MessageDigest;->getInstance",
+            "Ljava/security/DigestOutputStream;-><init>",
+            "Landroid/graphics/Bitmap;->compress",
+            "Ljava/security/MessageDigest;->digest"
           ]
         }
       },
