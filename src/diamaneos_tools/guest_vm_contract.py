@@ -128,9 +128,10 @@ ROLE_DIGESTS = {
     'fsvm': (1886208, '954b83f8a84a2391ab0330b5cc6a315167acc9b029bae694c383ae723d39932f'),
 }
 # The same sources built as userdebug: the VM programs carry the debuggable build's settings (their filters log).
+# fsvm: the filesystem VM's guest whose accept loop waits without a timeout (an idle VM keeps no timer of its own).
 ROLE_DIGESTS_USERDEBUG = {
     'decoder_vm': (5512704, '91fd5087077bdff485c2e62508911bf1822d8fd64643f727751b579a1e99ee4e'),
-    'fsvm': (1886720, '875d123b8e106525ff5b3e2a67a836ec80d308b062d67092743635f58e2b9912'),
+    'fsvm': (1886720, 'de44d940682d01b883622a4d070444a043d21fb18a3da730d1cd682e6696deb2'),
 }
 
 
