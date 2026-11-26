@@ -702,10 +702,10 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(subject.rule_text(rules['decode-service-domain'], self.harness(
             {'SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts': seapp.replace(b'decode_service_app', b'platform_app')}))[0])
         # The pool's users: exactly the decode service's and fsvmd's VM managers (cards and OBB images), shell's too
-        # on userdebug.
+        # and the exact privileged test helper's manager on userdebug.
         base = (b'(type gunyah_vm_pool_device)\n(type decode_service_app_virtualizationmanager)\n'
                 b'(type fsvmd_virtualizationmanager)\n(type fsvmd_obb_virtualizationmanager)\n'
-                b'(type shell_virtualizationmanager)\n(type fsvmd)\n'
+                b'(type shell_virtualizationmanager)\n(type decode_test_app_virtualizationmanager)\n(type decode_test_app)\n(type fsvmd)\n'
                 b'(typeattribute gunyah_vm_pool_client)\n'
                 b'(typeattributeset gunyah_vm_pool_client (decode_service_app_virtualizationmanager '
                 b'fsvmd_obb_virtualizationmanager fsvmd_virtualizationmanager))\n'
@@ -720,7 +720,13 @@ class RuleTests(unittest.TestCase):
         self.assertEqual((user['variants'], debug['variants']), (['user'], ['userdebug']))
         self.assertTrue(subject.rule_sepolicy_sources(user, policy(base))[0])
         with_shell = base.replace(b'fsvmd_virtualizationmanager))', b'fsvmd_virtualizationmanager shell_virtualizationmanager))')
-        self.assertTrue(subject.rule_sepolicy_sources(debug, policy(with_shell))[0])
+        with_test = with_shell.replace(b'shell_virtualizationmanager))',
+                                       b'shell_virtualizationmanager decode_test_app_virtualizationmanager))')
+        self.assertTrue(subject.rule_sepolicy_sources(debug, policy(with_test))[0])
+        self.assertFalse(subject.rule_sepolicy_sources(debug, policy(with_shell))[0])
+        self.assertFalse(subject.rule_sepolicy_sources(user, policy(with_test))[0])
+        app_access = with_test + b'(allow decode_test_app gunyah_vm_pool_device (chr_file (open)))\n'
+        self.assertFalse(subject.rule_sepolicy_sources(debug, policy(app_access))[0])
         ok, detail = subject.rule_sepolicy_sources(user, policy(with_shell))
         self.assertFalse(ok)
         self.assertIn('shell_virtualizationmanager', detail)

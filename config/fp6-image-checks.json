@@ -731,14 +731,166 @@
       "tolerance": 0.03,
       "minimum_lux": 10000,
       "reference": [
-        [1, 1.885], [4, 1.91], [10, 2.002], [20, 2.182], [40, 2.435],
-        [60, 2.79], [80, 3.146], [100, 3.601], [120, 4.099], [146, 4.808],
-        [157, 5.06], [162, 5.268], [171, 5.549], [190, 6.329], [215, 7.317],
-        [246, 8.919], [282, 11.25], [300, 12.71], [323, 14.4], [371, 18.81],
-        [423, 24.66], [487, 33.34], [600, 51.64], [684, 67.96], [833, 102.5],
-        [1000, 152.2], [1288, 262.1], [1500, 369.9], [1632, 449.0], [2000, 715.3],
-        [2047, 750.7], [2048, 757.2], [2100, 767.3], [2306, 809.3], [2425, 836.0],
-        [2600, 890.5], [3000, 1004.0], [3480, 1151.0], [3800, 1262.0], [4094, 1364.0]
+        [
+          1,
+          1.885
+        ],
+        [
+          4,
+          1.91
+        ],
+        [
+          10,
+          2.002
+        ],
+        [
+          20,
+          2.182
+        ],
+        [
+          40,
+          2.435
+        ],
+        [
+          60,
+          2.79
+        ],
+        [
+          80,
+          3.146
+        ],
+        [
+          100,
+          3.601
+        ],
+        [
+          120,
+          4.099
+        ],
+        [
+          146,
+          4.808
+        ],
+        [
+          157,
+          5.06
+        ],
+        [
+          162,
+          5.268
+        ],
+        [
+          171,
+          5.549
+        ],
+        [
+          190,
+          6.329
+        ],
+        [
+          215,
+          7.317
+        ],
+        [
+          246,
+          8.919
+        ],
+        [
+          282,
+          11.25
+        ],
+        [
+          300,
+          12.71
+        ],
+        [
+          323,
+          14.4
+        ],
+        [
+          371,
+          18.81
+        ],
+        [
+          423,
+          24.66
+        ],
+        [
+          487,
+          33.34
+        ],
+        [
+          600,
+          51.64
+        ],
+        [
+          684,
+          67.96
+        ],
+        [
+          833,
+          102.5
+        ],
+        [
+          1000,
+          152.2
+        ],
+        [
+          1288,
+          262.1
+        ],
+        [
+          1500,
+          369.9
+        ],
+        [
+          1632,
+          449.0
+        ],
+        [
+          2000,
+          715.3
+        ],
+        [
+          2047,
+          750.7
+        ],
+        [
+          2048,
+          757.2
+        ],
+        [
+          2100,
+          767.3
+        ],
+        [
+          2306,
+          809.3
+        ],
+        [
+          2425,
+          836.0
+        ],
+        [
+          2600,
+          890.5
+        ],
+        [
+          3000,
+          1004.0
+        ],
+        [
+          3480,
+          1151.0
+        ],
+        [
+          3800,
+          1262.0
+        ],
+        [
+          4094,
+          1364.0
+        ]
       ]
     },
     {
@@ -1200,11 +1352,28 @@
       "kernel": "BOOT/kernel",
       "kernel_image": "IMAGES/boot.img",
       "boot_parameters": [
-        {"file": "VENDOR_BOOT/vendor_cmdline", "format": "cmdline", "image": "IMAGES/vendor_boot.img"},
-        {"file": "BOOT/cmdline", "format": "cmdline", "image": "IMAGES/boot.img"},
-        {"file": "VENDOR_BOOT/vendor_bootconfig", "format": "bootconfig"},
-        {"file": "VENDOR_BOOT/dtb", "format": "dtb"},
-        {"file": "IMAGES/dtbo.img", "format": "dtb"}
+        {
+          "file": "VENDOR_BOOT/vendor_cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/vendor_boot.img"
+        },
+        {
+          "file": "BOOT/cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/boot.img"
+        },
+        {
+          "file": "VENDOR_BOOT/vendor_bootconfig",
+          "format": "bootconfig"
+        },
+        {
+          "file": "VENDOR_BOOT/dtb",
+          "format": "dtb"
+        },
+        {
+          "file": "IMAGES/dtbo.img",
+          "format": "dtb"
+        }
       ]
     },
     {
@@ -1236,8 +1405,24 @@
         "sha256": "479ee25ee0b3b0988d982d37c3398390eb336f45ac53a49287091fad197c0c6c"
       },
       "members": {
-        "etc/decoder_vm_initrd.img": ["dev", "dev/console", "proc", "init"],
-        "etc/fsvm_initrd.img": ["bin", "dev", "mnt", "proc", "sys", "init", "bin/fsck.exfat", "bin/fsck_msdos", "bin/mkfs.exfat", "bin/newfs_msdos"]
+        "etc/decoder_vm_initrd.img": [
+          "dev",
+          "dev/console",
+          "proc",
+          "init"
+        ],
+        "etc/fsvm_initrd.img": [
+          "bin",
+          "dev",
+          "mnt",
+          "proc",
+          "sys",
+          "init",
+          "bin/fsck.exfat",
+          "bin/fsck_msdos",
+          "bin/mkfs.exfat",
+          "bin/newfs_msdos"
+        ]
       },
       "forbidden": {
         "etc/decoder_vm_initrd.img": [
@@ -1309,7 +1494,7 @@
     },
     {
       "id": "vm-pool-clients-userdebug",
-      "why": "Only the VM managers of the decode service and of fsvmd, for cards and OBB images, plus shell's for the release suite on debuggable builds, may open the memory pool for protected VMs.",
+      "why": "Only the VM managers of the decode service, fsvmd for cards and OBB images, shell and the exact privileged decoder test helper may open the protected VM pool on debuggable builds. The helper app itself has no pool access and its activity requires DUMP.",
       "type": "sepolicy_sources",
       "exact": true,
       "files": [
@@ -1330,7 +1515,8 @@
         "decode_service_app_virtualizationmanager",
         "fsvmd_virtualizationmanager",
         "fsvmd_obb_virtualizationmanager",
-        "shell_virtualizationmanager"
+        "shell_virtualizationmanager",
+        "decode_test_app_virtualizationmanager"
       ],
       "variants": [
         "userdebug"
@@ -3894,169 +4080,169 @@
         "qseecom_proxy.ko"
       ]
     },
-      {
-        "id": "tee-node-open",
-        "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node. Its own label keeps it out of the platform's tee_device grants to its reference HAL domains, ClearKey and Widevine included (tee-node-label).",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "open",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-read",
-        "why": "The same domains only may read from the TEE node, also through a descriptor another process opened.",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "read",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-write",
-        "why": "The same domains only may write to the TEE node, also through a descriptor another process opened.",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "write",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-ioctl",
-        "why": "The same domains only may send commands to the TEE node, also through a descriptor another process opened.",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "ioctl",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-label",
-        "why": "/dev/smcinvoke is the only TEE node and carries its own label. No path carries the platform's tee_device label, which the platform grants to its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains. The legacy /dev/qseecom node is not shipped.",
-        "type": "text",
-        "files": [
-          "SYSTEM/etc/selinux/plat_file_contexts",
-          "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
-          "PRODUCT/etc/selinux/product_file_contexts",
-          "VENDOR/etc/selinux/vendor_file_contexts",
-          "ODM/etc/selinux/odm_file_contexts"
-        ],
-        "match": "any",
-        "regex": [
-          "^/dev/smcinvoke[ \\t]+u:object_r:vendor_smcinvoke_device:s0[ \\t]*$"
-        ],
-        "absent_regex": [
-          "^(?!/dev/smcinvoke[ \\t])\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:vendor_smcinvoke_device:s0",
-          "^\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:tee_device:s0"
-        ]
-      },
-      {
-        "id": "tee-node-owner",
-        "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660. It has no rule for a /dev/qseecom node or for the crypto engine node (/dev/qce), which stays root-only.",
-        "type": "text",
-        "files": [
-          "VENDOR/etc/ueventd.rc"
-        ],
-        "regex": [
-          "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
-        ],
-        "absent_regex": [
-          "^[ \\t]*/dev/qseecom[ \\t]",
-          "^[ \\t]*/dev/qce[ \\t]"
-        ]
-      },
-      {
-        "id": "tee-node-ioctl-limit",
-        "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
-        "type": "sepolicy_xperms",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "sources": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ],
-        "allowed": [
-          "0x9801",
-          "0x9803"
-        ]
-      },
+    {
+      "id": "tee-node-open",
+      "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node. Its own label keeps it out of the platform's tee_device grants to its reference HAL domains, ClearKey and Widevine included (tee-node-label).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-read",
+      "why": "The same domains only may read from the TEE node, also through a descriptor another process opened.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "read",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-write",
+      "why": "The same domains only may write to the TEE node, also through a descriptor another process opened.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "write",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-ioctl",
+      "why": "The same domains only may send commands to the TEE node, also through a descriptor another process opened.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "ioctl",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-label",
+      "why": "/dev/smcinvoke is the only TEE node and carries its own label. No path carries the platform's tee_device label, which the platform grants to its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains. The legacy /dev/qseecom node is not shipped.",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/selinux/plat_file_contexts",
+        "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
+        "PRODUCT/etc/selinux/product_file_contexts",
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "ODM/etc/selinux/odm_file_contexts"
+      ],
+      "match": "any",
+      "regex": [
+        "^/dev/smcinvoke[ \\t]+u:object_r:vendor_smcinvoke_device:s0[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^(?!/dev/smcinvoke[ \\t])\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:vendor_smcinvoke_device:s0",
+        "^\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:tee_device:s0"
+      ]
+    },
+    {
+      "id": "tee-node-owner",
+      "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660. It has no rule for a /dev/qseecom node or for the crypto engine node (/dev/qce), which stays root-only.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^[ \\t]*/dev/qseecom[ \\t]",
+        "^[ \\t]*/dev/qce[ \\t]"
+      ]
+    },
+    {
+      "id": "tee-node-ioctl-limit",
+      "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
+      "type": "sepolicy_xperms",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "sources": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ],
+      "allowed": [
+        "0x9801",
+        "0x9803"
+      ]
+    },
     {
       "id": "no-unused-debug-modules",
       "why": "The interconnect test, the CPU dump table, the Gunyah log dumper, the DSP statistics and the GPU dump skip flag are not shipped. They loaded with nothing depending on them.",
@@ -6886,20 +7072,46 @@
       "kernel_image": "IMAGES/boot.img",
       "kernel": "BOOT/kernel",
       "boot_parameters": [
-        {"file": "VENDOR_BOOT/vendor_cmdline", "format": "cmdline", "image": "IMAGES/vendor_boot.img"},
-        {"file": "BOOT/cmdline", "format": "cmdline", "image": "IMAGES/boot.img"},
-        {"file": "VENDOR_BOOT/vendor_bootconfig", "format": "bootconfig"},
-        {"file": "VENDOR_BOOT/dtb", "format": "dtb"},
-        {"file": "IMAGES/dtbo.img", "format": "dtb"},
-        {"file": "META/kernel_configs.txt", "format": "kconfig"}
+        {
+          "file": "VENDOR_BOOT/vendor_cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/vendor_boot.img"
+        },
+        {
+          "file": "BOOT/cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/boot.img"
+        },
+        {
+          "file": "VENDOR_BOOT/vendor_bootconfig",
+          "format": "bootconfig"
+        },
+        {
+          "file": "VENDOR_BOOT/dtb",
+          "format": "dtb"
+        },
+        {
+          "file": "IMAGES/dtbo.img",
+          "format": "dtb"
+        },
+        {
+          "file": "META/kernel_configs.txt",
+          "format": "kconfig"
+        }
       ],
       "initrd": {
-        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
+        "apex": [
+          "SYSTEM/apex/com.android.virt.apex",
+          "SYSTEM/apex/com.android.virt.capex"
+        ],
         "file": "etc/fsvm_initrd.img",
         "forbidden": "fsvm.selftest"
       },
       "guest_kernel": {
-        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
+        "apex": [
+          "SYSTEM/apex/com.android.virt.apex",
+          "SYSTEM/apex/com.android.virt.capex"
+        ],
         "file": "etc/fs/fsvm_kernel"
       }
     },
