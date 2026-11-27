@@ -1737,6 +1737,91 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(subject.rule_zip_contains(rule, v)[0])
         self.assertTrue(subject.rule_zip_contains(dict(rule, dex_only=True), v)[0])
 
+    def test_hook_rules_name_each_lost_hook(self):
+        from tests.build.test_code_calls import jar, make_dex, make_elf
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        for rule_id in ('decode-gate-framework-hooks', 'decode-gate-system-server-hook'):
+            rule = rules[rule_id]
+            hooks = [(m, h) for m, want in rule['methods'].items()
+                     for h in want.get('calls', []) + want.get('fields', [])]
+
+            def check(drop=None, rule=rule):
+                methods = {m: [('field' if h in rule['methods'][m].get('fields', []) else 'call', h)
+                               for h in rule['methods'][m].get('calls', []) + rule['methods'][m].get('fields', [])
+                               if (m, h) != drop] + [('units', [0x000e])]
+                           for m in rule['methods'] if m != drop}
+                return subject.RULES[rule['type']](rule, self.harness({rule['file']: jar(make_dex(methods))}))
+            with self.subTest(rule=rule_id):
+                self.assertEqual('dex_calls', rule['type'])
+                self.assertTrue(check()[0])
+                for method, hook in hooks:
+                    self.assertEqual((False, f'{method} lacks {hook}'), check((method, hook)))
+                method = next(iter(rule['methods']))
+                self.assertEqual((False, f'{method} is not in {rule["file"]}'), check(method))
+        framework = rules['decode-gate-framework-hooks']['methods']
+        for entry in ('BitmapFactory;->decodeByteArray', 'BitmapRegionDecoder;->newInstance', 'Movie;->decodeStream',
+                      'ImageDecoder;->decodeDrawableImpl', 'ContentResolver;->loadThumbnail',
+                      'ImageView;->getDrawableFromUri', 'AssetManager;->open', 'Resources;->openRawResource',
+                      'ResourcesImpl;->loadDrawableForCookie', 'Icon;->loadDrawableInner',
+                      'ActivityThread;->handleBindApplication'):
+            self.assertTrue(any(entry in method for method in framework), entry)
+
+        rule = rules['vold-cards-in-vm-hooks']
+        self.assertEqual('elf_calls', rule['type'])
+        self.assertIn('android::vold::PublicVolume::doMount', rule['functions'])
+        self.assertIn('android::vold::Disk::readPartitions', rule['functions'])
+
+        def vold(drop=None, extra=None):
+            functions = {f: [('bl', c) for c in want.get('calls', []) if (f, c) != drop] + ['nop']
+                         for f, want in rule['functions'].items() if f != drop}
+            for function, callees in rule['functions'].items():
+                for callee in callees.get('calls', []) + callees.get('never', []):
+                    functions.setdefault(callee, ['nop'])
+            for function, callee in (extra or {}).items():
+                functions.setdefault(callee, ['nop'])
+                functions[function] = [('bl', callee)] + functions.get(function, ['nop'])
+            if not extra:
+                for name in rule['absent'] + [c for want in rule['functions'].values() for c in want.get('never', [])]:
+                    functions.pop(name, None)
+            return subject.RULES['elf_calls'](rule, self.harness({rule['file']: make_elf(functions)}))
+        self.assertEqual((True, f'every hook in place in SYSTEM/bin/vold ({len(rule["functions"])} checked)'), vold())
+        for function, want in rule['functions'].items():
+            for callee in want.get('calls', []):
+                self.assertEqual((False, f'{function} does not call {callee}'), vold((function, callee)))
+            for callee in want.get('never', []):
+                ok, detail = vold(extra={function: callee})
+                self.assertFalse(ok)
+                self.assertIn(f'{function} calls {callee}', detail)
+        self.assertEqual((False, 'android::vold::PublicVolume::doMount is not in SYSTEM/bin/vold'),
+                         vold('android::vold::PublicVolume::doMount'))
+        for name in rule['absent']:
+            ok, detail = vold(extra={'android::vold::VolumeManager::start': name})
+            self.assertIn(f'SYSTEM/bin/vold has {name}', detail)
+
+    def test_hook_rules_fail_when_the_code_cannot_be_read(self):
+        from tests.build.test_code_calls import jar, make_elf
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        cases = (('decode-gate-framework-hooks', {}, 'FileNotFoundError'),
+                 ('decode-gate-framework-hooks', {'SYSTEM/framework/framework.jar': jar()}, 'no dex files'),
+                 ('decode-gate-framework-hooks', {'SYSTEM/framework/framework.jar': b'x'}, 'BadZipFile'),
+                 ('vold-cards-in-vm-hooks', {}, 'FileNotFoundError'),
+                 ('vold-cards-in-vm-hooks', {'SYSTEM/bin/vold': make_elf({'a::b': ['nop']}, debugdata=False)},
+                  'no .gnu_debugdata'))
+        for rule_id, members, detail in cases:
+            with self.subTest(rule=rule_id, detail=detail):
+                v = self.harness(members)
+                v.results = []
+                rule = rules[rule_id]
+                subject.Verification.add(v, rule_id, 'why', lambda: subject.RULES[rule['type']](rule, v))
+                self.assertEqual('FAIL', v.results[0]['status'])
+                self.assertIn(detail, v.results[0]['detail'])
+        empty = {'type': 'dex_calls', 'file': 'SYSTEM/framework/framework.jar', 'methods': {'La;->b()V': {}}}
+        self.assertEqual((False, 'the rule names a method without a hook, or none'),
+                         subject.rule_dex_calls(empty, self.harness({})))
+        empty = {'type': 'elf_calls', 'file': 'SYSTEM/bin/vold', 'functions': {}}
+        self.assertEqual((False, 'the rule names a function without a hook, or none'),
+                         subject.rule_elf_calls(empty, self.harness({})))
+
     def test_updater_server_hosts_are_exact(self):
         rule = next(r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']
                     if r['id'] == 'updater-server')
