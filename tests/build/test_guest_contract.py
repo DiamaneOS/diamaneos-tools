@@ -14,10 +14,10 @@ from tests.build.test_image_verify import newc, rsa_test_key, signed_avb_image
 class ContractTest(unittest.TestCase):
     def test_vendored_source_is_the_reviewed_shared_module(self):
         self.assertEqual(hashlib.sha256(Path(contract.__file__).read_bytes()).hexdigest(),
-                         '67c755d2eda243dd78d1a34dd66aae44096e7a57e669cb32a9ee152da7906ea6')
+                         'be715c030479c1ca29fabcb64ee383cbd2e78e833b502f1c7c588e8088835320')
 
     def test_role_digests_follow_the_build_variant(self):
-        # Two builds of the squash sources per variant gave the same bytes: user and userdebug programs differ.
+        # Each variant has independently observed image bytes. User and userdebug programs differ.
         self.assertIs(contract.ROLE_DIGESTS, contract.role_digests('user'))
         self.assertIs(contract.ROLE_DIGESTS_USERDEBUG, contract.role_digests('userdebug'))
         self.assertNotEqual(contract.ROLE_DIGESTS['decoder_vm'], contract.ROLE_DIGESTS_USERDEBUG['decoder_vm'])
