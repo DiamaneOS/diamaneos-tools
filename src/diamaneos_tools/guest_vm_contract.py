@@ -2,7 +2,7 @@
 """Protected guest contract, shared by the signer and diamaneos-tools.
 
 The tools copy is vendored byte for byte from Virtualization build/apex.
-Role digests below identify the build outputs of the 2026-11-24 squash sources, per variant. The compiled
+Role digests below identify the build outputs of the 2026-11-26 folded sources, per variant. The compiled
 signer replaces them with digests derived directly from its Soong producers.
 No digest from the input APEX is trusted as the role identity.
 """
@@ -124,14 +124,14 @@ FILES = {
     },
 }
 ROLE_DIGESTS = {
-    'decoder_vm': (5508096, 'ab53d0096782bb7257a030150eb9be867392b29a70fc698f3ec1208a7f147bb4'),
-    'fsvm': (1886208, '954b83f8a84a2391ab0330b5cc6a315167acc9b029bae694c383ae723d39932f'),
+    'decoder_vm': (5550080, '962f3cf072592f09d09b87fa3ee61d4d464b55a8dc061107cbf3d314fe2d02c8'),
+    'fsvm': (1886208, '51cd76155eebeff1af5494057f62bb67caf3109f58aaa54494f3e6cded84bb13'),
 }
 # The same sources built as userdebug: the VM programs carry the debuggable build's settings (their filters log).
 # fsvm: the filesystem VM's guest whose accept loop waits without a timeout (an idle VM keeps no timer of its own).
 ROLE_DIGESTS_USERDEBUG = {
-    'decoder_vm': (5512704, '91fd5087077bdff485c2e62508911bf1822d8fd64643f727751b579a1e99ee4e'),
-    'fsvm': (1886720, 'de44d940682d01b883622a4d070444a043d21fb18a3da730d1cd682e6696deb2'),
+    'decoder_vm': (5550080, '73de26b66bb433b7ac545cabdc113b99ca11062a1ddd74e75305d2e232b4f034'),
+    'fsvm': (1886720, '350d2c4c9ef4e6c28145283c9f8536e6b0508692a54dab2d2f9e59f5642e9de8'),
 }
 
 
