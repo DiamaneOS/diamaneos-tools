@@ -3,12 +3,12 @@
   "vendor": {
     "path": "vendor",
     "url": "https://github.com/DiamaneOS/kernel_qcom-6.18",
-    "revision": "5065631a6d9bd0b8d6c6b06ea8551bc852e29c6c"
+    "revision": "189b7717494787b2d7315fd4951b8db9c5940d1a"
   },
   "common": {
     "path": "common",
     "url": "https://github.com/DiamaneOS/kernel_common-6.18",
-    "revision": "5e105f3c85280d3e1c4d1eb445965dcedc063fd7"
+    "revision": "2142ff40ddc5a986704586db8b565ae5c14a3933"
   },
   "toolchain": [
     {
@@ -28,8 +28,8 @@
     {
       "name": "clang-tools",
       "path": "toolchain/clang-tools",
-      "url": "https://android.googlesource.com/platform/prebuilts/clang-tools",
-      "revision": "4155cb466dcd9b53c6f873829c53aa6f905449dd",
+      "url": "https://github.com/DiamaneOS/kernel_prebuilts_clang-tools",
+      "revision": "e051ae740fca281bb63e72b5e0adf55d8d0c921a",
       "sparse": ["/*", "!/*/", "/linux-x86/"]
     },
     {
