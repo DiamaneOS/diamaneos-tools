@@ -1485,15 +1485,18 @@ def is_erofs(source: Path) -> bool:
         return stream.read(4) == EROFS_MAGIC
 
 
-def erofs_file(v, source: Path, inside: str, directory: Path) -> bytes:
-    """Content of one regular file of an erofs image, unpacked by the build's fsck.erofs."""
+def erofs_files(v, source: Path, insides: list[str], directory: Path) -> dict:
+    """Contents of regular files of an erofs image, unpacked once by the build's fsck.erofs."""
     out = directory / 'erofs'
     shutil.rmtree(out, ignore_errors=True)
     v.tools.run('fsck.erofs', [f'--extract={out}', source])
-    target = out / inside.lstrip('/')
-    if target.is_symlink() or not target.is_file() or out.resolve() not in target.resolve().parents:
-        raise ValueError(f'no {inside} in the erofs payload')
-    return target.read_bytes()
+    files = {}
+    for inside in insides:
+        target = out / inside.lstrip('/')
+        if target.is_symlink() or not target.is_file() or out.resolve() not in target.resolve().parents:
+            raise ValueError(f'no {inside} in the erofs payload')
+        files[inside] = target.read_bytes()
+    return files
 
 
 def rule_apex_payload(rule, v):
@@ -1603,10 +1606,17 @@ def kernel_version(release: str) -> str:
 
 def apex_file(v, names: list[str], inside: str) -> tuple[str, bytes]:
     """One regular file of the first of `names` (an .apex or .capex in the image), from its ext4 payload."""
+    name, files = apex_files(v, names, [inside])
+    return name, files[inside]
+
+
+def apex_files(v, names: list[str], insides: list[str]) -> tuple[str, dict]:
+    """Regular files of the first of `names` (an .apex or .capex in the image), from its payload, unpacked once."""
     present = [name for name in names if v.tf.exists(name)]
     if not present:
         raise ValueError('none of ' + ', '.join(names))
     name = present[0]
+    files = {}
     with v.tools.scratch() as temporary:
         directory = Path(temporary)
         with zipfile.ZipFile(v.tf.extract(name, directory)) as archive:
@@ -1618,11 +1628,206 @@ def apex_file(v, names: list[str], inside: str) -> tuple[str, bytes]:
             else:
                 payload = apex_payload(archive, name, directory, erofs=True)
         if is_erofs(payload):
-            return name, erofs_file(v, payload, inside, directory)
-        info, content = ext4_file(v, payload, '/' + inside, directory)
-    if 'Type: regular' not in info:
-        raise ValueError(f'no {inside} in {name}')
-    return name, content
+            return name, erofs_files(v, payload, insides, directory)
+        for inside in insides:
+            info, content = ext4_file(v, payload, '/' + inside, directory)
+            if 'Type: regular' not in info:
+                raise ValueError(f'no {inside} in {name}')
+            files[inside] = content
+    return name, files
+
+
+AVB_FOOTER, AVB_HEADER = b'AVBf', b'AVB0'
+AVB_HASH_DESCRIPTOR = 2
+# avb_crypto.h: algorithm type -> (hash, RSA key bits). Type 0 is an unsigned vbmeta.
+AVB_ALGORITHMS = {1: ('sha256', 2048), 2: ('sha256', 4096), 3: ('sha256', 8192),
+                  4: ('sha512', 2048), 5: ('sha512', 4096), 6: ('sha512', 8192)}
+# The DER DigestInfo prefixes of PKCS#1 v1.5 signatures (RFC 8017 section 9.2).
+DIGEST_INFO = {'sha256': bytes.fromhex('3031300d060960864801650304020105000420'),
+               'sha512': bytes.fromhex('3051300d060960864801650304020305000440')}
+
+
+def avb_vbmeta(data: bytes) -> dict:
+    """The vbmeta of an image with an AVB footer (avb_vbmeta_image.h): its algorithm type, the signed bytes
+    (header and auxiliary block), the hash and signature of its authentication block, its public key, every
+    descriptor in order as (tag, partition name, (image size, hash algorithm, salt, digest)) with name and hash None
+    for descriptors other than hash descriptors, and the size of the image before the footer."""
+    if len(data) < 64 or data[-64:-60] != AVB_FOOTER:
+        raise ValueError('no AVB footer')
+    original, offset, size = struct.unpack('>QQQ', data[-52:-28])
+    if original > offset or offset + size > len(data) - 64 or size < 256:
+        raise ValueError('AVB footer points outside the image')
+    vbmeta = data[offset:offset + size]
+    if vbmeta[:4] != AVB_HEADER:
+        raise ValueError('no vbmeta at the AVB footer offset')
+    auth, aux = struct.unpack('>QQ', vbmeta[12:28])
+    algorithm = struct.unpack('>I', vbmeta[28:32])[0]
+    (hash_offset, hash_size, signature_offset, signature_size, key_offset, key_size, _metadata_offset,
+     _metadata_size, start, length) = struct.unpack('>10Q', vbmeta[32:112])
+    if 256 + auth + aux > len(vbmeta):
+        raise ValueError('vbmeta blocks outside the vbmeta')
+    auth_block, block = vbmeta[256:256 + auth], vbmeta[256 + auth:256 + auth + aux]
+    if (hash_offset + hash_size > auth or signature_offset + signature_size > auth or key_offset + key_size > aux
+            or start + length > aux):
+        raise ValueError('vbmeta fields outside their blocks')
+    descriptors, position, end = [], start, start + length
+    while position < end:
+        if position + 16 > end:
+            raise ValueError('truncated vbmeta descriptor')
+        tag, following = struct.unpack('>QQ', block[position:position + 16])
+        body = block[position + 16:position + 16 + following]
+        if len(body) != following or position + 16 + following > end:
+            raise ValueError('truncated vbmeta descriptor')
+        if tag == AVB_HASH_DESCRIPTOR:
+            if following < 116:
+                raise ValueError('truncated hash descriptor')
+            image_size = struct.unpack('>Q', body[:8])[0]
+            algorithm_name = body[8:40].rstrip(b'\0').decode('ascii', 'replace')
+            name_length, salt_length, digest_length = struct.unpack('>III', body[40:52])
+            at = 116
+            if at + name_length + salt_length + digest_length > following:
+                raise ValueError('truncated hash descriptor')
+            name = body[at:at + name_length].decode('utf-8', 'replace')
+            salt = body[at + name_length:at + name_length + salt_length]
+            digest = body[at + name_length + salt_length:at + name_length + salt_length + digest_length]
+            descriptors.append((tag, name, (image_size, algorithm_name, salt, digest)))
+        else:
+            descriptors.append((tag, None, None))
+        position += 16 + following
+    return {'algorithm': algorithm, 'signed': vbmeta[:256] + block,
+            'hash': auth_block[hash_offset:hash_offset + hash_size],
+            'signature': auth_block[signature_offset:signature_offset + signature_size],
+            'key': block[key_offset:key_offset + key_size], 'descriptors': descriptors, 'original': original}
+
+
+def avb_signature_problem(meta: dict) -> str:
+    """Why a vbmeta's signature does not verify with its own public key, or '' when it does: the hash of its header
+    and auxiliary block, and RSA PKCS#1 v1.5 with exponent 65537 over that hash, as libavb checks it."""
+    if meta['algorithm'] not in AVB_ALGORITHMS:
+        return 'not signed' if meta['algorithm'] == 0 else f'unknown AVB algorithm {meta["algorithm"]}'
+    hash_name, bits = AVB_ALGORITHMS[meta['algorithm']]
+    size, key = bits // 8, meta['key']
+    if len(key) != 8 + 2 * size or struct.unpack('>I', key[:4])[0] != bits:
+        return f'its public key is not an RSA-{bits} key'
+    modulus = int.from_bytes(key[8:8 + size], 'big')
+    digest = hashlib.new(hash_name, meta['signed']).digest()
+    if meta['hash'] != digest:
+        return 'its vbmeta hash does not match'
+    if len(meta['signature']) != size or not modulus:
+        return 'its signature has the wrong size'
+    message = pow(int.from_bytes(meta['signature'], 'big'), 65537, modulus).to_bytes(size, 'big')
+    tail = DIGEST_INFO[hash_name] + digest
+    if message != b'\0\1' + b'\xff' * (size - len(tail) - 3) + b'\0' + tail:
+        return 'its signature does not verify'
+    return ''
+
+
+def hash_descriptor_matches(descriptor: tuple, content: bytes) -> bool:
+    size, algorithm, salt, digest = descriptor
+    if algorithm not in ('sha256', 'sha512'):
+        return False
+    return size == len(content) and hashlib.new(algorithm, salt + content).digest() == digest
+
+
+def cpio_members(data: bytes) -> list[str]:
+    """The member names of an initramfs (newc cpio archives one after another, gzip compressed or not), in order.
+    Anything the kernel would unpack that this cannot read is an error, so no member goes unseen."""
+    if data[:2] == b'\x1f\x8b':
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            data = stream.read(MAX_MEMBER_BYTES + 1)
+        if len(data) > MAX_MEMBER_BYTES:
+            raise ValueError('initramfs too large')
+    names, at = [], 0
+    while True:
+        while at < len(data) and data[at] == 0:
+            at += 1
+        if at >= len(data):
+            return names
+        header = data[at:at + 110]
+        if len(header) < 110 or header[:6] not in (b'070701', b'070702'):
+            raise ValueError('initramfs holds data that is not a newc cpio archive')
+        file_size, name_size = int(header[54:62], 16), int(header[94:102], 16)
+        name = data[at + 110:at + 110 + name_size]
+        if not name_size or len(name) != name_size or name[-1] != 0:
+            raise ValueError('truncated cpio member name')
+        at = (at + 110 + name_size + 3) & ~3
+        at = (at + file_size + 3) & ~3
+        if at > len(data) + 3:
+            raise ValueError('truncated cpio member')
+        name = name[:-1].decode('utf-8', 'replace')
+        if name != 'TRAILER!!!':
+            names.append(name)
+
+
+GUEST_DESCRIPTORS = ('boot', 'initrd_normal', 'initrd_debug')
+
+
+def rule_apex_guest_images(rule, v):
+    """The virtualization APEX carries the kernel and initramfs of each DiamaneOS guest VM. Each kernel's vbmeta is
+    signed with the key pvmfw boots guests with (key, a file of the target files), and the signature verifies. It
+    holds exactly one hash descriptor each of boot (the kernel's own bytes), initrd_normal and initrd_debug (both its
+    initramfs), and nothing else: pvmfw boots a guest only when these match. Each initramfs holds exactly its
+    role's files (members), so a valid pair placed in the other VM's paths fails too. Both kernels are the pinned guest
+    kernel build (kernel_body: size and SHA-256 of the bytes before the AVB footer), so a rebuild that keeps the
+    release number still shows. A rebase or build change that drops a guest image, ships one unsigned, swaps the
+    guests, ships another guest kernel or changes an initramfs after its kernel was signed fails here, before any
+    phone test. An initramfs must not hold the strings `forbidden` names (test code that
+    only host harnesses use)."""
+    kernels = rule['kernels']
+    forbidden = rule.get('forbidden', {})
+    members = rule['members']
+    if set(members) != set(kernels.values()):
+        return False, 'the rule names the files of other initramfs images than its kernels have'
+    key = v.tf.read(rule['key'])
+    name, files = apex_files(v, rule['apex'], sorted(set(kernels) | set(kernels.values()) | set(forbidden)))
+    problems = []
+    for kernel, initrd in sorted(kernels.items()):
+        data = files[kernel]
+        try:
+            meta = avb_vbmeta(data)
+        except (ValueError, struct.error) as error:
+            problems.append(f'{kernel}: {error}')
+            continue
+        signature = avb_signature_problem(meta)
+        if signature:
+            problems.append(f'{kernel} is {signature}' if signature == 'not signed' else f'{kernel}: {signature}')
+        elif meta['key'] != key:
+            problems.append(f'{kernel} is not signed with the key of {rule["key"]}')
+        body = data[:meta['original']]
+        if len(body) != rule['kernel_body']['bytes'] or hashlib.sha256(body).hexdigest() != rule['kernel_body']['sha256']:
+            problems.append(f'{kernel} is not the pinned guest kernel ({len(body)} bytes, SHA-256 '
+                            f'{hashlib.sha256(body).hexdigest()[:16]})')
+        names = [name for _, name, _ in meta['descriptors']]
+        others = [str(name) if name is not None else f'tag {tag}' for tag, name, _ in meta['descriptors']
+                  if name not in GUEST_DESCRIPTORS]
+        if others:
+            problems.append(f'{kernel} has other descriptors: {", ".join(others)}')
+        twice = sorted({name for name in names if name in GUEST_DESCRIPTORS and names.count(name) > 1})
+        if twice:
+            problems.append(f'{kernel} has more than one {", ".join(twice)} descriptor')
+        hashes = {name: descriptor for _, name, descriptor in meta['descriptors'] if name is not None}
+        for part, content, source in (('boot', data[:meta['original']], kernel), ('initrd_normal', files[initrd], initrd),
+                                      ('initrd_debug', files[initrd], initrd)):
+            if part not in hashes:
+                problems.append(f'{kernel} has no {part} descriptor')
+            elif not hash_descriptor_matches(hashes[part], content):
+                problems.append(f'the {part} descriptor of {kernel} does not match {source}')
+    for initrd, want in sorted(members.items()):
+        try:
+            got = cpio_members(files[initrd])
+        except ValueError as error:
+            problems.append(f'{initrd}: {error}')
+            continue
+        if sorted(got) != sorted(want):
+            extra = sorted(set(got) - set(want)) or sorted({m for m in got if got.count(m) > 1})
+            missing = sorted(set(want) - set(got))
+            problems.append(f'{initrd} does not hold its VM\'s files: extra {", ".join(extra) or "none"}, missing '
+                            f'{", ".join(missing) or "none"}')
+    for initrd, needles in sorted(forbidden.items()):
+        problems += [f'{initrd} holds {needle}' for needle in needles if initrd_holds(files[initrd], needle.encode())]
+    return not problems, '; '.join(problems) or (f'{len(kernels)} guest kernels, the pinned guest kernel, signed with '
+                                                 f'the key of {rule["key"]} over their initramfs, each initramfs its '
+                                                 f'VM\'s files, in {name}')
 
 
 def kernel_words(text: str) -> list[tuple[str, str | None]]:
@@ -1796,7 +2001,7 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
          'no_diagnostic_sanitizer': rule_no_diagnostic_sanitizer,
          'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions,
-         'fs_in_vm_coupling': rule_fs_in_vm_coupling}
+         'fs_in_vm_coupling': rule_fs_in_vm_coupling, 'apex_guest_images': rule_apex_guest_images}
 
 
 def validate_rules(document: dict) -> list:
