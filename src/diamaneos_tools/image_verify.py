@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime
 import fnmatch
+import gzip
 import hashlib
 import io
 import json
@@ -1458,8 +1459,11 @@ def ext4_files(v, source: Path) -> dict:
     return found
 
 
-def apex_payload(apex, name: str, directory: Path) -> Path:
-    """Unpack the ext4 payload of an open APEX archive."""
+EROFS_MAGIC = bytes.fromhex('e2e1f5e0')  # at byte 1024 of an erofs image
+
+
+def apex_payload(apex, name: str, directory: Path, erofs: bool = False) -> Path:
+    """Unpack the ext4 payload of an open APEX archive, or with erofs also an erofs payload."""
     if 'apex_payload.img' not in apex.namelist():
         raise ValueError(name + ' has no apex_payload.img')
     member = apex.getinfo('apex_payload.img')
@@ -1468,10 +1472,28 @@ def apex_payload(apex, name: str, directory: Path) -> Path:
     payload = directory / 'apex_payload.img'
     payload.write_bytes(apex.read(member))
     with payload.open('rb') as stream:
-        stream.seek(1080)
-        if stream.read(2) != EXT4_MAGIC:
-            raise ValueError('the payload of ' + name + ' is not an ext4 image')
+        stream.seek(1024)
+        head = stream.read(58)
+    if head[56:58] != EXT4_MAGIC and not (erofs and head[:4] == EROFS_MAGIC):
+        raise ValueError('the payload of ' + name + ' is not an ext4 image' + (' or an erofs image' if erofs else ''))
     return payload
+
+
+def is_erofs(source: Path) -> bool:
+    with source.open('rb') as stream:
+        stream.seek(1024)
+        return stream.read(4) == EROFS_MAGIC
+
+
+def erofs_file(v, source: Path, inside: str, directory: Path) -> bytes:
+    """Content of one regular file of an erofs image, unpacked by the build's fsck.erofs."""
+    out = directory / 'erofs'
+    shutil.rmtree(out, ignore_errors=True)
+    v.tools.run('fsck.erofs', [f'--extract={out}', source])
+    target = out / inside.lstrip('/')
+    if target.is_symlink() or not target.is_file() or out.resolve() not in target.resolve().parents:
+        raise ValueError(f'no {inside} in the erofs payload')
+    return target.read_bytes()
 
 
 def rule_apex_payload(rule, v):
@@ -1526,10 +1548,195 @@ def native_files(v, name: str, data: bytes, directory: Path):
                     yield f'{name}!{member}', apk.read(member)
     elif name.endswith(('.apex', '.capex')):
         with zipfile.ZipFile(io.BytesIO(data)) as apex:
-            payload = apex_payload(apex, name, directory)
+            payload = apex_payload(apex, name, directory, erofs=True)
+        if is_erofs(payload):
+            # An erofs payload (the virtualization APEX): every regular file, unpacked by the build's fsck.erofs.
+            out = Path(tempfile.mkdtemp(dir=directory, prefix='erofs-'))
+            try:
+                v.tools.run('fsck.erofs', [f'--extract={out / "root"}', payload])
+                files = sorted(p for p in (out / 'root').rglob('*') if p.is_file() and not p.is_symlink())
+                if not files:
+                    raise ValueError('no files in the erofs payload of ' + name)
+                for path in files:
+                    yield from native_files(v, f'{name}!{path.relative_to(out / "root")}', path.read_bytes(), directory)
+            finally:
+                shutil.rmtree(out, ignore_errors=True)
+            return
         for inside, mode in sorted(ext4_files(v, payload).items()):
             if stat.S_ISREG(mode):
                 yield from native_files(v, f'{name}!{inside}', ext4_file(v, payload, '/' + inside, directory)[1], directory)
+
+
+def initrd_holds(data: bytes, needle: bytes) -> bool:
+    """Whether an initramfs (a cpio archive, gzip compressed or not) holds `needle` anywhere."""
+    if data[:2] == b'\x1f\x8b':
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            data = stream.read(MAX_MEMBER_BYTES + 1)
+        if len(data) > MAX_MEMBER_BYTES:
+            raise ValueError('initramfs too large')
+    return needle in data
+
+
+KERNEL_BANNER = re.compile(rb'Linux version ([0-9][!-~]{0,127}) \(')
+
+
+def kernel_banner(data: bytes) -> str:
+    """The release a kernel Image reports in its Linux version banner (gzip compressed or not)."""
+    if data[:2] == b'\x1f\x8b':
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            data = stream.read(MAX_MEMBER_BYTES + 1)
+        if len(data) > MAX_MEMBER_BYTES:
+            raise ValueError('kernel too large')
+    found = set(KERNEL_BANNER.findall(data))
+    if len(found) != 1:
+        raise ValueError('no single Linux version banner')
+    return found.pop().decode('ascii')
+
+
+def kernel_version(release: str) -> str:
+    """6.18.39 of 6.18.39-g6e6288100615."""
+    match = re.match(r'[0-9]+\.[0-9]+\.[0-9]+', release)
+    if not match:
+        raise ValueError(f'unrecognised kernel release {release}')
+    return match[0]
+
+
+def apex_file(v, names: list[str], inside: str) -> tuple[str, bytes]:
+    """One regular file of the first of `names` (an .apex or .capex in the image), from its ext4 payload."""
+    present = [name for name in names if v.tf.exists(name)]
+    if not present:
+        raise ValueError('none of ' + ', '.join(names))
+    name = present[0]
+    with v.tools.scratch() as temporary:
+        directory = Path(temporary)
+        with zipfile.ZipFile(v.tf.extract(name, directory)) as archive:
+            if name.endswith('.capex'):
+                inner = directory / 'original_apex'
+                inner.write_bytes(archive.read('original_apex'))
+                with zipfile.ZipFile(inner) as apex:
+                    payload = apex_payload(apex, name, directory, erofs=True)
+            else:
+                payload = apex_payload(archive, name, directory, erofs=True)
+        if is_erofs(payload):
+            return name, erofs_file(v, payload, inside, directory)
+        info, content = ext4_file(v, payload, '/' + inside, directory)
+    if 'Type: regular' not in info:
+        raise ValueError(f'no {inside} in {name}')
+    return name, content
+
+
+def kernel_words(text: str) -> list[tuple[str, str | None]]:
+    """(name, value) of each parameter of a kernel command line, as the kernel's next_arg and parameq read it:
+    words split at blanks outside double quotes, quotes dropped, value None for a bare name, and - and _ the same
+    in names."""
+    words, word, quoted, started = [], [], False, False
+    for char in text + ' ':
+        if char == '"':
+            quoted, started = not quoted, True
+        elif char.isspace() and not quoted:
+            if started:
+                words.append(''.join(word))
+            word, started = [], False
+        else:
+            word.append(char)
+            started = True
+    result = []
+    for item in words:
+        name, sep, value = item.partition('=')
+        result.append((name.replace('-', '_'), value if sep else None))
+    return result
+
+
+def boot_parameters(v, sources: list[dict]) -> list[tuple[str, str, str | None]]:
+    """(source, name, value) of every kernel parameter the target files give the kernel: command lines (boot and
+    vendor_boot), the kernel. keys of a bootconfig, the bootargs of every device tree and overlay, and the kernel's
+    built-in CONFIG_CMDLINE. Every source is required: a missing one is an error, never an empty list."""
+    found = []
+    for source in sources:
+        name, kind = source['file'], source['format']
+        if not v.tf.exists(name):
+            raise ValueError(f'{name} is missing')
+        data = v.tf.read(name)
+        texts = []
+        if kind == 'cmdline':
+            texts.append(text_of(data).replace('\0', ' '))
+        elif kind == 'bootconfig':
+            for line in lines_of(data):
+                line = line.split('#', 1)[0].strip()
+                if not line:
+                    continue
+                if '{' in line or '}' in line:
+                    raise ValueError(f'{name}: nested bootconfig keys are not read')
+                key, sep, value = line.partition('=')
+                key = key.strip()
+                if key.startswith('kernel.'):
+                    texts.append(key[len('kernel.'):] + (sep + value.strip() if sep else ''))
+        elif kind == 'dtb':
+            if data[-64:-60] == AVB_FOOTER:
+                data = avb_payload(data)
+            for tree in device_trees(data):
+                for node in tree.values():
+                    if 'bootargs' in node['props']:
+                        texts.append(text_of(node['props']['bootargs']).replace('\0', ' '))
+        elif kind == 'kconfig':
+            for line in lines_of(data):
+                match = re.fullmatch(r'CONFIG_CMDLINE="((?:[^"\\]|\\.)*)"', line.strip())
+                if match:
+                    texts.append(re.sub(r'\\(.)', r'\1', match[1]))
+        else:
+            raise ValueError(f'unknown boot parameter source format {kind}')
+        for text in texts:
+            found += [(name, key, value) for key, value in kernel_words(text)]
+    return found
+
+
+def rule_fs_in_vm_coupling(rule, v):
+    """The filesystem VM for SD cards and USB drives (its daemon in the image) and the kernel's partition scan of
+    those disks move together. With the daemon the kernel must not read their tables: no input of the kernel's
+    command line (boot_parameters) may assign the scan parameter at all, in any form. Without it the kernel must
+    (the opt-out is there), or partitioned cards would not work. With the daemon, the VM's initramfs must not hold
+    the self test only the host harness's initramfs has, and the VM's kernel must be the phone kernel's release: it
+    is built from kernel_common apart, and fixes reach it only by a rebuild."""
+    has_daemon = v.tf.exists(rule['daemon'])
+    guest = ''
+    if has_daemon and 'guest_kernel' in rule:
+        want = rule['guest_kernel']
+        try:
+            apex, content = apex_file(v, want['apex'], want['file'])
+            guest = kernel_banner(content)
+            host = kernel_banner(v.tf.read(want['host']))
+            same = kernel_version(guest) == kernel_version(host)
+        except (ValueError, FileNotFoundError, KeyError) as error:
+            return False, f'filesystem VM kernel: {error}'
+        if not same:
+            return False, (f'{want["file"]} in {apex} is {guest}, the phone kernel {host}: rebuild the filesystem '
+                           f'VM kernel from the kernel_common pin')
+    if has_daemon and 'initrd' in rule:
+        want = rule['initrd']
+        try:
+            apex, content = apex_file(v, want['apex'], want['file'])
+        except ValueError as error:
+            return False, str(error)
+        if initrd_holds(content, want['forbidden'].encode()):
+            return False, f'{want["file"]} in {apex} holds {want["forbidden"]}: the self test ships'
+
+    try:
+        parameters = boot_parameters(v, rule['boot_parameters'])
+    except ValueError as error:
+        return False, f'boot parameters: {error}'
+    name = rule['parameter'].replace('-', '_')
+    assigned = [(source, key if value is None else f'{key}={value}') for source, key, value in parameters
+                if key == name]
+    if has_daemon and assigned:
+        where = '; '.join(f'{word} in {source}' for source, word in assigned)
+        return False, f'{rule["daemon"]} is in the image and the kernel command line assigns {name}: {where}'
+    opt_out = any(f'{key}={value}' == rule['opt_out'] for _, key, value in parameters if value is not None)
+    if not has_daemon and not opt_out:
+        return False, f'no {rule["daemon"]} and no {rule["opt_out"]}: partitioned cards would not work'
+    if not has_daemon:
+        return True, 'kernel partition scan'
+    checked = f'{name} in none of {len(rule["boot_parameters"])} boot parameter sources'
+    return True, f'filesystem VM, its kernel {guest}, {checked}' if guest else f'filesystem VM, {checked}'
 
 
 def rule_no_diagnostic_sanitizer(rule, v):
@@ -1588,7 +1795,8 @@ RULES = {'files_present': rule_files_present, 'files_absent': rule_files_absent,
          'dex_url_hosts': rule_dex_url_hosts,
          'file_metadata': rule_file_metadata, 'apex_payload': rule_apex_payload,
          'no_diagnostic_sanitizer': rule_no_diagnostic_sanitizer,
-         'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions}
+         'codec2_abi_guard': rule_codec2_abi_guard, 'privapp_permissions': rule_privapp_permissions,
+         'fs_in_vm_coupling': rule_fs_in_vm_coupling}
 
 
 def validate_rules(document: dict) -> list:

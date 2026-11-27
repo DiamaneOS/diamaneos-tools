@@ -6631,6 +6631,32 @@
         "SYSTEM/lib64/libclang_rt.asan-aarch64-android.so": "Upstream's ASan runtime, which the generic system product lists. Nothing in a user build loads it.",
         "SYSTEM/lib64/libclang_rt.ubsan_standalone-aarch64-android.so": "The UBSan runtime itself, which base_system.mk lists. libinput and libjxl link it for their trap-mode undefined checks and call none of its handlers."
       }
+    },
+    {
+      "id": "fs-in-vm-kernel-scan",
+      "why": "The kernel reads no partition table of an SD card or USB disk (CONFIG_BLK_NO_EXTERNAL_PART_SCAN). A build with the filesystem VM (fsvmd) has it read there and must not turn the kernel's scan back on: no input of the kernel command line (boot and vendor_boot command lines, bootconfig kernel keys, device tree and overlay bootargs, the built-in CONFIG_CMDLINE) may assign external_part_scan in any form, and each input must be there to be read. A build without it needs external_part_scan=1 (device BoardConfig.mk), or partitioned cards would not work. The filesystem VM's kernel parses card and OBB bytes and is built from kernel_common apart (Virtualization guest/diamaneos/kernel): it must be the phone kernel's release, so a kernel_common move rebuilds it.",
+      "type": "fs_in_vm_coupling",
+      "daemon": "SYSTEM_EXT/bin/fsvmd",
+      "parameter": "external_part_scan",
+      "opt_out": "external_part_scan=1",
+      "boot_parameters": [
+        {"file": "VENDOR_BOOT/vendor_cmdline", "format": "cmdline"},
+        {"file": "BOOT/cmdline", "format": "cmdline"},
+        {"file": "VENDOR_BOOT/vendor_bootconfig", "format": "bootconfig"},
+        {"file": "VENDOR_BOOT/dtb", "format": "dtb"},
+        {"file": "IMAGES/dtbo.img", "format": "dtb"},
+        {"file": "META/kernel_configs.txt", "format": "kconfig"}
+      ],
+      "initrd": {
+        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
+        "file": "etc/fsvm_initrd.img",
+        "forbidden": "fsvm.selftest"
+      },
+      "guest_kernel": {
+        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
+        "file": "etc/fs/fsvm_kernel",
+        "host": "BOOT/kernel"
+      }
     }
   ]
 }
