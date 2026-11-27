@@ -644,6 +644,8 @@ def rule_sepolicy_sources(rule, v):
 
     The rule names one class and permission ('cls', 'perm'), or several ('classes',
     'perms'): then a domain with any of the permissions on any of the classes counts.
+    permission_exceptions may name exact permissions for one domain and class.
+    Other permissions of the same grant still count as access.
 
     Reads the platform, mapping and vendor CIL files the rule names (globs
     allowed, versioned compatibility files *.compat.cil skipped) and expands
@@ -664,14 +666,20 @@ def rule_sepolicy_sources(rule, v):
     wanted = set(rule.get('perms') or [rule['perm']])
     for match in ALLOW_RULE.finditer(text):
         src, target, cls, perms = match.groups()
-        if cls not in classes or not wanted & set(perms.split()):
+        matched = wanted & set(perms.split())
+        if cls not in classes or not matched:
             continue
+        candidates = set()
         if target == 'self':
             # A rule on self lets each source use the permission on itself.
             if rule['target'] in cil_expand(src, attributes, types, memo):
-                sources.add(rule['target'])
+                candidates.add(rule['target'])
         elif rule['target'] in cil_expand(target, attributes, types, memo):
-            sources |= cil_expand(src, attributes, types, memo)
+            candidates = cil_expand(src, attributes, types, memo)
+        for domain in candidates:
+            permitted = rule.get('permission_exceptions', {}).get(domain, {}).get(cls, [])
+            if matched - set(permitted):
+                sources.add(domain)
     others = sorted(sources - set(rule['allowed']))
     missing = sorted(set(rule['allowed']) - sources) if rule.get('exact') else []
     problems = (['also ' + ', '.join(others)] if others else []) + (['not ' + ', '.join(missing)] if missing else [])

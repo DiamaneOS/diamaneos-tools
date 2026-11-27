@@ -642,7 +642,7 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         rule = rules['protected-vm-guest-images']
         self.assertEqual(rule.get('kernel_body'), {
-            'bytes': 8312840, 'sha256': '479ee25ee0b3b0988d982d37c3398390eb336f45ac53a49287091fad197c0c6c'})
+            'bytes': 8312840, 'sha256': '8677cc32983b91453a63e8f68c4208a93947dfe774231ab6000e2fd2da868403'})
         erofs = bytes(1024) + bytes.fromhex('e2e1f5e0') + bytes(3068)
         data = io.BytesIO()
         with zipfile.ZipFile(data, 'w') as archive:
@@ -2181,6 +2181,31 @@ class RuleTests(unittest.TestCase):
             with self.subTest(grant=grant):
                 self.assertEqual((False, 'also ' + domain), judge(grant))
         self.assertTrue(judge(b'(allow zygote system_data_file (dir (search getattr)))\n')[0])
+
+    def test_toolbox_cleanup_exception_is_only_for_the_reviewed_directory_permissions(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['system-data-file-writers']
+        plat = (b'(type toolbox)\n(type untrusted_app)\n(type system_data_file)\n'
+                b'(typeattributeset appdomain (untrusted_app))\n'
+                b'(typeattributeset data_file_type (system_data_file))\n'
+                b'(allow toolbox system_data_file (dir (write add_name remove_name)))\n'
+                b'(allow toolbox system_data_file (file (getattr unlink)))\n')
+        others = {name: b'' for name in rule['files'] if '*' not in name}
+        judge = lambda extra: subject.rule_sepolicy_sources(
+            rule, self.harness({**others, 'SYSTEM/etc/selinux/plat_sepolicy.cil': plat + extra}))
+        self.assertTrue(judge(b'')[0])
+        for cls, perm in [('file', 'create'), ('file', 'write'), ('file', 'append'), ('file', 'link'),
+                          ('file', 'rename'), ('lnk_file', 'create'), ('lnk_file', 'write'),
+                          ('dir', 'create'), ('dir', 'rename'), ('dir', 'reparent')]:
+            with self.subTest(cls=cls, perm=perm):
+                self.assertEqual((False, 'also toolbox'), judge(
+                    ('(allow toolbox system_data_file (' + cls + ' (' + perm + ')))\n').encode()))
+        self.assertEqual((False, 'also toolbox'), judge(
+            b'(allow toolbox data_file_type (dir (write reparent)))\n'))
+        self.assertEqual((False, 'also untrusted_app'), judge(
+            b'(allow appdomain data_file_type (file (create write)))\n'))
+        self.assertEqual((False, 'also untrusted_app'), judge(
+            b'(allow appdomain data_file_type (dir (add_name)))\n'))
 
     def test_hook_rules_fail_when_the_code_cannot_be_read(self):
         from tests.build.test_code_calls import jar, make_elf
