@@ -1402,7 +1402,7 @@
       "key": "PREBUILT_IMAGES/pvmfw_embedded.avbpubkey",
       "kernel_body": {
         "bytes": 8312840,
-        "sha256": "479ee25ee0b3b0988d982d37c3398390eb336f45ac53a49287091fad197c0c6c"
+        "sha256": "8677cc32983b91453a63e8f68c4208a93947dfe774231ab6000e2fd2da868403"
       },
       "members": {
         "etc/decoder_vm_initrd.img": [
@@ -7415,7 +7415,7 @@
     },
     {
       "id": "system-data-file-writers",
-      "why": "Only the system server and the platform's trusted daemons (init, vold, vold_prepare_subdirs, installd) may create, write, rename or link system_data_file files, or add, remove or move names in its directories. The task snapshot loader decodes files of this label without the VM when their recorded hash matches, so a new writer (an app domain or a vendor daemon) would be a new way to place a file there. The hash pin holds without this, and this keeps the label's writers as reviewed.",
+      "why": "Only system_server, init, vold, vold_prepare_subdirs and installd may write system_data_file contents or create and move its directories. Init-only toolbox cleanup has exactly the watched dir permissions write, add_name and remove_name, with no file create, write, append, rename or link and no dir create, rename or reparent. The task snapshot loader decodes this label without the VM only when its authenticated hash matches. Any broader toolbox grant or new untrusted writer fails this check.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -7450,7 +7450,12 @@
         "system_server",
         "vold",
         "vold_prepare_subdirs"
-      ]
+      ],
+      "permission_exceptions": {
+        "toolbox": {
+          "dir": ["write", "add_name", "remove_name"]
+        }
+      }
     },
     {
       "id": "vold-cards-in-vm-hooks",
