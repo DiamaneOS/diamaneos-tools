@@ -731,14 +731,166 @@
       "tolerance": 0.03,
       "minimum_lux": 10000,
       "reference": [
-        [1, 1.885], [4, 1.91], [10, 2.002], [20, 2.182], [40, 2.435],
-        [60, 2.79], [80, 3.146], [100, 3.601], [120, 4.099], [146, 4.808],
-        [157, 5.06], [162, 5.268], [171, 5.549], [190, 6.329], [215, 7.317],
-        [246, 8.919], [282, 11.25], [300, 12.71], [323, 14.4], [371, 18.81],
-        [423, 24.66], [487, 33.34], [600, 51.64], [684, 67.96], [833, 102.5],
-        [1000, 152.2], [1288, 262.1], [1500, 369.9], [1632, 449.0], [2000, 715.3],
-        [2047, 750.7], [2048, 757.2], [2100, 767.3], [2306, 809.3], [2425, 836.0],
-        [2600, 890.5], [3000, 1004.0], [3480, 1151.0], [3800, 1262.0], [4094, 1364.0]
+        [
+          1,
+          1.885
+        ],
+        [
+          4,
+          1.91
+        ],
+        [
+          10,
+          2.002
+        ],
+        [
+          20,
+          2.182
+        ],
+        [
+          40,
+          2.435
+        ],
+        [
+          60,
+          2.79
+        ],
+        [
+          80,
+          3.146
+        ],
+        [
+          100,
+          3.601
+        ],
+        [
+          120,
+          4.099
+        ],
+        [
+          146,
+          4.808
+        ],
+        [
+          157,
+          5.06
+        ],
+        [
+          162,
+          5.268
+        ],
+        [
+          171,
+          5.549
+        ],
+        [
+          190,
+          6.329
+        ],
+        [
+          215,
+          7.317
+        ],
+        [
+          246,
+          8.919
+        ],
+        [
+          282,
+          11.25
+        ],
+        [
+          300,
+          12.71
+        ],
+        [
+          323,
+          14.4
+        ],
+        [
+          371,
+          18.81
+        ],
+        [
+          423,
+          24.66
+        ],
+        [
+          487,
+          33.34
+        ],
+        [
+          600,
+          51.64
+        ],
+        [
+          684,
+          67.96
+        ],
+        [
+          833,
+          102.5
+        ],
+        [
+          1000,
+          152.2
+        ],
+        [
+          1288,
+          262.1
+        ],
+        [
+          1500,
+          369.9
+        ],
+        [
+          1632,
+          449.0
+        ],
+        [
+          2000,
+          715.3
+        ],
+        [
+          2047,
+          750.7
+        ],
+        [
+          2048,
+          757.2
+        ],
+        [
+          2100,
+          767.3
+        ],
+        [
+          2306,
+          809.3
+        ],
+        [
+          2425,
+          836.0
+        ],
+        [
+          2600,
+          890.5
+        ],
+        [
+          3000,
+          1004.0
+        ],
+        [
+          3480,
+          1151.0
+        ],
+        [
+          3800,
+          1262.0
+        ],
+        [
+          4094,
+          1364.0
+        ]
       ]
     },
     {
@@ -1194,13 +1346,34 @@
     },
     {
       "id": "protected-vm-memory-pool",
-      "why": "The kernel sets memory aside at boot for protected VMs (reserve_mem, from the kernel packaging recipe), so the decode service's VM and one SD card VM start even when memory is scattered.",
-      "type": "text",
-      "files": [
-        "VENDOR_BOOT/vendor_cmdline"
-      ],
-      "regex": [
-        "(^|\\s)reserve_mem=[0-9]+[MG]:2M:gunyah_vm_pool(\\s|$)"
+      "why": "The vendor command line contains exactly one recipe-sized reserve_mem for the protected VM pool. All potential named reservations across packaged inputs must fit Linux's eight-entry table. The built-in arguments and FORCE setting come from the final boot kernel's embedded IKCONFIG, with exact staged-payload binding. Its complete token must fit in arm64's 2047 data bytes plus NUL after a conservative prefix counting those built-in arguments and every other packaged bootargs input. Duplicate DT property names and node paths are refused. Only plain ASCII arguments without quotes, end markers or kernel bootconfig keys are supported, so lexical state cannot hide the reserve across joined sources.",
+      "type": "vm_pool_reserve",
+      "name": "gunyah_vm_pool",
+      "kernel": "BOOT/kernel",
+      "kernel_image": "IMAGES/boot.img",
+      "boot_parameters": [
+        {
+          "file": "VENDOR_BOOT/vendor_cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/vendor_boot.img"
+        },
+        {
+          "file": "BOOT/cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/boot.img"
+        },
+        {
+          "file": "VENDOR_BOOT/vendor_bootconfig",
+          "format": "bootconfig"
+        },
+        {
+          "file": "VENDOR_BOOT/dtb",
+          "format": "dtb"
+        },
+        {
+          "file": "IMAGES/dtbo.img",
+          "format": "dtb"
+        }
       ]
     },
     {
@@ -1229,11 +1402,27 @@
       "key": "PREBUILT_IMAGES/pvmfw_embedded.avbpubkey",
       "kernel_body": {
         "bytes": 8312840,
-        "sha256": "3c46473ad1be58bcff30d3b50f52de6796669a7859db00ad45746cd5c92bbef4"
+        "sha256": "479ee25ee0b3b0988d982d37c3398390eb336f45ac53a49287091fad197c0c6c"
       },
       "members": {
-        "etc/decoder_vm_initrd.img": ["dev", "dev/console", "proc", "init"],
-        "etc/fsvm_initrd.img": ["bin", "dev", "mnt", "proc", "sys", "init", "bin/fsck.exfat", "bin/fsck_msdos", "bin/mkfs.exfat", "bin/newfs_msdos"]
+        "etc/decoder_vm_initrd.img": [
+          "dev",
+          "dev/console",
+          "proc",
+          "init"
+        ],
+        "etc/fsvm_initrd.img": [
+          "bin",
+          "dev",
+          "mnt",
+          "proc",
+          "sys",
+          "init",
+          "bin/fsck.exfat",
+          "bin/fsck_msdos",
+          "bin/mkfs.exfat",
+          "bin/newfs_msdos"
+        ]
       },
       "forbidden": {
         "etc/decoder_vm_initrd.img": [
@@ -1279,6 +1468,7 @@
       "id": "vm-pool-clients-user",
       "why": "Only the VM managers of the decode service and of fsvmd, for cards and OBB images, may open the memory pool for protected VMs. An OBB VM takes pool memory only when the pool has room, and vold stops it when a drive needs that room.",
       "type": "sepolicy_sources",
+      "exact": true,
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
         "SYSTEM/etc/selinux/mapping/*.cil",
@@ -1304,8 +1494,9 @@
     },
     {
       "id": "vm-pool-clients-userdebug",
-      "why": "Only the VM managers of the decode service and of fsvmd, for cards and OBB images, plus shell's for the release suite on debuggable builds, may open the memory pool for protected VMs.",
+      "why": "Only the VM managers of the decode service, fsvmd for cards and OBB images, shell and the exact privileged decoder test helper may open the protected VM pool on debuggable builds. The helper app itself has no pool access and its activity requires DUMP.",
       "type": "sepolicy_sources",
+      "exact": true,
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
         "SYSTEM/etc/selinux/mapping/*.cil",
@@ -1324,7 +1515,8 @@
         "decode_service_app_virtualizationmanager",
         "fsvmd_virtualizationmanager",
         "fsvmd_obb_virtualizationmanager",
-        "shell_virtualizationmanager"
+        "shell_virtualizationmanager",
+        "decode_test_app_virtualizationmanager"
       ],
       "variants": [
         "userdebug"
@@ -1497,7 +1689,7 @@
     },
     {
       "id": "sd-hold-writers",
-      "why": "Only init writes the kernel's hold.",
+      "why": "Only init writes or appends to the kernel's hold.",
       "type": "sepolicy_sources",
       "files": [
         "SYSTEM/etc/selinux/plat_sepolicy.cil",
@@ -1512,9 +1704,13 @@
       ],
       "target": "proc_hold_new_sd",
       "cls": "file",
-      "perm": "write",
       "allowed": [
         "init"
+      ],
+      "exact": true,
+      "perms": [
+        "write",
+        "append"
       ]
     },
     {
@@ -1538,7 +1734,8 @@
       "allowed": [
         "init",
         "system_server"
-      ]
+      ],
+      "exact": true
     },
     {
       "id": "oem-unlocking",
@@ -3883,169 +4080,169 @@
         "qseecom_proxy.ko"
       ]
     },
-      {
-        "id": "tee-node-open",
-        "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node. Its own label keeps it out of the platform's tee_device grants to its reference HAL domains, ClearKey and Widevine included (tee-node-label).",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "open",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-read",
-        "why": "The same domains only may read from the TEE node, also through a descriptor another process opened.",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "read",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-write",
-        "why": "The same domains only may write to the TEE node, also through a descriptor another process opened.",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "write",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-ioctl",
-        "why": "The same domains only may send commands to the TEE node, also through a descriptor another process opened.",
-        "type": "sepolicy_sources",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "perm": "ioctl",
-        "allowed": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ]
-      },
-      {
-        "id": "tee-node-label",
-        "why": "/dev/smcinvoke is the only TEE node and carries its own label. No path carries the platform's tee_device label, which the platform grants to its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains. The legacy /dev/qseecom node is not shipped.",
-        "type": "text",
-        "files": [
-          "SYSTEM/etc/selinux/plat_file_contexts",
-          "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
-          "PRODUCT/etc/selinux/product_file_contexts",
-          "VENDOR/etc/selinux/vendor_file_contexts",
-          "ODM/etc/selinux/odm_file_contexts"
-        ],
-        "match": "any",
-        "regex": [
-          "^/dev/smcinvoke[ \\t]+u:object_r:vendor_smcinvoke_device:s0[ \\t]*$"
-        ],
-        "absent_regex": [
-          "^(?!/dev/smcinvoke[ \\t])\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:vendor_smcinvoke_device:s0",
-          "^\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:tee_device:s0"
-        ]
-      },
-      {
-        "id": "tee-node-owner",
-        "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660. It has no rule for a /dev/qseecom node or for the crypto engine node (/dev/qce), which stays root-only.",
-        "type": "text",
-        "files": [
-          "VENDOR/etc/ueventd.rc"
-        ],
-        "regex": [
-          "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
-        ],
-        "absent_regex": [
-          "^[ \\t]*/dev/qseecom[ \\t]",
-          "^[ \\t]*/dev/qce[ \\t]"
-        ]
-      },
-      {
-        "id": "tee-node-ioctl-limit",
-        "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
-        "type": "sepolicy_xperms",
-        "files": [
-          "SYSTEM/etc/selinux/plat_sepolicy.cil",
-          "SYSTEM/etc/selinux/mapping/*.cil",
-          "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
-          "SYSTEM_EXT/etc/selinux/mapping/*.cil",
-          "PRODUCT/etc/selinux/product_sepolicy.cil",
-          "PRODUCT/etc/selinux/mapping/*.cil",
-          "VENDOR/etc/selinux/plat_pub_versioned.cil",
-          "VENDOR/etc/selinux/vendor_sepolicy.cil",
-          "ODM/etc/selinux/odm_sepolicy.cil"
-        ],
-        "target": "vendor_smcinvoke_device",
-        "cls": "chr_file",
-        "sources": [
-          "hal_fingerprint_default",
-          "tee",
-          "vendor_hal_gatekeeper_qti",
-          "vendor_hal_keymint_qti"
-        ],
-        "allowed": [
-          "0x9801",
-          "0x9803"
-        ]
-      },
+    {
+      "id": "tee-node-open",
+      "why": "Only qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may open the TEE node. Its own label keeps it out of the platform's tee_device grants to its reference HAL domains, ClearKey and Widevine included (tee-node-label).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "open",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-read",
+      "why": "The same domains only may read from the TEE node, also through a descriptor another process opened.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "read",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-write",
+      "why": "The same domains only may write to the TEE node, also through a descriptor another process opened.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "write",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-ioctl",
+      "why": "The same domains only may send commands to the TEE node, also through a descriptor another process opened.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "perm": "ioctl",
+      "allowed": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ]
+    },
+    {
+      "id": "tee-node-label",
+      "why": "/dev/smcinvoke is the only TEE node and carries its own label. No path carries the platform's tee_device label, which the platform grants to its reference DRM, CAS, Keymaster, KeyMint, Gatekeeper, AuthGraph, Secretkeeper and hwcrypto HAL domains. The legacy /dev/qseecom node is not shipped.",
+      "type": "text",
+      "files": [
+        "SYSTEM/etc/selinux/plat_file_contexts",
+        "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
+        "PRODUCT/etc/selinux/product_file_contexts",
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "ODM/etc/selinux/odm_file_contexts"
+      ],
+      "match": "any",
+      "regex": [
+        "^/dev/smcinvoke[ \\t]+u:object_r:vendor_smcinvoke_device:s0[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^(?!/dev/smcinvoke[ \\t])\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:vendor_smcinvoke_device:s0",
+        "^\\S+[ \\t]+(\\S+[ \\t]+)?u:object_r:tee_device:s0"
+      ]
+    },
+    {
+      "id": "tee-node-owner",
+      "why": "ueventd gives /dev/smcinvoke to system and the drmrpc group, mode 0660. It has no rule for a /dev/qseecom node or for the crypto engine node (/dev/qce), which stays root-only.",
+      "type": "text",
+      "files": [
+        "VENDOR/etc/ueventd.rc"
+      ],
+      "regex": [
+        "^/dev/smcinvoke[ \\t]+0660[ \\t]+system[ \\t]+drmrpc[ \\t]*$"
+      ],
+      "absent_regex": [
+        "^[ \\t]*/dev/qseecom[ \\t]",
+        "^[ \\t]*/dev/qce[ \\t]"
+      ]
+    },
+    {
+      "id": "tee-node-ioctl-limit",
+      "why": "qseecomd (tee), KeyMint, Gatekeeper and the fingerprint HAL may send only two commands to the TEE node: invoke (0x9801) and create a callback server (0x9803). No rule on a type or attribute may widen that.",
+      "type": "sepolicy_xperms",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "vendor_smcinvoke_device",
+      "cls": "chr_file",
+      "sources": [
+        "hal_fingerprint_default",
+        "tee",
+        "vendor_hal_gatekeeper_qti",
+        "vendor_hal_keymint_qti"
+      ],
+      "allowed": [
+        "0x9801",
+        "0x9803"
+      ]
+    },
     {
       "id": "no-unused-debug-modules",
       "why": "The interconnect test, the CPU dump table, the Gunyah log dumper, the DSP statistics and the GPU dump skip flag are not shipped. They loaded with nothing depending on them.",
@@ -6868,28 +7065,54 @@
     },
     {
       "id": "fs-in-vm-kernel-scan",
-      "why": "The kernel reads no partition table of an SD card or USB disk (CONFIG_BLK_NO_EXTERNAL_PART_SCAN). A build with the filesystem VM (fsvmd) has it read there and must not turn the kernel's scan back on: no input of the kernel command line (boot and vendor_boot command lines, bootconfig kernel keys, device tree and overlay bootargs, the built-in CONFIG_CMDLINE) may assign external_part_scan in any form, and each input must be there to be read. A build without it needs external_part_scan=1 (device BoardConfig.mk), or partitioned cards would not work. The filesystem VM's kernel parses card and OBB bytes and is built from kernel_common apart (Virtualization guest/diamaneos/kernel): it must be the phone kernel's release, so a kernel_common move rebuilds it.",
+      "why": "The shipped FP6 profile requires fsvmd and CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y in the final boot image kernel's embedded IKCONFIG. That kernel must match BOOT/kernel byte for byte and contain no runtime scan override registration string. Every raw boot input must also lack external_part_scan, with hyphen aliases included, even in comments, inactive DT properties or bytes after NUL. The filesystem VM kernel must match the shipped host release and its initramfs must contain no self test. A profile without the daemon is not shipped and is refused here.",
       "type": "fs_in_vm_coupling",
       "daemon": "SYSTEM_EXT/bin/fsvmd",
       "parameter": "external_part_scan",
-      "opt_out": "external_part_scan=1",
+      "kernel_image": "IMAGES/boot.img",
+      "kernel": "BOOT/kernel",
       "boot_parameters": [
-        {"file": "VENDOR_BOOT/vendor_cmdline", "format": "cmdline"},
-        {"file": "BOOT/cmdline", "format": "cmdline"},
-        {"file": "VENDOR_BOOT/vendor_bootconfig", "format": "bootconfig"},
-        {"file": "VENDOR_BOOT/dtb", "format": "dtb"},
-        {"file": "IMAGES/dtbo.img", "format": "dtb"},
-        {"file": "META/kernel_configs.txt", "format": "kconfig"}
+        {
+          "file": "VENDOR_BOOT/vendor_cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/vendor_boot.img"
+        },
+        {
+          "file": "BOOT/cmdline",
+          "format": "cmdline",
+          "image": "IMAGES/boot.img"
+        },
+        {
+          "file": "VENDOR_BOOT/vendor_bootconfig",
+          "format": "bootconfig"
+        },
+        {
+          "file": "VENDOR_BOOT/dtb",
+          "format": "dtb"
+        },
+        {
+          "file": "IMAGES/dtbo.img",
+          "format": "dtb"
+        },
+        {
+          "file": "META/kernel_configs.txt",
+          "format": "kconfig"
+        }
       ],
       "initrd": {
-        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
+        "apex": [
+          "SYSTEM/apex/com.android.virt.apex",
+          "SYSTEM/apex/com.android.virt.capex"
+        ],
         "file": "etc/fsvm_initrd.img",
         "forbidden": "fsvm.selftest"
       },
       "guest_kernel": {
-        "apex": ["SYSTEM/apex/com.android.virt.apex", "SYSTEM/apex/com.android.virt.capex"],
-        "file": "etc/fs/fsvm_kernel",
-        "host": "BOOT/kernel"
+        "apex": [
+          "SYSTEM/apex/com.android.virt.apex",
+          "SYSTEM/apex/com.android.virt.capex"
+        ],
+        "file": "etc/fs/fsvm_kernel"
       }
     },
     {
@@ -7089,6 +7312,11 @@
           "calls": [
             "Lcom/android/internal/diamaneos/cleancopies/CleanCopyGate;->installForApp"
           ]
+        },
+        "Landroid/graphics/BitmapFactory;->decodeFile(Ljava/lang/String;Landroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Landroid/graphics/GatedDecodes;->bitmapFactory"
+          ]
         }
       }
     },
@@ -7106,13 +7334,134 @@
       }
     },
     {
+      "id": "task-snapshot-own-files",
+      "why": "The window manager decodes a task snapshot image without the VM only when the open file is the system server's own (owner system, label system_data_file, one name, no group or other write) and its bytes are the ones whose SHA-256 it recorded in the snapshot's proto when it wrote them with its own encoder (SnapshotImageFiles, CleanFileStream). Every other file goes to the VM. This reads services.jar's dex code: the loader and the writer keep their hooks, and no other services.jar method calls CleanFileStream.read, the entry point that lets bytes skip the VM, besides the snapshot loader and the wallpaper's own files (WallpaperVmSanitizer.openClean). A rebase that drops a hook or adds a caller fails here by name.",
+      "type": "dex_calls",
+      "file": "SYSTEM/framework/services.jar",
+      "methods": {
+        "Lcom/android/server/wm/AppSnapshotLoader;->loadTask(IIZ)Landroid/window/TaskSnapshot;": {
+          "calls": [
+            "Lcom/android/server/wm/SnapshotImageFiles;->decode"
+          ],
+          "fields": [
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosHighResSha256",
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosLowResSha256"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotImageFiles;->decode(Ljava/io/File;Ljava/lang/String;Landroid/graphics/BitmapFactory$Options;I)Landroid/graphics/Bitmap;": {
+          "calls": [
+            "Lcom/android/server/wm/SnapshotImageFiles;->openOwn",
+            "Landroid/graphics/BitmapFactory;->decodeStream",
+            "Landroid/graphics/DecodeGate;->ownerScope",
+            "Landroid/graphics/BitmapFactory;->decodeFile"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotImageFiles;->openOwn(Ljava/io/File;Ljava/lang/String;)Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;": {
+          "calls": [
+            "Landroid/system/Os;->open",
+            "Landroid/system/Os;->fstat",
+            "Landroid/os/SELinux;->getFileContext",
+            "Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->read"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotPersistQueue$StoreWriteQueueItem;->writeBitmap(Landroid/graphics/Bitmap;Z)Z": {
+          "calls": [
+            "Lcom/android/server/wm/SnapshotImageFiles;->write"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotPersistQueue$StoreWriteQueueItem;->writeProto()Z": {
+          "fields": [
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosHighResSha256",
+            "Lcom/android/server/wm/nano/WindowManagerProtos$TaskSnapshotProto;->diamaneosLowResSha256"
+          ]
+        },
+        "Lcom/android/server/wm/SnapshotImageFiles;->write(Landroid/graphics/Bitmap;Landroid/graphics/Bitmap$CompressFormat;ILjava/io/File;)Ljava/lang/String;": {
+          "calls": [
+            "Ljava/security/MessageDigest;->getInstance",
+            "Ljava/security/DigestOutputStream;-><init>",
+            "Landroid/graphics/Bitmap;->compress",
+            "Ljava/security/MessageDigest;->digest"
+          ]
+        }
+      },
+      "only_callers": {
+        "Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->read": [
+          "Lcom/android/server/wm/SnapshotImageFiles;->openOwn(Ljava/io/File;Ljava/lang/String;)Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;",
+          "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean(Ljava/io/File;)Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;"
+        ]
+      }
+    },
+    {
+      "id": "task-snapshot-label",
+      "why": "The task and activity snapshot directories (/data/system_ce/<user>/snapshots and activity_snapshots, each with a random subdirectory) have no line of their own and take the /data default, system_data_file, which the snapshot loader requires before it decodes a file without the VM. A line that labels them otherwise, or a changed /data default, would move the files to a type whose writers the system-data-file-writers check does not cover.",
+      "type": "file_contexts_label",
+      "files": [
+        "SYSTEM/etc/selinux/plat_file_contexts",
+        "SYSTEM_EXT/etc/selinux/system_ext_file_contexts",
+        "PRODUCT/etc/selinux/product_file_contexts",
+        "VENDOR/etc/selinux/vendor_file_contexts",
+        "ODM/etc/selinux/odm_file_contexts"
+      ],
+      "device_paths": [
+        "/data/system_ce/0/snapshots",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/1.proto",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/1.jpg",
+        "/data/system_ce/0/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/1_reduced.jpg",
+        "/data/system_ce/10/snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/12_reduced.jpg",
+        "/data/system_ce/0/activity_snapshots/0d5f3a42-9c1e-4b7a-8f20-6a1b2c3d4e5f/3_reduced.jpg"
+      ],
+      "label": "u:object_r:system_data_file:s0"
+    },
+    {
+      "id": "system-data-file-writers",
+      "why": "Only the system server and the platform's trusted daemons (init, vold, vold_prepare_subdirs, installd) may create, write, rename or link system_data_file files, or add, remove or move names in its directories. The task snapshot loader decodes files of this label without the VM when their recorded hash matches, so a new writer (an app domain or a vendor daemon) would be a new way to place a file there. The hash pin holds without this, and this keeps the label's writers as reviewed.",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "target": "system_data_file",
+      "classes": [
+        "file",
+        "dir",
+        "lnk_file"
+      ],
+      "perms": [
+        "create",
+        "write",
+        "append",
+        "rename",
+        "link",
+        "add_name",
+        "remove_name",
+        "reparent"
+      ],
+      "allowed": [
+        "init",
+        "installd",
+        "system_server",
+        "vold",
+        "vold_prepare_subdirs"
+      ]
+    },
+    {
       "id": "vold-cards-in-vm-hooks",
-      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that mounts FAT or exFAT in Android's kernel.",
+      "why": "SD cards, USB drives and OBB images are read only in the filesystem VM: vold's hooks (VOLD_PUBLIC_FS_IN_VM in PublicVolume.cpp, Disk.cpp and ObbVolume.cpp) send their partition tables, checks, mounts and formats there. A hook lost in a rebase still compiles, and upstream's code then parses the card or mounts its FAT in Android's kernel. This reads vold's code and names each hook that is gone. vold must have no function that checks or mounts FAT or exFAT in Android. While new adoptable storage is off, a private or mixed partition table is refused (RefuseNewAdoption, out of line so the call shows in vold's partition entry, into which partitionMixed is inlined) and nothing is partitioned for it, in Android or in the VM.",
       "type": "elf_calls",
       "file": "SYSTEM/bin/vold",
       "absent": [
         "android::vold::vfat::Mount",
-        "android::vold::exfat::Mount"
+        "android::vold::exfat::Mount",
+        "android::vold::vfat::Check",
+        "android::vold::exfat::Check"
       ],
       "functions": {
         "android::vold::PublicVolume::doMount": {
@@ -7162,14 +7511,17 @@
         },
         "android::vold::Disk::partitionPublic": {
           "calls": [
-            "android::vold::Disk::beforePartitionInVm",
-            "android::vold::Disk::isVmDisk"
+            "android::vold::Disk::isVmDisk",
+            "android::vold::Disk::partitionInVm"
           ]
         },
-        "android::vold::Disk::partitionMixed": {
+        "android::vold::VoldNativeService::partition": {
           "calls": [
-            "android::vold::Disk::beforePartitionInVm",
-            "android::vold::Disk::isVmDisk"
+            "android::vold::RefuseNewAdoption"
+          ],
+          "never": [
+            "android::vold::ForkExecvp",
+            "android::vold::Disk::partitionMixedInVm"
           ]
         },
         "android::vold::ObbVolume::doMount": {
@@ -7182,7 +7534,251 @@
         },
         "android::vold::ObbVolume::doUnmount": {
           "calls": [
+            "android::vold::ObbVolume::cleanupInVm"
+          ]
+        },
+        "android::vold::ObbVolume::cleanupInVm": {
+          "calls": [
             "android::vold::ObbVolume::stopInVm"
+          ]
+        }
+      }
+    },
+    {
+      "id": "fsvmd-vsock-setopt",
+      "why": "Only fsvmd sets options on the vsock sockets of its own VM manager (its send and receive timeouts), besides the VM manager on its own sockets (stock virtualization policy).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_virtualizationmanager",
+      "cls": "vsock_socket",
+      "perm": "setopt",
+      "allowed": [
+        "fsvmd",
+        "fsvmd_virtualizationmanager"
+      ]
+    },
+    {
+      "id": "fsvmd-obb-vsock-setopt",
+      "why": "Only fsvmd_obb sets options on the vsock sockets of its own VM manager, besides the VM manager on its own sockets (stock virtualization policy).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_obb_virtualizationmanager",
+      "cls": "vsock_socket",
+      "perm": "setopt",
+      "allowed": [
+        "fsvmd_obb",
+        "fsvmd_obb_virtualizationmanager"
+      ]
+    },
+    {
+      "id": "decode-service-no-network",
+      "why": "The decode service runs in a domain of its own without network: it may create no IP, packet or QRTR socket of any kind.",
+      "type": "sepolicy_denied",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "domain": "decode_service_app",
+      "classes": [
+        "socket",
+        "tcp_socket",
+        "udp_socket",
+        "rawip_socket",
+        "icmp_socket",
+        "sctp_socket",
+        "packet_socket",
+        "qipcrtr_socket"
+      ],
+      "perms": [
+        "create"
+      ]
+    },
+    {
+      "id": "fsvmd-obb-no-card",
+      "why": "The OBB image domains (fsvmd_obb, its launcher, VM manager and crosvm) hold no right on any block device: they never reach a card. Left out: the dm devices of APEXes, which every VM manager and crosvm may read (stock virtualization policy).",
+      "type": "sepolicy_denied",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "domains": [
+        "fsvmd_obb",
+        "fsvmd_obb_launcher",
+        "fsvmd_obb_virtualizationmanager",
+        "fsvmd_obb_virtmgr_crosvm"
+      ],
+      "except_targets": [
+        "apex_dm_device"
+      ],
+      "classes": [
+        "blk_file"
+      ],
+      "perms": [
+        "open",
+        "read",
+        "write",
+        "append",
+        "ioctl",
+        "getattr",
+        "map"
+      ]
+    },
+    {
+      "id": "fsvmd-launcher-callers",
+      "why": "Only vold asks the card slots' fsvmd service for a fsvmd (and the service may reach its own socket).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_launcher",
+      "cls": "unix_stream_socket",
+      "perm": "connectto",
+      "allowed": [
+        "fsvmd_launcher",
+        "vold"
+      ]
+    },
+    {
+      "id": "fsvmd-obb-launcher-callers",
+      "why": "Only vold asks the OBB slots' fsvmd service for a fsvmd_obb (and the service may reach its own socket).",
+      "type": "sepolicy_sources",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exact": true,
+      "target": "fsvmd_obb_launcher",
+      "cls": "unix_stream_socket",
+      "perm": "connectto",
+      "allowed": [
+        "fsvmd_obb_launcher",
+        "vold"
+      ]
+    },
+    {
+      "id": "vm-pool-ioctl-user",
+      "why": "The VM managers may send the memory pool node one command only, GH_ANDROID_CREATE_POOL_MEM_FD (0x4130), and no other domain any.",
+      "type": "sepolicy_xperms",
+      "files": [
+        "SYSTEM/etc/selinux/plat_sepolicy.cil",
+        "SYSTEM/etc/selinux/mapping/*.cil",
+        "SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil",
+        "SYSTEM_EXT/etc/selinux/mapping/*.cil",
+        "PRODUCT/etc/selinux/product_sepolicy.cil",
+        "PRODUCT/etc/selinux/mapping/*.cil",
+        "VENDOR/etc/selinux/plat_pub_versioned.cil",
+        "VENDOR/etc/selinux/vendor_sepolicy.cil",
+        "ODM/etc/selinux/odm_sepolicy.cil"
+      ],
+      "exclusive": true,
+      "variants": [
+        "user"
+      ],
+      "target": "gunyah_vm_pool_device",
+      "cls": "chr_file",
+      "sources": [
+        "decode_service_app_virtualizationmanager",
+        "fsvmd_virtualizationmanager",
+        "fsvmd_obb_virtualizationmanager"
+      ],
+      "allowed": [
+        "0x4130"
+      ]
+    },
+    {
+      "id": "system-server-image-hooks",
+      "why": "The system server refuses fabricated overlay file values from any other process before idmap2d reads them (FabricatedFileValues.enforceCaller), and reads wallpaper bytes only as the VM checked them (WallpaperVmSanitizer). A rebase that drops either call still compiles and reopens a native parser in a privileged process. This reads services.jar's dex code.",
+      "type": "dex_calls",
+      "file": "SYSTEM/framework/services.jar",
+      "methods": {
+        "Lcom/android/server/om/OverlayManagerService$1;->executeRequestLocked(Landroid/content/om/OverlayManagerTransaction$Request;)Ljava/util/Set;": {
+          "calls": [
+            "Lcom/android/server/om/FabricatedFileValues;->enforceCaller"
+          ]
+        },
+        "Lcom/android/server/wallpaper/WallpaperCropper;->generateCropInternal(Lcom/android/server/wallpaper/WallpaperData;)V": {
+          "calls": [
+            "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean"
+          ]
+        },
+        "Lcom/android/server/wallpaper/WallpaperCropper;->isWallpaperCompatibleForDisplay(ILcom/android/server/wallpaper/WallpaperData;)Z": {
+          "calls": [
+            "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean"
+          ]
+        },
+        "Lcom/android/server/wallpaper/WallpaperManagerService;->getWallpaperWithFeature(Ljava/lang/String;Ljava/lang/String;Landroid/app/IWallpaperManagerCallback;ILandroid/os/Bundle;IZ)Landroid/os/ParcelFileDescriptor;": {
+          "calls": [
+            "Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openCheckedWallpaper"
+          ]
+        }
+      }
+    },
+    {
+      "id": "webapp-aapt2-parses-no-image",
+      "why": "The WebApp service runs the APEX's aapt2 compile on icons it downloaded from a web app manifest. The device build of aapt2 stores a PNG as it is and refuses a nine-patch (frameworks_base tools/aapt2/cmd/DeviceImages.h), so no image a website controls is parsed in that privileged process: its PNG reader and cruncher are not in the binary at all. A rebase that drops the hook brings libpng back here.",
+      "type": "elf_calls",
+      "file": "SYSTEM/apex/com.android.webapp.apex!bin/aapt2",
+      "absent": [
+        "android::ReadPng",
+        "android::Png::process"
+      ],
+      "functions": {
+        "aapt::CompileCommand::Action": {
+          "never": [
+            "android::ReadPng",
+            "android::Png::process"
           ]
         }
       }

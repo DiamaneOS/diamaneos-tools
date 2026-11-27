@@ -1,5 +1,6 @@
 import copy
 import functools
+import gzip
 import hashlib
 import io
 import json
@@ -71,6 +72,18 @@ def dex(*strings):
     return bytes(header) + ids + data
 
 
+def arm64_image(payload):
+    """A minimal supported Image header followed by synthetic test content."""
+    return struct.pack('<II6QII', 0x14000010, 0xd503201f, 0, 64 + len(payload), 10,
+                       0, 0, 0, 0x644d5241, 0) + payload
+
+
+def kernel_fixture(config=b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\n', release='6.18.39-test', extra=b''):
+    """An Image-format fixture with a banner and Linux embedded-config framing."""
+    return arm64_image(f'Linux version {release} (test)\0'.encode() + extra
+                       + b'IKCFG_ST' + gzip.compress(config, mtime=0) + b'IKCFG_ED')
+
+
 def boot_parameter_files(**over):
     """Every input of the kernel command line in target files, as the FP6 build has them, without the card scan."""
     files = {'VENDOR_BOOT/vendor_cmdline': b'scsi_mod.scan=sync reserve_mem=512M:2M:gunyah_vm_pool loop.max_part=0 bootconfig',
@@ -78,8 +91,30 @@ def boot_parameter_files(**over):
              'VENDOR_BOOT/vendor_bootconfig': b'androidboot.hardware=qcom\nandroidboot.hypervisor.vm.supported=0\n',
              'VENDOR_BOOT/dtb': dtb({'/': {}, '/chosen': {'bootargs': b'loop.max_part=7 swiotlb=noforce\0'}}),
              'IMAGES/dtbo.img': dtb({'/': {}, '/fragment@0': {}}),
-             'META/kernel_configs.txt': b'CONFIG_BOOT_CONFIG=y\nCONFIG_CMDLINE="console=ttynull bootconfig"\n'}
+             'META/kernel_configs.txt': b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\nCONFIG_BOOT_CONFIG=y\nCONFIG_CMDLINE="console=ttynull bootconfig"\nCONFIG_CMDLINE_EXTEND=y\n'}
     files.update(over)
+    files.setdefault('BOOT/kernel', kernel_fixture(files['META/kernel_configs.txt'] or b''))
+    boot = bytearray(4096)
+    boot[:8] = b'ANDROID!'
+    kernel = files['BOOT/kernel'] or b''
+    struct.pack_into('<I', boot, 8, len(kernel))
+    struct.pack_into('<I', boot, 20, 1584)
+    struct.pack_into('<I', boot, 40, 4)
+    cmdline = files['BOOT/cmdline'] or b''
+    boot[44:44 + len(cmdline)] = cmdline
+    boot += kernel + bytes(-len(kernel) % 4096)
+    vendor = bytearray(4096)
+    vendor[:8] = b'VNDRBOOT'
+    struct.pack_into('<II', vendor, 8, 4, 4096)
+    cmdline = files['VENDOR_BOOT/vendor_cmdline'] or b''
+    vendor[28:28 + len(cmdline)] = cmdline
+    dt = files['VENDOR_BOOT/dtb'] or b''
+    bc = files['VENDOR_BOOT/vendor_bootconfig'] or b''
+    struct.pack_into('<II', vendor, 2096, 2128, len(dt))
+    struct.pack_into('<4I', vendor, 2112, 0, 0, 108, len(bc))
+    vendor += dt + bytes(-len(dt) % 4096) + bc
+    files.setdefault('IMAGES/boot.img', bytes(boot))
+    files.setdefault('IMAGES/vendor_boot.img', bytes(vendor))
     return files
 
 
@@ -141,12 +176,19 @@ def signed_avb_image(content, descriptors, key=None, extra=b'', sign_with=None):
 
 
 def newc(*names, trailer=True):
-    """A newc cpio archive of empty members."""
+    """A newc cpio archive with the role's actual metadata and a synthetic ELF payload."""
     out = b''
-    for name in names + (('TRAILER!!!',) if trailer else ()):
+    role = 'decoder_vm' if 'dev/console' in names else 'fsvm'
+    for ino, name in enumerate(names + (('TRAILER!!!',) if trailer else ())):
+        mode, links, major, minor = subject.guest_contract.FILES[role].get(name, (0o100755, 1, 0, 0))
+        if name == 'TRAILER!!!':
+            mode, links, major, minor = 0, 1, 0, 0
+        data = b'\x7fELFfixture' if mode & 0o170000 == 0o100000 else b''
         raw = name.encode() + b'\0'
-        out += b'070701' + b'0' * 48 + b'%08x' % 0 + b'0' * 32 + b'%08x' % len(raw) + b'0' * 8 + raw
-        out += bytes(-len(out) % 4)
+        fields = [ino, mode, 0, 0, links, 0, len(data), 0, 0, major, minor, len(raw), 0]
+        entry = b'070701' + b''.join(b'%08x' % value for value in fields) + raw
+        entry += bytes(-len(entry) % 4) + data
+        out += entry + bytes(-len(entry) % 4)
     return out
 
 
@@ -167,11 +209,13 @@ class FakeTools:
 
 
 class Harness:
-    def __init__(self, root: Path, members: dict, symlinks=None, tools=None, kernel=None, variant='user', record=None):
+    def __init__(self, root: Path, members: dict, symlinks=None, tools=None, kernel=None, variant='user', record=None,
+                 packaging=None):
         path = root / 'tf.zip'
         with zipfile.ZipFile(path, 'w') as archive:
             for name, data in members.items():
-                archive.writestr(name, data)
+                if data is not None:
+                    archive.writestr(name, data)
             for name, target in (symlinks or {}).items():
                 info = zipfile.ZipInfo(name)
                 info.external_attr = (stat.S_IFLNK | 0o777) << 16
@@ -182,6 +226,7 @@ class Harness:
         self.variant = variant
         self.record = record or {}
         self.config = json.loads((ROOT / 'config/fp6-build.json').read_text())
+        self.packaging = packaging
         self.sources = subject.Sources(self.tf, kernel, root)
 
     def file(self, name):
@@ -193,7 +238,13 @@ class RuleTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
 
-    def harness(self, members, **kw):
+    # The policy inputs every image has, empty unless a test gives them: a policy rule fails on a missing input.
+    POLICY_INPUTS = ('SYSTEM/etc/selinux/mapping/36.0.cil', 'SYSTEM_EXT/etc/selinux/mapping/36.0.cil',
+                     'PRODUCT/etc/selinux/mapping/36.0.cil', 'ODM/etc/selinux/odm_sepolicy.cil')
+
+    def harness(self, members, policy_inputs=True, **kw):
+        if policy_inputs and any('/etc/selinux/' in name for name in members):
+            members = {**{name: b'' for name in self.POLICY_INPUTS}, **members}
         h = Harness(self.root, members, **kw)
         self.addCleanup(h.tf.close)
         return h
@@ -220,33 +271,34 @@ class RuleTests(unittest.TestCase):
         rule = scan_rule()
         check = subject.rule_fs_in_vm_coupling
         self.assertTrue(check(rule, self.harness(boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x'})))[0])
-        self.assertTrue(check(rule, self.harness(boot_parameter_files(**{
+        self.assertFalse(check(rule, self.harness(boot_parameter_files(**{
             'VENDOR_BOOT/vendor_cmdline': b'loop.max_part=0 external_part_scan=1'})))[0])
         ok, detail = check(rule, self.harness(boot_parameter_files(**{
             'SYSTEM_EXT/bin/fsvmd': b'x', 'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))
         self.assertFalse(ok)
-        self.assertIn('the kernel command line assigns external_part_scan', detail)
+        self.assertIn('external_part_scan appears in raw boot input', detail)
         ok, detail = check(rule, self.harness(boot_parameter_files(**{'SYSTEM/build.prop': b''})))
         self.assertFalse(ok)
-        self.assertIn('would not work', detail)
+        self.assertIn('requires the filesystem VM', detail)
 
     def test_the_filesystem_vm_kernel_follows_the_phone_kernel(self):
         import gzip as gz
         self.assertEqual('6.18.39-g6e6288100615',
-                         subject.kernel_banner(b'\0Linux version 6.18.39-g6e6288100615 (b@c) #1 SMP PREEMPT\0'))
-        self.assertEqual('6.18.39-x', subject.kernel_banner(gz.compress(b'Linux version 6.18.39-x (b@c)')))
+                         subject.kernel_banner(arm64_image(b'\0Linux version 6.18.39-g6e6288100615 (b@c) #1 SMP PREEMPT\0')))
+        self.assertEqual('6.18.39-x', subject.kernel_banner(gz.compress(arm64_image(b'Linux version 6.18.39-x (b@c)'))))
         self.assertEqual('6.18.39', subject.kernel_version('6.18.39-android17-0-g1'))
         with self.assertRaises(ValueError):
-            subject.kernel_banner(b'no banner')
+            subject.kernel_banner(arm64_image(b'no banner'))
         with self.assertRaises(ValueError):
-            subject.kernel_banner(b'Linux version 6.18.38 (a) Linux version 6.18.39 (b)')
+            subject.kernel_banner(arm64_image(b'Linux version 6.18.38 (a) Linux version 6.18.39 (b)'))
         rule = dict(scan_rule(), guest_kernel={'apex': ['SYSTEM/apex/com.android.virt.apex'], 'file': 'etc/fs/fsvm_kernel',
                                                'host': 'BOOT/kernel'})
-        files = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x', 'BOOT/kernel': b'Linux version 6.18.39-g42022e1 (b@c)'})
+        files = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x',
+                                       'BOOT/kernel': kernel_fixture(release='6.18.39-g42022e1')})
         check = subject.rule_fs_in_vm_coupling
 
         def guest(banner):
-            return mock.patch.object(subject, 'apex_file', return_value=('com.android.virt.apex', banner))
+            return mock.patch.object(subject, 'apex_file', return_value=('com.android.virt.apex', arm64_image(banner)))
         with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
             ok, detail = check(rule, self.harness(files))
         self.assertTrue(ok, detail)
@@ -259,8 +311,8 @@ class RuleTests(unittest.TestCase):
             self.assertFalse(check(rule, self.harness(files))[0])
         with guest(b'Linux version 6.18.39-g6e6288100615 (b@c)'):
             self.assertFalse(check(rule, self.harness(dict(files, **{'BOOT/kernel': b''})))[0])
-        # Without the daemon there is no VM kernel to compare.
-        self.assertTrue(check(rule, self.harness(boot_parameter_files(**{
+        # The shipped profile always requires the daemon.
+        self.assertFalse(check(rule, self.harness(boot_parameter_files(**{
             'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))[0])
 
     def test_no_boot_parameter_source_turns_the_card_scan_back_on(self):
@@ -280,14 +332,19 @@ class RuleTests(unittest.TestCase):
             ('VENDOR_BOOT/vendor_cmdline', b'external_part_scan="on" loop.max_part=0'),
             ('VENDOR_BOOT/vendor_cmdline', b'external_part_scan=0'),
             ('BOOT/cmdline', b'external_part_scan=true'),
+            ('BOOT/cmdline', b'external_part_scan="1'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'androidboot.hardware=qcom; kernel.external_part_scan=1\n'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'kernel.external_part_scan := 1\n'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'kernel.external_part_scan += 1\n'),
+            ('VENDOR_BOOT/vendor_bootconfig', b'kernel { external_part_scan=1; }\n'),
             ('VENDOR_BOOT/vendor_bootconfig', b'androidboot.hardware=qcom\nkernel.external_part_scan = 1\n'),
             ('VENDOR_BOOT/dtb', dtb({'/': {}, '/chosen': {'bootargs': b'console=ttyMSM0 external_part_scan=Y\0'}})),
             ('IMAGES/dtbo.img', dtb({'/': {}, '/fragment@0': {}, '/fragment@0/__overlay__': {
                 'bootargs': b'external_part_scan=1\0'}})),
-            ('META/kernel_configs.txt', b'CONFIG_CMDLINE="console=ttynull external_part_scan=1 bootconfig"\n'),
+            ('META/kernel_configs.txt', b'CONFIG_BLK_NO_EXTERNAL_PART_SCAN=y\nCONFIG_CMDLINE="console=ttynull external_part_scan=1 bootconfig"\n'),
         ]
         for name, content in overrides:
-            ok, detail = check(rule, self.harness({**daemon, **base, name: content}))
+            ok, detail = check(rule, self.harness({**daemon, **boot_parameter_files(**{name: content})}))
             self.assertFalse(ok, f'{name}: {content!r}')
             self.assertIn('external_part_scan', detail)
             self.assertIn(name, detail)
@@ -295,10 +352,118 @@ class RuleTests(unittest.TestCase):
             ok, detail = check(rule, self.harness({**daemon, **{k: v for k, v in base.items() if k != name}}))
             self.assertFalse(ok, name)
             self.assertIn(name, detail)
-        # Without the daemon the kernel keeps its scan.
-        ok, detail = check(rule, self.harness({**base, 'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'}))
-        self.assertTrue(ok, detail)
+        # No compatibility profile can bypass the compile-time boundary.
+        ok, detail = check(rule, self.harness(boot_parameter_files(**{'VENDOR_BOOT/vendor_cmdline': b'external_part_scan=1'})))
+        self.assertFalse(ok, detail)
         self.assertFalse(check(rule, self.harness(base))[0])
+
+    def test_final_boot_images_match_the_checked_staging_inputs(self):
+        base = boot_parameter_files(**{'SYSTEM_EXT/bin/fsvmd': b'x'})
+        for name, offset in [('IMAGES/boot.img', 44), ('IMAGES/vendor_boot.img', 28),
+                             ('IMAGES/vendor_boot.img', 4096), ('IMAGES/vendor_boot.img', -1)]:
+            content = bytearray(base[name])
+            content[offset] ^= 1
+            ok, detail = subject.rule_fs_in_vm_coupling(scan_rule(), self.harness({**base, name: bytes(content)}))
+            self.assertFalse(ok, detail)
+            self.assertIn('differs from ' + name, detail)
+
+    def test_pool_clients_exactly_and_from_every_policy_input(self):
+        # Each variant's pool clients are exactly its list: one missing client falls back to ordinary memory, and a
+        # policy input missing from the target files is a finding, not a smaller policy.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        user = rules['vm-pool-clients-user']
+        clients = ' '.join(user['allowed']).encode()
+        base = (b'(type gunyah_vm_pool_device)\n' + b''.join(b'(type %s)\n' % c.encode() for c in user['allowed'])
+                + b'(typeattribute gunyah_vm_pool_client)\n(typeattributeset gunyah_vm_pool_client (' + clients + b'))\n'
+                + b'(allow gunyah_vm_pool_client gunyah_vm_pool_device (chr_file (open read ioctl)))\n')
+        cil = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+        others = {name: b'' for name in user['files'] if '*' not in name and name != cil}
+        globbed = {name.replace('*', '202604'): b'' for name in user['files'] if '*' in name}
+        members = dict(others, **globbed, **{cil: base})
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(members))
+        self.assertTrue(ok, detail)
+        fewer = base.replace(b' fsvmd_obb_virtualizationmanager', b'').replace(b'fsvmd_obb_virtualizationmanager ', b'')
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(dict(members, **{cil: fewer})))
+        self.assertFalse(ok)
+        self.assertIn('fsvmd_obb_virtualizationmanager', detail)
+        missing = dict(members)
+        del missing['ODM/etc/selinux/odm_sepolicy.cil']
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(missing, policy_inputs=False))
+        self.assertFalse(ok)
+        self.assertIn('ODM/etc/selinux/odm_sepolicy.cil', detail)
+        no_mapping = {k: v for k, v in members.items() if not k.startswith('PRODUCT/etc/selinux/mapping/')}
+        ok, detail = subject.rule_sepolicy_sources(user, self.harness(no_mapping, policy_inputs=False))
+        self.assertFalse(ok)
+        self.assertIn('PRODUCT/etc/selinux/mapping/*.cil', detail)
+
+    def test_vsock_setopt_rules_take_the_managers_own_sockets(self):
+        # The VM manager sets options on its own vsock sockets (stock virtualization policy, a rule on self): that is
+        # no other source. Any other domain on its sockets is.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        for rid, client, manager in (('fsvmd-vsock-setopt', 'fsvmd', 'fsvmd_virtualizationmanager'),
+                                     ('fsvmd-obb-vsock-setopt', 'fsvmd_obb', 'fsvmd_obb_virtualizationmanager')):
+            rule = rules[rid]
+            base = (b'(type %s)\n(type %s)\n(type vold)\n' % (client.encode(), manager.encode())
+                    + b'(typeattribute virtualizationmanager_domain)\n'
+                    + b'(typeattributeset virtualizationmanager_domain (%s))\n' % manager.encode()
+                    + b'(allow virtualizationmanager_domain self (vsock_socket (create read write setopt)))\n'
+                    + b'(allow %s %s (vsock_socket (read write setopt)))\n' % (client.encode(), manager.encode()))
+            cil = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
+            others = {name: b'' for name in rule['files'] if '*' not in name and name != cil}
+            globbed = {name.replace('*', '202604'): b'' for name in rule['files'] if '*' in name}
+            members = dict(others, **globbed, **{cil: base})
+            ok, detail = subject.rule_sepolicy_sources(rule, self.harness(members))
+            self.assertTrue(ok, detail)
+            more = base + b'(allow vold %s (vsock_socket (setopt)))\n' % manager.encode()
+            ok, detail = subject.rule_sepolicy_sources(rule, self.harness(dict(members, **{cil: more})))
+            self.assertFalse(ok)
+            self.assertIn('also vold', detail)
+
+    def test_pool_reserve_is_the_packaging_value(self):
+        # The final command line sets aside exactly what the kernel packaging recipe says, once.
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['protected-vm-memory-pool']
+        packaging = json.loads((ROOT / 'config/fp6-kernel-packaging.json').read_text())
+        check = subject.RULES[rule['type']]
+
+        def run(**over):
+            return check(rule, self.harness(boot_parameter_files(**over), packaging=packaging))
+        ok, detail = run()
+        self.assertTrue(ok, detail)
+        self.assertIn('512M', detail)
+        cmdline = 'VENDOR_BOOT/vendor_cmdline'
+        for wrong in (b'reserve_mem=256M:2M:gunyah_vm_pool', b'reserve_mem=0G:2M:gunyah_vm_pool',
+                      b'reserve_mem=512M:4M:gunyah_vm_pool', b'loop.max_part=0',
+                      b'reserve_mem=512M:2M:gunyah_vm_pool reserve_mem=512M:2M:gunyah_vm_pool',
+                      b'"reserve_mem="512M:2M:gunyah_vm_pool""',
+                      b'unrelated\xa0reserve_mem=512M:2M:gunyah_vm_pool'):
+            ok, detail = run(**{cmdline: wrong})
+            self.assertFalse(ok, wrong)
+            self.assertIn('reserve_mem', detail)
+        # A second reserve from another input of the command line.
+        ok, detail = run(**{'BOOT/cmdline': b'reserve_mem=64M:2M:gunyah_vm_pool'})
+        self.assertFalse(ok)
+        self.assertIn('BOOT/cmdline', detail)
+        for source, content in [
+            ('VENDOR_BOOT/vendor_cmdline', b'-- reserve_mem=512M:2M:gunyah_vm_pool'),
+            ('BOOT/cmdline', b'reserve_mem=512M:2M:gunyah_vm_pool'),
+            ('VENDOR_BOOT/dtb', dtb({'/': {}, '/unrelated': {'bootargs': b'reserve_mem=512M:2M:gunyah_vm_pool\0'}})),
+        ]:
+            args = {cmdline: b'bootconfig', source: content}
+            ok, detail = run(**args)
+            self.assertFalse(ok, detail)
+        for override in [
+            {'VENDOR_BOOT/vendor_bootconfig': b'kernel.--;\n'},
+            {'BOOT/cmdline': b'-- init_argument'},
+            {'META/kernel_configs.txt': b'CONFIG_CMDLINE="reserve_mem=512M:2M:other"\nCONFIG_CMDLINE_FORCE=y\n'},
+        ]:
+            ok, detail = run(**override)
+            self.assertFalse(ok, detail)
+        # The same size written in GiB is the same reserve.
+        self.assertTrue(run(**{cmdline: b'reserve_mem=0x20000000:2M:gunyah_vm_pool'})[0])
+        ok, detail = run(**{'BOOT/cmdline': None})
+        self.assertFalse(ok)
+        self.assertIn('BOOT/cmdline is missing', detail)
 
     def test_the_filesystem_vm_initramfs_in_an_erofs_virt_apex(self):
         # The virtualization APEX has an erofs payload: its initramfs is read through the build's fsck.erofs.
@@ -359,6 +524,11 @@ class RuleTests(unittest.TestCase):
         decoder_initrd = newc('dev', 'dev/console', 'proc', 'init')
         fs_initrd = newc('bin', 'dev', 'mnt', 'proc', 'sys', 'init', 'bin/fsck.exfat', 'bin/fsck_msdos',
                          'bin/mkfs.exfat', 'bin/newfs_msdos')
+        patch = mock.patch.object(subject.guest_contract, 'ROLE_DIGESTS', {
+            role: (len(data), hashlib.sha256(data).hexdigest()) for role, data in
+            [('decoder_vm', decoder_initrd), ('fsvm', fs_initrd)]})
+        patch.start()
+        self.addCleanup(patch.stop)
 
         def guest(initrd, kernel=kernel_bytes, debug=None, **kw):
             return signed_avb_image(kernel, [('boot', kernel, b'salt1'), ('initrd_normal', initrd, b'salt2'),
@@ -376,6 +546,10 @@ class RuleTests(unittest.TestCase):
         ok, detail = check(files())
         self.assertTrue(ok, detail)
         self.assertIn('signed with the key of PREBUILT_IMAGES/pvmfw_embedded.avbpubkey', detail)
+        replacement = fs_initrd.replace(b'ELFfixture', b'ELFrebuild', 1)
+        ok, detail = check(files(**{'etc/fs/fsvm_kernel': guest(replacement), 'etc/fsvm_initrd.img': replacement}))
+        self.assertFalse(ok)
+        self.assertIn('independent build role digest', detail)
         # An initramfs changed after its kernel was signed.
         changed = fs_initrd + bytes(4)
         ok, detail = check(files(**{'etc/fsvm_initrd.img': changed}))
@@ -441,11 +615,11 @@ class RuleTests(unittest.TestCase):
         appended = decoder_initrd + newc('bin/sh')
         ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(appended), 'etc/decoder_vm_initrd.img': appended}))
         self.assertFalse(ok)
-        self.assertIn('extra bin/sh', detail)
+        self.assertIn('data after the cpio trailer', detail)
         hidden = decoder_initrd + b'\x1f\x8bcompressed'
         ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(hidden), 'etc/decoder_vm_initrd.img': hidden}))
         self.assertFalse(ok)
-        self.assertIn('not a newc cpio archive', detail)
+        self.assertIn('data after the cpio trailer', detail)
         # Test code in an initramfs.
         test = newc('dev', 'dev/console', 'proc', 'init', 'decoder_vm_init_test')
         ok, detail = check(files(**{'etc/fs/decoder_vm_kernel': guest(test), 'etc/decoder_vm_initrd.img': test}))
@@ -468,7 +642,7 @@ class RuleTests(unittest.TestCase):
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
         rule = rules['protected-vm-guest-images']
         self.assertEqual(rule.get('kernel_body'), {
-            'bytes': 8312840, 'sha256': '3c46473ad1be58bcff30d3b50f52de6796669a7859db00ad45746cd5c92bbef4'})
+            'bytes': 8312840, 'sha256': '479ee25ee0b3b0988d982d37c3398390eb336f45ac53a49287091fad197c0c6c'})
         erofs = bytes(1024) + bytes.fromhex('e2e1f5e0') + bytes(3068)
         data = io.BytesIO()
         with zipfile.ZipFile(data, 'w') as archive:
@@ -479,6 +653,11 @@ class RuleTests(unittest.TestCase):
         decoder_initrd = newc('dev', 'dev/console', 'proc', 'init')
         fs_initrd = newc('bin', 'dev', 'mnt', 'proc', 'sys', 'init', 'bin/fsck.exfat', 'bin/fsck_msdos',
                          'bin/mkfs.exfat', 'bin/newfs_msdos')
+        patch = mock.patch.object(subject.guest_contract, 'ROLE_DIGESTS', {
+            role: (len(data), hashlib.sha256(data).hexdigest()) for role, data in
+            [('decoder_vm', decoder_initrd), ('fsvm', fs_initrd)]})
+        patch.start()
+        self.addCleanup(patch.stop)
         pinned, rebuilt = b'pinned guest kernel', b'rebuilt guest kernel'
         rule = dict(rule, kernel_body={'bytes': len(pinned), 'sha256': hashlib.sha256(pinned).hexdigest()})
 
@@ -523,10 +702,10 @@ class RuleTests(unittest.TestCase):
         self.assertFalse(subject.rule_text(rules['decode-service-domain'], self.harness(
             {'SYSTEM_EXT/etc/selinux/system_ext_seapp_contexts': seapp.replace(b'decode_service_app', b'platform_app')}))[0])
         # The pool's users: exactly the decode service's and fsvmd's VM managers (cards and OBB images), shell's too
-        # on userdebug.
+        # and the exact privileged test helper's manager on userdebug.
         base = (b'(type gunyah_vm_pool_device)\n(type decode_service_app_virtualizationmanager)\n'
                 b'(type fsvmd_virtualizationmanager)\n(type fsvmd_obb_virtualizationmanager)\n'
-                b'(type shell_virtualizationmanager)\n(type fsvmd)\n'
+                b'(type shell_virtualizationmanager)\n(type decode_test_app_virtualizationmanager)\n(type decode_test_app)\n(type fsvmd)\n'
                 b'(typeattribute gunyah_vm_pool_client)\n'
                 b'(typeattributeset gunyah_vm_pool_client (decode_service_app_virtualizationmanager '
                 b'fsvmd_obb_virtualizationmanager fsvmd_virtualizationmanager))\n'
@@ -534,14 +713,20 @@ class RuleTests(unittest.TestCase):
                 b'(allow fsvmd fsvmd_virtualizationmanager (vsock_socket (read write setopt)))\n')
         cil = 'SYSTEM_EXT/etc/selinux/system_ext_sepolicy.cil'
         user, debug = rules['vm-pool-clients-user'], rules['vm-pool-clients-userdebug']
-        others = {name: b'' for name in user['files'] if '*' not in name and name != cil}
+        others = {name.replace('*', '202604'): b'' for name in user['files'] if name != cil}
 
         def policy(text):
             return self.harness(dict(others, **{cil: text}))
         self.assertEqual((user['variants'], debug['variants']), (['user'], ['userdebug']))
         self.assertTrue(subject.rule_sepolicy_sources(user, policy(base))[0])
         with_shell = base.replace(b'fsvmd_virtualizationmanager))', b'fsvmd_virtualizationmanager shell_virtualizationmanager))')
-        self.assertTrue(subject.rule_sepolicy_sources(debug, policy(with_shell))[0])
+        with_test = with_shell.replace(b'shell_virtualizationmanager))',
+                                       b'shell_virtualizationmanager decode_test_app_virtualizationmanager))')
+        self.assertTrue(subject.rule_sepolicy_sources(debug, policy(with_test))[0])
+        self.assertFalse(subject.rule_sepolicy_sources(debug, policy(with_shell))[0])
+        self.assertFalse(subject.rule_sepolicy_sources(user, policy(with_test))[0])
+        app_access = with_test + b'(allow decode_test_app gunyah_vm_pool_device (chr_file (open)))\n'
+        self.assertFalse(subject.rule_sepolicy_sources(debug, policy(app_access))[0])
         ok, detail = subject.rule_sepolicy_sources(user, policy(with_shell))
         self.assertFalse(ok)
         self.assertIn('shell_virtualizationmanager', detail)
@@ -610,6 +795,114 @@ class RuleTests(unittest.TestCase):
         v = self.harness({'SYSTEM/etc/selinux/plat_sepolicy.cil': cil + b'(allow untrusted_app vendor_hal_audio_internal_hwservice (hwservice_manager (find)))\n'})
         self.assertFalse(subject.rule_sepolicy_exclusive(exclusive, v)[0])
 
+    def test_policy_rules_read_every_input_and_every_attribute_statement(self):
+        # Review 2d L4: an attribute set in two files keeps both, a missing input fails every policy rule, a rule on
+        # self counts the domain itself, and an ioctl list may be exclusive.
+        plat, vendor = 'SYSTEM/etc/selinux/plat_sepolicy.cil', 'VENDOR/etc/selinux/vendor_sepolicy.cil'
+        members = {plat: b'(type src)\n(type x)\n(type y)\n(typeattributeset tgt (x))\n'
+                         b'(allow src tgt (file (write)))\n',
+                   vendor: b'(typeattributeset tgt (y))\n'}
+        allows = {'files': [plat, vendor], 'source': 'src', 'target': 'x', 'cls': 'file', 'perm': 'write'}
+        self.assertTrue(subject.rule_sepolicy_allows(allows, self.harness(members))[0])
+        self.assertTrue(subject.rule_sepolicy_allows(dict(allows, target='y'), self.harness(members))[0])
+        missing = 'ODM/etc/selinux/odm_sepolicy.cil'
+        for rule in (dict(allows, files=[plat, vendor, missing]),
+                     {'type': 'sepolicy_denied', 'files': [plat, missing], 'domain': 'src', 'classes': ['tcp_socket'],
+                      'perms': ['create']},
+                     {'type': 'sepolicy_sources', 'files': [plat, missing], 'target': 'x', 'cls': 'file',
+                      'perm': 'write', 'allowed': ['src']},
+                     {'type': 'sepolicy_xperms', 'files': [plat, missing], 'target': 'x', 'cls': 'file',
+                      'sources': ['src'], 'allowed': ['0x1']},
+                     {'type': 'sepolicy_dormant', 'files': [plat, missing], 'domains': ['src'],
+                      'contexts': [plat]}):
+            with self.subTest(rule=rule.get('type', 'sepolicy_allows')):
+                check = subject.RULES[rule.get('type', 'sepolicy_allows')]
+                ok, detail = check(rule, self.harness(members, policy_inputs=False))
+                self.assertFalse(ok)
+                self.assertIn('policy input missing: ' + missing, detail)
+        sockets = {plat: b'(type vold)\n(type fsvmd_launcher)\n(type other)\n'
+                         b'(typeattributeset domain (vold fsvmd_launcher other))\n'
+                         b'(allow domain self (unix_stream_socket (connectto)))\n'
+                         b'(allow vold fsvmd_launcher (unix_stream_socket (connectto)))\n'}
+        callers = {'files': [plat], 'target': 'fsvmd_launcher', 'cls': 'unix_stream_socket', 'perm': 'connectto',
+                   'allowed': ['fsvmd_launcher', 'vold'], 'exact': True}
+        self.assertEqual((True, 'exactly fsvmd_launcher, vold'),
+                         subject.rule_sepolicy_sources(callers, self.harness(sockets)))
+        wider = {plat: sockets[plat] + b'(allow other fsvmd_launcher (unix_stream_socket (connectto)))\n'}
+        self.assertEqual((False, 'also other'), subject.rule_sepolicy_sources(callers, self.harness(wider)))
+        pool = {plat: b'(type mgr)\n(type other)\n(type gunyah_vm_pool_device)\n'
+                      b'(allow mgr gunyah_vm_pool_device (chr_file (open read ioctl)))\n'
+                      b'(allowx mgr gunyah_vm_pool_device (ioctl chr_file (0x4130)))\n'}
+        xperms = {'files': [plat], 'target': 'gunyah_vm_pool_device', 'cls': 'chr_file', 'sources': ['mgr'],
+                  'allowed': ['0x4130'], 'exclusive': True}
+        self.assertTrue(subject.rule_sepolicy_xperms(xperms, self.harness(pool))[0])
+        other = {plat: pool[plat] + b'(allow other gunyah_vm_pool_device (chr_file (ioctl)))\n'}
+        self.assertEqual((False, 'also ioctl from other'), subject.rule_sepolicy_xperms(xperms, self.harness(other)))
+
+    def test_review_2d_hooks_name_the_code_as_it_is(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        vold = rules['vold-cards-in-vm-hooks']['functions']
+        # Review 2d B1: vold partitions a card in the VM (partitionPublicInVm inlined into partitionPublic calls
+        # partitionInVm), and refuses new adoptable storage: vold's partition entry, into which partitionMixed is
+        # inlined, calls RefuseNewAdoption and starts no program.
+        self.assertIn('android::vold::Disk::partitionInVm', vold['android::vold::Disk::partitionPublic']['calls'])
+        entry = vold['android::vold::VoldNativeService::partition']
+        self.assertEqual(['android::vold::RefuseNewAdoption'], entry['calls'])
+        self.assertIn('android::vold::ForkExecvp', entry['never'])
+        self.assertNotIn('beforePartitionInVm', json.dumps(rules['vold-cards-in-vm-hooks']))
+        self.assertEqual(['android::vold::ObbVolume::cleanupInVm'], vold['android::vold::ObbVolume::doUnmount']['calls'])
+        self.assertIn('android::vold::vfat::Check', rules['vold-cards-in-vm-hooks']['absent'])
+        self.assertIn('android::vold::exfat::Check', rules['vold-cards-in-vm-hooks']['absent'])
+        from tests.build.test_code_calls import make_elf
+        renamed = {'android::vold::Disk::partitionPublic': [('bl', 'android::vold::Disk::beforePartitionInVm'),
+                                                             ('bl', 'android::vold::Disk::isVmDisk'), 'nop'],
+                   'android::vold::Disk::beforePartitionInVm': ['nop'], 'android::vold::Disk::isVmDisk': ['nop']}
+        rule = {'type': 'elf_calls', 'file': 'SYSTEM/bin/vold',
+                'functions': {'android::vold::Disk::partitionPublic':
+                              vold['android::vold::Disk::partitionPublic']}}
+        self.assertEqual((False, 'android::vold::Disk::partitionPublic does not call '
+                                 'android::vold::Disk::partitionInVm'),
+                         subject.rule_elf_calls(rule, self.harness({'SYSTEM/bin/vold': make_elf(renamed)})))
+        server = rules['system-server-image-hooks']
+        self.assertEqual('SYSTEM/framework/services.jar', server['file'])
+        self.assertTrue(any('FabricatedFileValues;->enforceCaller' in c for m in server['methods'].values()
+                            for c in m['calls']))
+        self.assertEqual({'write', 'append'}, set(rules['sd-hold-writers']['perms']))
+        self.assertTrue(rules['sd-hold-writers']['exact'] and rules['sd-hold-setters']['exact'])
+
+    def test_webapp_aapt2_rule_reads_the_apex_binary(self):
+        from tests.build.test_code_calls import make_elf
+        rule = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}[
+            'webapp-aapt2-parses-no-image']
+        seen = []
+        original = subject.apex_file
+
+        def binary(functions):
+            subject.apex_file = lambda v, names, inside: (seen.append((names, inside)), ('', make_elf(functions)))[1]
+            try:
+                return subject.rule_elf_calls(rule, self.harness({}))
+            finally:
+                subject.apex_file = original
+        device = {'aapt::CompileCommand::Action': ['nop']}
+        self.assertTrue(binary(device)[0])
+        self.assertEqual((['SYSTEM/apex/com.android.webapp.apex', 'SYSTEM/apex/com.android.webapp.capex'], 'bin/aapt2'),
+                         seen[0])
+        stock = {'aapt::CompileCommand::Action': [('bl', 'android::ReadPng'), 'nop'], 'android::ReadPng': ['nop'],
+                 'android::Png::process': ['nop']}
+        ok, detail = binary(stock)
+        self.assertFalse(ok)
+        self.assertIn('has android::ReadPng', detail)
+
+    def test_an_apex_file_is_read_from_the_compressed_apex_too(self):
+        seen = []
+        original = subject.apex_file
+        subject.apex_file = lambda v, names, inside: (seen.append(names), ('', b'x'))[1]
+        try:
+            self.assertEqual(b'x', subject.installed_bytes(None, 'SYSTEM/apex/com.android.virt.apex!bin/crosvm'))
+        finally:
+            subject.apex_file = original
+        self.assertEqual([['SYSTEM/apex/com.android.virt.apex', 'SYSTEM/apex/com.android.virt.capex']], seen)
+
     def test_sepolicy_sources_expands_attributes_across_files(self):
         plat = (b'(type apexd)\n(type vold)\n(type sysfs)\n(type sysfs_batteryinfo)\n'
                 b'(typeattributeset sysfs_type (sysfs sysfs_batteryinfo))\n'
@@ -655,6 +948,18 @@ class RuleTests(unittest.TestCase):
         self.assertIn('tcp_socket port through netdomain', detail)
         self.assertTrue(subject.rule_sepolicy_denied(dict(rule, domain='app_b', perms=['bind']),
                                                      self.harness(members))[0])
+        # A target left out by name: only that one.
+        blocks = {'SYSTEM/etc/selinux/plat_sepolicy.cil': b'(type obb)\n(type apex_dm_device)\n(type card)\n'
+                  b'(typeattributeset vmm (obb))\n(allow vmm apex_dm_device (blk_file (open read)))\n'}
+        cards = {'files': ['SYSTEM/etc/selinux/plat_sepolicy.cil'], 'domains': ['obb'], 'classes': ['blk_file'],
+                 'perms': ['open', 'read'], 'except_targets': ['apex_dm_device']}
+        self.assertEqual((True, 'none allowed'), subject.rule_sepolicy_denied(cards, self.harness(blocks)))
+        more = {k: v + b'(allow vmm card (blk_file (read)))\n' for k, v in blocks.items()}
+        ok, detail = subject.rule_sepolicy_denied(cards, self.harness(more))
+        self.assertFalse(ok)
+        self.assertIn('blk_file card through vmm', detail)
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        self.assertEqual(['apex_dm_device'], rules['fsvmd-obb-no-card']['except_targets'])
         self.assertFalse(subject.rule_sepolicy_denied(dict(rule, domain='absent'), self.harness(members))[0])
 
     def test_soc_serial_and_thermal_hal_rules(self):
@@ -1740,7 +2045,7 @@ class RuleTests(unittest.TestCase):
     def test_hook_rules_name_each_lost_hook(self):
         from tests.build.test_code_calls import jar, make_dex, make_elf
         rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
-        for rule_id in ('decode-gate-framework-hooks', 'decode-gate-system-server-hook'):
+        for rule_id in ('decode-gate-framework-hooks', 'decode-gate-system-server-hook', 'task-snapshot-own-files'):
             rule = rules[rule_id]
             hooks = [(m, h) for m, want in rule['methods'].items()
                      for h in want.get('calls', []) + want.get('fields', [])]
@@ -1797,6 +2102,85 @@ class RuleTests(unittest.TestCase):
         for name in rule['absent']:
             ok, detail = vold(extra={'android::vold::VolumeManager::start': name})
             self.assertIn(f'SYSTEM/bin/vold has {name}', detail)
+
+    def test_task_snapshot_rule_names_another_caller_of_the_clean_file_reader(self):
+        from tests.build.test_code_calls import jar, make_dex
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['task-snapshot-own-files']
+        read = 'Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;->read'
+        self.assertEqual({read}, set(rule['only_callers']))
+        wallpaper = ('Lcom/android/server/wallpaper/WallpaperVmSanitizer;->openClean(Ljava/io/File;)'
+                     'Lcom/android/internal/diamaneos/cleancopies/CleanFileStream;')
+        self.assertIn(wallpaper, rule['only_callers'][read])
+
+        def check(extra):
+            methods = {m: [('field' if h in want.get('fields', []) else 'call', h)
+                           for h in want.get('calls', []) + want.get('fields', [])] + [('units', [0x000e])]
+                       for m, want in rule['methods'].items()}
+            methods.update(extra)
+            return subject.rule_dex_calls(rule, self.harness({rule['file']: jar(make_dex(methods))}))
+        self.assertTrue(check({})[0])
+        self.assertTrue(check({wallpaper: [('call', read)]})[0])
+        sneaky = 'Lcom/android/server/wm/TaskPersister;->restoreImage(Ljava/lang/String;)Landroid/graphics/Bitmap;'
+        self.assertEqual((False, f'{read} is also called by {sneaky}'), check({sneaky: [('call', read)]}))
+
+    def test_file_contexts_label_names_every_line_that_relabels_a_path(self):
+        plat = (b'# comment\n/data(/.*)?\t\tu:object_r:system_data_file:s0\n'
+                b'/data/system_ce           u:object_r:system_userdir_file:s0\n'
+                b'/data/system_ce/[0-9]+/backup(/.*)?\tu:object_r:backup_data_file:s0\n')
+        rule = {'files': ['SYSTEM/etc/selinux/plat_file_contexts', 'VENDOR/etc/selinux/vendor_file_contexts'],
+                'device_paths': ['/data/system_ce/0/snapshots', '/data/system_ce/10/snapshots/u/1_reduced.jpg'],
+                'label': 'u:object_r:system_data_file:s0'}
+        members = {'SYSTEM/etc/selinux/plat_file_contexts': plat}
+        self.assertEqual((True, '2 paths labelled u:object_r:system_data_file:s0'),
+                         subject.rule_file_contexts_label(rule, self.harness(members)))
+        vendor = b'/data/system_ce/[0-9]+/snapshots(/.*)?  u:object_r:vendor_snapshot_file:s0\n'
+        ok, detail = subject.rule_file_contexts_label(rule, self.harness(
+            dict(members, **{'VENDOR/etc/selinux/vendor_file_contexts': vendor})))
+        self.assertFalse(ok)
+        self.assertIn('/data/system_ce/0/snapshots is u:object_r:vendor_snapshot_file:s0 by '
+                      '/data/system_ce/[0-9]+/snapshots(/.*)? in VENDOR/etc/selinux/vendor_file_contexts', detail)
+        self.assertIn('/data/system_ce/10/snapshots/u/1_reduced.jpg is u:object_r:vendor_snapshot_file:s0', detail)
+        default = plat.replace(b'system_data_file', b'other_data_file')
+        self.assertFalse(subject.rule_file_contexts_label(rule, self.harness(
+            {'SYSTEM/etc/selinux/plat_file_contexts': default}))[0])
+        self.assertEqual((False, 'no line labels /data/system_ce/0/snapshots; '
+                                 'no line labels /data/system_ce/10/snapshots/u/1_reduced.jpg'),
+                         subject.rule_file_contexts_label(rule, self.harness(
+                             {'SYSTEM/etc/selinux/plat_file_contexts': b'/system(/.*)? u:object_r:system_file:s0\n'})))
+        self.assertFalse(subject.rule_file_contexts_label(rule, self.harness({}))[0])
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        committed = rules['task-snapshot-label']
+        self.assertEqual('file_contexts_label', committed['type'])
+        self.assertTrue(subject.rule_file_contexts_label(committed, self.harness(members))[0])
+
+    def test_system_data_file_writers_are_the_reviewed_domains(self):
+        rules = {r['id']: r for r in json.loads((ROOT / 'config/fp6-image-checks.json').read_text())['rules']}
+        rule = rules['system-data-file-writers']
+        self.assertEqual('sepolicy_sources', rule['type'])
+        plat = (b'(type init)\n(type installd)\n(type system_server)\n(type vold)\n(type vold_prepare_subdirs)\n'
+                b'(type untrusted_app)\n(type system_data_file)\n(type app_data_file)\n(type zygote)\n'
+                b'(typeattributeset data_file_type (system_data_file app_data_file))\n'
+                b'(typeattributeset appdomain (untrusted_app))\n'
+                b'(allow init data_file_type (dir (create write add_name)))\n'
+                b'(allow installd system_data_file (dir (rename reparent remove_name)))\n'
+                b'(allow system_server system_data_file (file (create write rename link)))\n'
+                b'(allow vold system_data_file (lnk_file (create)))\n'
+                b'(allow vold_prepare_subdirs system_data_file (dir (add_name)))\n'
+                b'(allow zygote system_data_file (file (read open getattr)))\n'
+                b'(allow appdomain app_data_file (file (create write)))\n')
+        others = {name: b'' for name in rule['files'] if '*' not in name}
+        judge = lambda extra: subject.rule_sepolicy_sources(
+            rule, self.harness({**others, 'SYSTEM/etc/selinux/plat_sepolicy.cil': plat + extra}))
+        ok, detail = judge(b'')
+        self.assertTrue(ok, detail)
+        for grant, domain in ((b'(allow appdomain data_file_type (file (append)))\n', 'untrusted_app'),
+                              (b'(allow zygote system_data_file (dir (write)))\n', 'zygote'),
+                              (b'(allow zygote system_data_file (lnk_file (create)))\n', 'zygote'),
+                              (b'(allow zygote system_data_file (file (link)))\n', 'zygote')):
+            with self.subTest(grant=grant):
+                self.assertEqual((False, 'also ' + domain), judge(grant))
+        self.assertTrue(judge(b'(allow zygote system_data_file (dir (search getattr)))\n')[0])
 
     def test_hook_rules_fail_when_the_code_cannot_be_read(self):
         from tests.build.test_code_calls import jar, make_elf
