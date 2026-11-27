@@ -247,10 +247,11 @@ class KernelPackagingRecipeTests(unittest.TestCase):
         # Every vendor module is in vendor_dlkm, the first stage ones as well.
         self.assertLessEqual(set(first) | set(second), set(self.recipe['partitions']['vendor_dlkm']))
 
-    def test_the_production_command_line_is_the_stable_disk_order_only(self):
+    def test_the_production_command_line_is_the_stable_disk_order_and_the_vm_pool_only(self):
         from diamaneos_tools import kernel_package
         forbidden = set(kernel.load_json(kernel.ROOT / 'config/fp6-build.json')['kernel_arguments']['forbidden'])
-        self.assertEqual(['scsi_mod.scan=sync'], kernel_package.cmdline_arguments(self.recipe, forbidden))
+        self.assertEqual(['scsi_mod.scan=sync', 'reserve_mem=512M:2M:gunyah_vm_pool'],
+                         kernel_package.cmdline_arguments(self.recipe, forbidden))
 
     def test_the_cmdline_of_the_board_config_has_no_bring_up_words(self):
         from diamaneos_tools import kernel_compare, kernel_package
@@ -272,7 +273,7 @@ class KernelSymbolRuleTests(unittest.TestCase):
         self.assertEqual({'register_kretprobe': ['dwc3-msm.ko']}, kernel.import_allowlist(self.recipe))
         self.assertEqual([], kernel.forbidden_symbols(self.recipe))
         required, pending = kernel.required_symbols(self.recipe)
-        self.assertEqual(['names_command_line', 'selinux_enforcing_lock'], sorted(required))
+        self.assertEqual(['gunyah_vm_pool_init', 'names_command_line', 'selinux_enforcing_lock'], sorted(required))
         self.assertEqual({}, pending)
 
     def test_import_allowlist_requires_exact_importers(self):
