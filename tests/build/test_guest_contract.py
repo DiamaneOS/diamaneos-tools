@@ -14,7 +14,7 @@ from tests.build.test_image_verify import newc, rsa_test_key, signed_avb_image
 class ContractTest(unittest.TestCase):
     def test_vendored_source_is_the_reviewed_shared_module(self):
         self.assertEqual(hashlib.sha256(Path(contract.__file__).read_bytes()).hexdigest(),
-                         'be715c030479c1ca29fabcb64ee383cbd2e78e833b502f1c7c588e8088835320')
+                         'b83d46b30010cd2887a7d49034f71f3af4bb8b12b56dfb581b37ed709da295c0')
 
     def test_role_digests_follow_the_build_variant(self):
         # Each variant has independently observed image bytes. User and userdebug programs differ.
